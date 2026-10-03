@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { type Action, type HandView, legalActions } from '@appli-poker/engine';
 import { Button } from './Button';
+import { Appear } from './Motion';
 import { PlayingCard } from './PlayingCard';
 import { colors } from '../theme';
 
@@ -34,17 +35,31 @@ export function ActionPanel({ hand, playerId, title, hole, error, busy, onAction
       </Text>
       <View style={styles.row}>
         <View style={styles.cards}>
-          {hole.map((c) => (
-            <PlayingCard key={c} card={c} width={42} />
+          {hole.map((c, i) => (
+            <Appear key={c} delay={i * 140}>
+              <PlayingCard card={c} width={42} />
+            </Appear>
           ))}
         </View>
         {legal && (
           <View style={[styles.row, styles.grow]}>
             {legal.fold && (
-              <Button compact label="Coucher" variant="danger" disabled={busy} onPress={() => play({ type: 'fold' })} />
+              <Button
+                compact
+                label="Coucher"
+                variant="danger"
+                disabled={busy}
+                onPress={() => play({ type: 'fold' })}
+              />
             )}
             {legal.check && (
-              <Button compact label="Checker" variant="secondary" disabled={busy} onPress={() => play({ type: 'check' })} />
+              <Button
+                compact
+                label="Checker"
+                variant="secondary"
+                disabled={busy}
+                onPress={() => play({ type: 'check' })}
+              />
             )}
             {legal.call > 0 && (
               <Button
@@ -85,7 +100,13 @@ export function ActionPanel({ hand, playerId, title, hole, error, busy, onAction
             disabled={busy}
             onPress={() => play({ type: 'raise', to: raiseValue })}
           />
-          <Button compact label="Tapis" variant="danger" disabled={busy} onPress={() => play({ type: 'allin' })} />
+          <Button
+            compact
+            label="Tapis"
+            variant="danger"
+            disabled={busy}
+            onPress={() => play({ type: 'allin' })}
+          />
         </View>
       )}
       {error && <Text style={styles.error}>{error}</Text>}
@@ -94,7 +115,14 @@ export function ActionPanel({ hand, playerId, title, hole, error, busy, onAction
 }
 
 const styles = StyleSheet.create({
-  panel: { padding: 10, borderRadius: 12, backgroundColor: colors.glass, borderWidth: 1, borderColor: colors.glassBorder, gap: 8 },
+  panel: {
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: colors.glass,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    gap: 8,
+  },
   title: { color: colors.text, fontSize: 15, fontWeight: '800', textAlign: 'center' },
   row: { flexDirection: 'row', gap: 6, alignItems: 'center' },
   grow: { flex: 1 },

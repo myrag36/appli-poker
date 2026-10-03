@@ -34,7 +34,7 @@ export async function ensureSignedIn(): Promise<string> {
 }
 
 type Request =
-  | { type: 'create'; name: string; bigBlind: number; stack: number }
+  | { type: 'create'; name: string; bigBlind: number; stack: number; levelMinutes: number | null }
   | { type: 'join'; name: string; code: string }
   | { type: 'deal'; roomId: string }
   | { type: 'act'; roomId: string; action: Action }
