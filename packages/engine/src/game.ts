@@ -173,7 +173,8 @@ export function applyAction(prev: HandState, playerId: string, action: Action): 
   const legal = legalActions(prev, playerId);
   if (!legal) throw new Error("Ce n'est pas ton tour");
 
-  const state = structuredClone(prev);
+  // State is plain JSON data; this clone also works on Hermes, which may lack structuredClone.
+  const state: HandState = JSON.parse(JSON.stringify(prev));
   const p = state.players[state.toAct];
   const done = () => {
     state.needsToAct = state.needsToAct.filter((id) => id !== p.id);

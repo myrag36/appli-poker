@@ -1,0 +1,12 @@
+{
+  "name": "appli-poker",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "test": "npm test --workspace @appli-poker/engine",
+    "mobile": "npm start --workspace mobile"
+  }
+}
