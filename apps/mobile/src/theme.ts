@@ -2,8 +2,16 @@ import { Platform } from 'react-native';
 
 type Stops = readonly [string, string, ...string[]];
 
+/** The scenery drawn behind every screen, which is what makes each theme feel different. */
+export type Decor = 'suits' | 'synthwave' | 'curtain' | 'lounge' | 'space' | 'sakura' | 'saloon';
+
 export interface Theme {
   name: string;
+  /** One line shown under the name in the theme chooser. */
+  tagline: string;
+  decor: Decor;
+  /** Faint emblem printed in the middle of the felt, if any. */
+  feltMark?: string;
   /** Color shown on the theme picker. */
   swatch: string;
   colors: {
@@ -55,6 +63,8 @@ const goldButton: Stops = ['#ffe082', '#ffc107', '#e09b00'];
 export const THEMES = {
   casino: {
     name: 'Casino',
+    tagline: 'Le classique, tapis vert et bois verni',
+    decor: 'suits',
     swatch: '#13693f',
     colors: {
       ...shared,
@@ -83,6 +93,9 @@ export const THEMES = {
   },
   nuit: {
     name: 'Nuit néon',
+    tagline: 'Rétro années 80, grille et soleil couchant',
+    decor: 'synthwave',
+    feltMark: '♠',
     swatch: '#3a0ca3',
     colors: {
       ...shared,
@@ -111,6 +124,9 @@ export const THEMES = {
   },
   vegas: {
     name: 'Las Vegas',
+    tagline: 'Rideaux rouges et ampoules dorées',
+    decor: 'curtain',
+    feltMark: '♦',
     swatch: '#a4161a',
     colors: {
       ...shared,
@@ -139,6 +155,8 @@ export const THEMES = {
   },
   lounge: {
     name: 'Lounge',
+    tagline: 'Club feutré, boiseries et lampes chaudes',
+    decor: 'lounge',
     swatch: '#355c7d',
     colors: {
       ...shared,
@@ -165,6 +183,99 @@ export const THEMES = {
       felt: ['#46708a', '#2f4f63', '#1d3341'],
     },
   },
+  espace: {
+    name: 'Espace',
+    tagline: 'Une partie entre les étoiles',
+    decor: 'space',
+    feltMark: '🪐',
+    swatch: '#240046',
+    colors: {
+      ...shared,
+      background: '#03010a',
+      felt: '#240046',
+      rail: '#1a1a2e',
+      muted: '#c8b6ff',
+      gold: '#c77dff',
+      onGold: '#10002b',
+      onGoldMuted: '#3c096c',
+      goldBorder: '#e0aaff',
+      glass: 'rgba(10, 4, 26, 0.8)',
+      glassBorder: 'rgba(199, 125, 255, 0.25)',
+      railBorder: '#9d4edd',
+      feltBorder: '#000000',
+      glow: 'rgba(157, 78, 221, 0.14)',
+    },
+    gradients: {
+      background: ['#10002b', '#05010f', '#000000'],
+      gold: ['#e0aaff', '#c77dff', '#7b2cbf'],
+      danger,
+      glass,
+      wood: ['#3c3c5a', '#1a1a2e', '#08080f'],
+      felt: ['#3c096c', '#240046', '#10002b'],
+    },
+  },
+  zen: {
+    name: 'Jardin zen',
+    tagline: 'Cerisiers en fleurs et soleil levant',
+    decor: 'sakura',
+    feltMark: '🌸',
+    swatch: '#e5989b',
+    colors: {
+      ...shared,
+      background: '#1d1520',
+      felt: '#2d3a3a',
+      rail: '#3d2b1f',
+      muted: '#f2d0d4',
+      gold: '#ffb4c2',
+      onGold: '#3a0d18',
+      onGoldMuted: '#6b2a3a',
+      goldBorder: '#ffe0e6',
+      glass: 'rgba(32, 20, 30, 0.8)',
+      glassBorder: 'rgba(255, 180, 194, 0.25)',
+      railBorder: '#c9a27e',
+      feltBorder: '#120c08',
+      glow: 'rgba(255, 180, 194, 0.12)',
+    },
+    gradients: {
+      background: ['#4a2c40', '#24162a', '#0e0a12'],
+      gold: ['#ffe0e6', '#ffb4c2', '#e5989b'],
+      danger,
+      glass,
+      wood: ['#7a5a3a', '#4e3824', '#2a1e13'],
+      felt: ['#3f5250', '#2d3a3a', '#1b2424'],
+    },
+  },
+  saloon: {
+    name: 'Saloon',
+    tagline: 'Far West, planches et cactus',
+    decor: 'saloon',
+    feltMark: '🤠',
+    swatch: '#bc6c25',
+    colors: {
+      ...shared,
+      background: '#2a1708',
+      felt: '#606c38',
+      rail: '#5c3a1a',
+      muted: '#f1dca7',
+      gold: '#f4a259',
+      onGold: '#2b1300',
+      onGoldMuted: '#5a3410',
+      goldBorder: '#fbd1a2',
+      glass: 'rgba(40, 22, 8, 0.82)',
+      glassBorder: 'rgba(244, 162, 89, 0.25)',
+      railBorder: '#dda15e',
+      feltBorder: '#1f1206',
+      glow: 'rgba(255, 200, 120, 0.12)',
+    },
+    gradients: {
+      background: ['#8a5a2b', '#5c3a1a', '#2a1708'],
+      gold: ['#fbd1a2', '#f4a259', '#bc6c25'],
+      danger,
+      glass,
+      wood: ['#a0703f', '#6f4a24', '#3d2810'],
+      felt: ['#7a8a45', '#606c38', '#3f4a22'],
+    },
+  },
 } satisfies Record<string, Theme>;
 
 export type ThemeId = keyof typeof THEMES;
@@ -187,7 +298,7 @@ function savedTheme(): ThemeId {
 }
 
 export const themeId: ThemeId = savedTheme();
-const theme: Theme = THEMES[themeId];
+export const theme: Theme = THEMES[themeId];
 
 /** Whether the theme can be changed here (the choice is kept in the browser). */
 export const canChangeTheme = Platform.OS === 'web';

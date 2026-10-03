@@ -5,7 +5,7 @@ import { BlindsInfo } from './BlindsInfo';
 import { ChipStack, DealerButton } from './Chip';
 import { Appear, FloatUp, FlyTo } from './Motion';
 import { PlayingCard } from './PlayingCard';
-import { colors, gradients, seatColors, shadow } from '../theme';
+import { colors, gradients, seatColors, shadow, theme } from '../theme';
 
 const STREET_NAMES: Record<string, string> = {
   preflop: 'Avant le flop',
@@ -68,6 +68,9 @@ export function Table({ hand, meId, maxWidth, maxHeight, reactions, nextLevelAt,
           <LinearGradient colors={gradients.felt} style={StyleSheet.absoluteFill} />
           <View style={[styles.feltGlow, { borderRadius: w / 2 }]} />
           <View style={[styles.feltLine, { borderRadius: w / 2 }]} />
+          {theme.feltMark && (
+            <Text style={[styles.feltMark, { fontSize: Math.round(w * 0.32) }]}>{theme.feltMark}</Text>
+          )}
         </View>
       </View>
 
@@ -233,6 +236,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: 'rgba(255, 213, 120, 0.22)',
   },
+  feltMark: { position: 'absolute', opacity: 0.1, color: '#ffffff' },
   center: { position: 'absolute', left: 0, alignItems: 'center' },
   street: {
     color: 'rgba(255,255,255,0.55)',
