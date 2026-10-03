@@ -1,0 +1,10 @@
+{
+  "name": "@appli-poker/engine",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "test": "node --experimental-strip-types --no-warnings --test test/*.test.ts"
+  }
+}
