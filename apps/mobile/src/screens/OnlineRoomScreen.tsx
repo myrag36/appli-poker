@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { type Action, type Avatar, cleanAvatar, defaultAvatar } from '@appli-poker/engine';
 import { ActionPanel } from '../components/ActionPanel';
 import { AvatarBadge } from '../components/AvatarPicker';
+import { ChatPanel } from '../components/ChatPanel';
 import { Button } from '../components/Button';
 import { GameLayout } from '../components/GameLayout';
 import { HandSummary } from '../components/HandSummary';
@@ -34,8 +35,27 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
     refresh,
     reactions,
     sendReaction,
+    messages,
+    messagesLoaded,
+    sendMessage,
+    bubbles,
   } = useRoom(roomId, userId);
   const [trayOpen, setTrayOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  // Newest message already seen; what came before I arrived counts as read.
+  const [readUpTo, setReadUpTo] = useState<number | null>(null);
+  const lastMessageId = messages.length ? messages[messages.length - 1].id : null;
+  useEffect(() => {
+    if (!messagesLoaded) return;
+    if (chatOpen || readUpTo === null) setReadUpTo(lastMessageId ?? 0);
+  }, [messagesLoaded, lastMessageId, chatOpen, readUpTo]);
+  const unread = messages.filter((m) => m.user_id !== userId && m.id > (readUpTo ?? Infinity)).length;
+  const lastOtherMessage = Object.entries(bubbles)
+    .filter(([from]) => from !== userId)
+    .reduce((m, [, b]) => Math.max(m, b.key), 0);
+  useEffect(() => {
+    if (lastOtherMessage) sounds.reaction();
+  }, [lastOtherMessage]);
   useHandSounds(room?.public_state ?? null, userId);
   const lastReaction = Object.values(reactions).reduce((m, r) => Math.max(m, r.key), 0);
   useEffect(() => {
@@ -110,6 +130,38 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
     ]),
   );
 
+  const names = Object.fromEntries(players.map((p) => [p.user_id, p.name]));
+  const chat = (
+    <ChatPanel
+      visible={chatOpen}
+      onClose={() => setChatOpen(false)}
+      messages={messages}
+      meId={userId}
+      names={names}
+      avatars={avatars}
+      onSend={sendMessage}
+    />
+  );
+  const chatButton = (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={unread ? `Discussion, ${unread} nouveaux messages` : 'Discussion'}
+      onPress={() => {
+        setTrayOpen(false);
+        setChatOpen(true);
+      }}
+      hitSlop={8}
+      style={styles.reactButton}
+    >
+      <Text style={styles.reactButtonText}>💬</Text>
+      {unread > 0 && (
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>{unread > 9 ? '9+' : unread}</Text>
+        </View>
+      )}
+    </Pressable>
+  );
+
   const invite = () =>
     Share.share({ message: `Viens jouer au poker avec moi ! Code de la table : ${room.code}` });
 
@@ -147,9 +199,16 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
             <PanelText>En attente que {host?.name ?? 'le créateur'} lance la partie…</PanelText>
           )}
         </Panel>
+        <View style={styles.spacer} />
+        <Button
+          label={unread ? `💬 Discussion (${unread} nouveau${unread > 1 ? 'x' : ''})` : '💬 Discussion'}
+          variant="secondary"
+          onPress={() => setChatOpen(true)}
+        />
         {syncError && <Text style={styles.error}>{syncError}</Text>}
         <View style={styles.spacer} />
         <Button label="Retour à l'accueil" variant="secondary" onPress={onLeave} />
+        {chat}
       </ScrollView>
     );
   }
@@ -159,6 +218,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
       top={
         <View style={styles.topWrap}>
           <TopBar onBack={onLeave}>
+            {chatButton}
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Réagir"
@@ -201,6 +261,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
           maxHeight={height}
           reactions={reactions}
           avatars={avatars}
+          bubbles={bubbles}
           nextLevelAt={hand.tournament?.nextLevelAt}
         />
       )}
@@ -271,6 +332,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
             </Text>
           )}
           {syncError && <Text style={styles.error}>{syncError}</Text>}
+          {chat}
         </>
       }
     />
@@ -306,6 +368,21 @@ const styles = StyleSheet.create({
     borderColor: colors.glassBorder,
   },
   reactButtonOpen: { borderColor: colors.gold },
+  badge: {
+    position: 'absolute',
+    top: -5,
+    right: -5,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.danger,
+    borderWidth: 1.5,
+    borderColor: colors.background,
+  },
+  badgeText: { color: '#ffffff', fontSize: 10, fontWeight: '900' },
   reactButtonText: { fontSize: 17 },
   tray: {
     position: 'absolute',
