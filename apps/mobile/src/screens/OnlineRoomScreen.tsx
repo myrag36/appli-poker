@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import type { Action } from '@appli-poker/engine';
 import { ActionPanel } from '../components/ActionPanel';
@@ -7,6 +7,7 @@ import { HandSummary } from '../components/HandSummary';
 import { Panel, PanelText } from '../components/Panel';
 import { PlayingCard } from '../components/PlayingCard';
 import { Table } from '../components/Table';
+import { TurnTimer } from '../components/TurnTimer';
 import { callServer } from '../online/supabase';
 import { useRoom } from '../online/useRoom';
 import { colors } from '../theme';
@@ -21,6 +22,27 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
   const { room, players, myCards, error: syncError, refresh } = useRoom(roomId, userId);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+  const lastTimeoutRequest = useRef(0);
+
+  const deadline = room?.public_state?.deadline ?? null;
+
+  useEffect(() => {
+    if (!deadline) return;
+    const id = setInterval(() => setNow(Date.now()), 500);
+    return () => clearInterval(id);
+  }, [deadline]);
+
+  // When time runs out, any phone at the table asks the server to play for the absent player.
+  // The server checks the time itself, so an early or duplicate request is simply refused.
+  useEffect(() => {
+    const t = Date.now();
+    if (!deadline || t < deadline || t - lastTimeoutRequest.current < 3000) return;
+    lastTimeoutRequest.current = t;
+    callServer({ type: 'timeout', roomId })
+      .then(refresh)
+      .catch(() => {});
+  }, [deadline, now, roomId, refresh]);
 
   async function send(request: Parameters<typeof callServer>[0]) {
     setBusy(true);
@@ -96,6 +118,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
       ) : (
         <>
           <Table hand={hand} meId={userId} />
+          {actor && hand.deadline && <TurnTimer deadline={hand.deadline} now={now} name={myTurn ? 'Toi' : actor.name} />}
 
           {myTurn && hand.street !== 'finished' && (
             <ActionPanel
