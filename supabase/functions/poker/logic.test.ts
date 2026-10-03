@@ -6,6 +6,7 @@ import {
   TURN_MS,
   dealNextHand,
   firstFreeSeat,
+  handRecords,
   makeRoomCode,
   parseAction,
   playAction,
@@ -125,4 +126,50 @@ test('sans tournoi, les blindes ne changent jamais', () => {
   const p = dealNextHand(room({ started_at: new Date(NOW).toISOString() }), players, null, NOW + 3_600_000);
   assert.equal(p.p_secret.bigBlind, 20);
   assert.equal(p.p_public.tournament, null);
+});
+
+test('rien à enregistrer tant que la main continue', () => {
+  const dealt = dealNextHand(room(), players, null, NOW);
+  assert.equal(handRecords(room(), players, dealt), null);
+});
+
+test('main finie : historique, résultats, et fin de partie quand un seul joueur a des jetons', () => {
+  const dealt = dealNextHand(room({ hand_number: 4 }), players, null, NOW);
+  const r = room({ hand_number: 5 });
+  // Everyone goes all-in until the hand is over.
+  let saved = dealt;
+  while (saved.p_secret.street !== 'finished') {
+    const hand = saved.p_secret;
+    saved = playAction(r, hand, hand.players[hand.toAct].id, { type: 'allin' }, NOW);
+  }
+  const records = handRecords(r, players, saved)!;
+  assert.equal(records.history.hand_number, 5);
+  assert.equal(records.history.summary.street, 'finished');
+  assert.deepEqual(records.results.map((x) => x.user_id).sort(), ['a', 'b']);
+  assert.equal(
+    records.results.reduce((s, x) => s + x.net, 0),
+    0,
+  );
+  // Equal stacks all-in: a split pot leaves both in the game, otherwise the winner takes it.
+  const winners = records.results.filter((x) => x.won);
+  if (winners.length === 2) assert.equal(records.game, null);
+  else
+    assert.deepEqual(records.game, {
+      room_id: 'room',
+      winner_id: winners[0].user_id,
+      players: 3,
+      tournament: false,
+    });
+});
+
+test('le numéro de la main distribuée est celui enregistré', () => {
+  const twoAllIn = [
+    { user_id: 'a', name: 'Simon', seat: 0, stack: 10 },
+    { user_id: 'b', name: 'Léa', seat: 1, stack: 10 },
+  ];
+  // Blinds bigger than both stacks: the hand is over as soon as it is dealt.
+  const r = room({ big_blind: 20, hand_number: 7 });
+  const dealt = dealNextHand(r, twoAllIn, null, NOW);
+  assert.equal(dealt.p_secret.street, 'finished');
+  assert.equal(handRecords(r, twoAllIn, dealt)!.history.hand_number, 8);
 });

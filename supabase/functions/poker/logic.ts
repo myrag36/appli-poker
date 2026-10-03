@@ -6,6 +6,7 @@ import {
   applyAction,
   bigBlindAt,
   blindLevel,
+  handOutcomes,
   legalActions,
   secureRng,
   startHand,
@@ -183,4 +184,48 @@ export function playTimeout(room: RoomRow, hand: HandState, now: number): SavePa
   const actor = hand.players[hand.toAct];
   const legal = legalActions(hand, actor.id)!;
   return playAction(room, hand, actor.id, legal.check ? { type: 'check' } : { type: 'fold' }, now);
+}
+
+/** Rows saved once a hand is over, for statistics and the hand history. */
+export interface HandRecords {
+  history: { room_id: string; hand_number: number; summary: PublicState };
+  results: {
+    room_id: string;
+    hand_number: number;
+    user_id: string;
+    net: number;
+    won: boolean;
+    best_pot: number;
+  }[];
+  /** Set when only one player has chips left, which ends the game. */
+  game: { room_id: string; winner_id: string; players: number; tournament: boolean } | null;
+}
+
+/** What to record after a save, or null if the hand is still being played. */
+export function handRecords(room: RoomRow, players: PlayerRow[], saved: SaveParams): HandRecords | null {
+  const summary = saved.p_public;
+  if (summary.street !== 'finished') return null;
+  // Dealing saves the new hand number; moves keep the room's.
+  const key = { room_id: room.id, hand_number: saved.p_hand_number ?? room.hand_number };
+  const stackOf = (p: PlayerRow) => saved.p_stacks?.[p.user_id] ?? p.stack;
+  const withChips = players.filter((p) => stackOf(p) > 0);
+  return {
+    history: { ...key, summary },
+    results: handOutcomes(summary).map((o) => ({
+      ...key,
+      user_id: o.id,
+      net: o.net,
+      won: o.won,
+      best_pot: o.bestPot,
+    })),
+    game:
+      players.length >= 2 && withChips.length === 1
+        ? {
+            room_id: room.id,
+            winner_id: withChips[0].user_id,
+            players: players.length,
+            tournament: Boolean(room.level_minutes),
+          }
+        : null,
+  };
 }

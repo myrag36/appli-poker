@@ -104,3 +104,26 @@ export async function loadAvatar(): Promise<Avatar | null> {
     return null;
   }
 }
+
+export interface PlayerStats {
+  user_id: string;
+  name: string;
+  avatar: string | null;
+  avatar_color: string | null;
+  is_me: boolean;
+  hands_played: number;
+  hands_won: number;
+  /** Chips won minus chips lost, over every online hand. */
+  net: number;
+  best_pot: number;
+  games_played: number;
+  games_won: number;
+}
+
+/** My statistics and those of everyone I have played with, best first. */
+export async function loadStats(): Promise<PlayerStats[]> {
+  await ensureSignedIn();
+  const { data, error } = await supabase.rpc('player_stats');
+  if (error) throw new Error('Impossible de charger les statistiques');
+  return (data as PlayerStats[]).sort((a, b) => b.net - a.net);
+}

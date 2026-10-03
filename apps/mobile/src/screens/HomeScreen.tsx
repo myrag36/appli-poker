@@ -12,6 +12,7 @@ interface Props {
   onOnline: () => void;
   onResume: () => void;
   onLocal: () => void;
+  onStats: () => void;
 }
 
 /** Strongest hand first, with an example of each. */
@@ -65,7 +66,7 @@ function Choice({
   );
 }
 
-export function HomeScreen({ canResume, playerName, onOnline, onResume, onLocal }: Props) {
+export function HomeScreen({ canResume, playerName, onOnline, onResume, onLocal, onStats }: Props) {
   const insets = useSafeAreaInsets();
   const [showRules, setShowRules] = useState(false);
 
@@ -119,6 +120,12 @@ export function HomeScreen({ canResume, playerName, onOnline, onResume, onLocal 
           title="Sur ce téléphone"
           text="Vous êtes ensemble ? Passez-vous le téléphone à chaque tour."
           onPress={onLocal}
+        />
+        <Choice
+          icon="📊"
+          title="Mes statistiques"
+          text="Tes résultats en ligne et le classement entre amis."
+          onPress={onStats}
         />
       </View>
 
