@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Button } from '../components/Button';
+import { LevelPicker } from '../components/LevelPicker';
 import { callServer, saveLastRoom } from '../online/supabase';
 import { colors } from '../theme';
 
@@ -16,6 +17,7 @@ export function OnlineLobbyScreen({ initialName, onEnter, onBack }: Props) {
   const [code, setCode] = useState('');
   const [stack, setStack] = useState('1000');
   const [bigBlind, setBigBlind] = useState('20');
+  const [levelMinutes, setLevelMinutes] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -77,6 +79,7 @@ export function OnlineLobbyScreen({ initialName, onEnter, onBack }: Props) {
           <TextInput style={styles.input} keyboardType="number-pad" value={bigBlind} onChangeText={setBigBlind} />
         </View>
       </View>
+      <LevelPicker value={levelMinutes} onChange={setLevelMinutes} />
       <Button
         label="Créer la table"
         variant="secondary"
@@ -88,6 +91,7 @@ export function OnlineLobbyScreen({ initialName, onEnter, onBack }: Props) {
               name: trimmed,
               stack: parseInt(stack, 10),
               bigBlind: parseInt(bigBlind, 10),
+              levelMinutes,
             }),
           )
         }

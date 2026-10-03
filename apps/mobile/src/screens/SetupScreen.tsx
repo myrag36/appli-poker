@@ -1,12 +1,15 @@
 import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Button } from '../components/Button';
+import { LevelPicker } from '../components/LevelPicker';
 import { colors } from '../theme';
 
 export interface GameSettings {
   names: string[];
   stack: number;
   bigBlind: number;
+  /** Tournament level length in minutes, or null for fixed blinds. */
+  levelMinutes: number | null;
 }
 
 const MAX_PLAYERS = 8;
@@ -20,6 +23,7 @@ export function SetupScreen({ onStart, onBack }: Props) {
   const [names, setNames] = useState(['', '']);
   const [stack, setStack] = useState('1000');
   const [bigBlind, setBigBlind] = useState('20');
+  const [levelMinutes, setLevelMinutes] = useState<number | null>(null);
 
   const cleaned = names.map((n, i) => n.trim() || `Joueur ${i + 1}`);
   const stackValue = parseInt(stack, 10);
@@ -75,6 +79,7 @@ export function SetupScreen({ onStart, onBack }: Props) {
         Petite blinde : {bbValue >= 2 ? bbValue / 2 : '?'}. La partie se joue sur un seul téléphone qu'on
         se passe à tour de rôle.
       </Text>
+      <LevelPicker value={levelMinutes} onChange={setLevelMinutes} />
       {new Set(cleaned).size !== cleaned.length && (
         <Text style={styles.error}>Deux joueurs ont le même nom.</Text>
       )}
@@ -83,7 +88,7 @@ export function SetupScreen({ onStart, onBack }: Props) {
       <Button
         label="Lancer la partie"
         disabled={!valid}
-        onPress={() => onStart({ names: cleaned, stack: stackValue, bigBlind: bbValue })}
+        onPress={() => onStart({ names: cleaned, stack: stackValue, bigBlind: bbValue, levelMinutes })}
       />
       <Button label="Retour" variant="secondary" onPress={onBack} />
     </ScrollView>

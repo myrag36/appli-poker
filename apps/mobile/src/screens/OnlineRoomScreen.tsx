@@ -8,11 +8,14 @@ import { GameLayout } from '../components/GameLayout';
 import { HandSummary } from '../components/HandSummary';
 import { Panel, PanelText } from '../components/Panel';
 import { PlayingCard } from '../components/PlayingCard';
+import { Ranking } from '../components/Ranking';
 import { Table } from '../components/Table';
 import { TopBar } from '../components/TopBar';
 import { TurnTimer } from '../components/TurnTimer';
 import { callServer } from '../online/supabase';
-import { useRoom } from '../online/useRoom';
+import { REACTIONS, useRoom } from '../online/useRoom';
+import { sounds, useHandSounds } from '../feedback';
+import { Appear } from '../components/Motion';
 import { colors } from '../theme';
 
 interface Props {
@@ -22,7 +25,21 @@ interface Props {
 }
 
 export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
-  const { room, players, myCards, error: syncError, refresh } = useRoom(roomId, userId);
+  const {
+    room,
+    players,
+    myCards,
+    error: syncError,
+    refresh,
+    reactions,
+    sendReaction,
+  } = useRoom(roomId, userId);
+  const [trayOpen, setTrayOpen] = useState(false);
+  useHandSounds(room?.public_state ?? null, userId);
+  const lastReaction = Object.values(reactions).reduce((m, r) => Math.max(m, r.key), 0);
+  useEffect(() => {
+    if (lastReaction) sounds.reaction();
+  }, [lastReaction]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -65,7 +82,11 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
   if (!room) {
     return (
       <View style={styles.loading}>
-        {syncError ? <Text style={styles.error}>{syncError}</Text> : <ActivityIndicator color={colors.gold} />}
+        {syncError ? (
+          <Text style={styles.error}>{syncError}</Text>
+        ) : (
+          <ActivityIndicator color={colors.gold} />
+        )}
         <View style={styles.spacer} />
         <Button label="Retour" variant="secondary" onPress={onLeave} />
       </View>
@@ -100,9 +121,14 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
               {p.user_id === userId ? ' (toi)' : ''}
             </PanelText>
           ))}
+          {room.level_minutes && (
+            <PanelText>
+              🏆 Tournoi : les blindes augmentent toutes les {room.level_minutes} minutes.
+            </PanelText>
+          )}
           {isHost ? (
             <Button
-              label={players.length < 2 ? 'En attente d\'un autre joueur…' : 'Lancer la partie'}
+              label={players.length < 2 ? "En attente d'un autre joueur…" : 'Lancer la partie'}
               disabled={busy || players.length < 2}
               onPress={() => send({ type: 'deal', roomId })}
             />
@@ -120,15 +146,52 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
   return (
     <GameLayout
       top={
-        <TopBar onBack={onLeave}>
-          <Pressable accessibilityRole="button" onPress={invite} hitSlop={8} style={styles.codePill}>
-            <Text style={styles.codePillText}>
-              Table <Text style={styles.codePillCode}>{room.code}</Text> · Inviter
-            </Text>
-          </Pressable>
-        </TopBar>
+        <View style={styles.topWrap}>
+          <TopBar onBack={onLeave}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Réagir"
+              onPress={() => setTrayOpen(!trayOpen)}
+              hitSlop={8}
+              style={[styles.reactButton, trayOpen && styles.reactButtonOpen]}
+            >
+              <Text style={styles.reactButtonText}>😀</Text>
+            </Pressable>
+            <Pressable accessibilityRole="button" onPress={invite} hitSlop={8} style={styles.codePill}>
+              <Text style={styles.codePillText}>
+                <Text style={styles.codePillCode}>{room.code}</Text> · Inviter
+              </Text>
+            </Pressable>
+          </TopBar>
+          {trayOpen && (
+            <Appear from={-10} style={styles.tray}>
+              {REACTIONS.map((emoji) => (
+                <Pressable
+                  key={emoji}
+                  accessibilityRole="button"
+                  onPress={() => {
+                    sendReaction(emoji);
+                    setTrayOpen(false);
+                  }}
+                  style={({ pressed }) => [styles.trayItem, pressed && styles.trayItemPressed]}
+                >
+                  <Text style={styles.trayEmoji}>{emoji}</Text>
+                </Pressable>
+              ))}
+            </Appear>
+          )}
+        </View>
       }
-      table={({ width, height }) => <Table hand={hand} meId={userId} maxWidth={width} maxHeight={height} />}
+      table={({ width, height }) => (
+        <Table
+          hand={hand}
+          meId={userId}
+          maxWidth={width}
+          maxHeight={height}
+          reactions={reactions}
+          nextLevelAt={hand.tournament?.nextLevelAt}
+        />
+      )}
       bottom={
         <>
           {actor && hand.deadline && (
@@ -152,8 +215,10 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
             <View style={styles.waitPanel}>
               {inHand && myCards.length > 0 && (
                 <View style={styles.cards}>
-                  {myCards.map((c) => (
-                    <PlayingCard key={c} card={c} width={42} />
+                  {myCards.map((c, i) => (
+                    <Appear key={c} delay={i * 140}>
+                      <PlayingCard card={c} width={42} />
+                    </Appear>
                   ))}
                 </View>
               )}
@@ -166,9 +231,21 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
           {hand.street === 'finished' && (
             <HandSummary hand={hand}>
               {withChips.length < 2 ? (
-                <PanelText>🏆 {withChips[0]?.name} gagne la partie !</PanelText>
+                <>
+                  <PanelText>🏆 {withChips[0]?.name} gagne la partie !</PanelText>
+                  <Ranking
+                    entries={players
+                      .filter((p) => p.stack > 0 || p.place !== null)
+                      .map((p) => ({ name: p.name, place: p.stack > 0 ? 1 : (p.place ?? players.length) }))}
+                  />
+                </>
               ) : isHost ? (
-                <Button compact label="Main suivante" disabled={busy} onPress={() => send({ type: 'deal', roomId })} />
+                <Button
+                  compact
+                  label="Main suivante"
+                  disabled={busy}
+                  onPress={() => send({ type: 'deal', roomId })}
+                />
               ) : (
                 <PanelText>En attente que {host?.name ?? 'le créateur'} distribue…</PanelText>
               )}
@@ -203,6 +280,36 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.glassBorder,
   },
+  topWrap: { zIndex: 10 },
+  reactButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.glass,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+  },
+  reactButtonOpen: { borderColor: colors.gold },
+  reactButtonText: { fontSize: 17 },
+  tray: {
+    position: 'absolute',
+    top: 40,
+    right: 0,
+    flexDirection: 'row',
+    gap: 4,
+    padding: 6,
+    borderRadius: 24,
+    backgroundColor: 'rgba(6, 28, 19, 0.95)',
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    boxShadow: '0 6px 16px rgba(0,0,0,0.5)',
+    zIndex: 20,
+  },
+  trayItem: { width: 42, height: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 21 },
+  trayItemPressed: { backgroundColor: 'rgba(255,255,255,0.12)' },
+  trayEmoji: { fontSize: 26 },
   codePillText: { color: colors.muted, fontSize: 13, fontWeight: '600' },
   codePillCode: { color: colors.gold, fontWeight: '800', letterSpacing: 2 },
   waitPanel: {

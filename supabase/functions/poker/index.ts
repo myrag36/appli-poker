@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import type { HandState } from '../_shared/engine/index.ts';
 import {
   GameError,
+  LEVEL_CHOICES,
   MAX_PLAYERS,
   type PlayerRow,
   type RoomRow,
@@ -81,12 +82,16 @@ async function createRoom(userId: string, body: Record<string, unknown>) {
   if (!Number.isInteger(stack) || stack < bigBlind || stack > 1_000_000) {
     throw new GameError('Nombre de jetons invalide');
   }
+  const levelMinutes = body.levelMinutes == null ? null : Number(body.levelMinutes);
+  if (levelMinutes !== null && !LEVEL_CHOICES.includes(levelMinutes)) {
+    throw new GameError('Durée de niveau invalide');
+  }
 
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = makeRoomCode();
     const { data: room, error } = await admin
       .from('rooms')
-      .insert({ code, host_id: userId, big_blind: bigBlind, starting_stack: stack })
+      .insert({ code, host_id: userId, big_blind: bigBlind, starting_stack: stack, level_minutes: levelMinutes })
       .select('id, code')
       .single();
     if (error?.code === '23505') continue; // code already used, draw another

@@ -4,6 +4,8 @@ import {
   type HandView,
   type Rng,
   applyAction,
+  bigBlindAt,
+  blindLevel,
   legalActions,
   secureRng,
   startHand,
@@ -23,11 +25,26 @@ export interface RoomRow {
   dealer: number;
   hand_number: number;
   version: number;
+  /** Tournament level length, or null when the blinds never change. */
+  level_minutes?: number | null;
+  /** When the first hand was dealt (ISO date), used to time tournament levels. */
+  started_at?: string | null;
   public_state?: PublicState | null;
 }
 
-/** The public view plus when the player to act runs out of time (epoch ms). */
-export type PublicState = HandView & { deadline: number | null };
+/** Tournament level of the hand being played and when the next one starts (epoch ms). */
+export interface LevelInfo {
+  level: number;
+  nextLevelAt: number;
+}
+
+/**
+ * The public view plus when the player to act runs out of time (epoch ms) and,
+ * in a tournament, the blind level.
+ */
+export type PublicState = HandView & { deadline: number | null; tournament?: LevelInfo | null };
+
+export const LEVEL_CHOICES = [5, 10, 15, 20, 30];
 
 export interface PlayerRow {
   user_id: string;
@@ -68,8 +85,16 @@ export function firstFreeSeat(players: PlayerRow[]): number {
   throw new GameError('La table est pleine (8 joueurs maximum)');
 }
 
-function publicState(hand: HandState, now: number): PublicState {
-  return { ...viewFor(hand, null), deadline: hand.toAct >= 0 ? now + TURN_MS : null };
+function publicState(hand: HandState, now: number, tournament: LevelInfo | null): PublicState {
+  return { ...viewFor(hand, null), deadline: hand.toAct >= 0 ? now + TURN_MS : null, tournament };
+}
+
+/** Blinds for the next hand: fixed, or grown with the time played in a tournament. */
+export function nextBlinds(room: RoomRow, now: number): { bigBlind: number; tournament: LevelInfo | null } {
+  if (!room.level_minutes) return { bigBlind: room.big_blind, tournament: null };
+  const startedAt = room.started_at ? Date.parse(room.started_at) : now;
+  const tournament = blindLevel(startedAt, now, room.level_minutes);
+  return { bigBlind: bigBlindAt(room.big_blind, tournament.level), tournament };
 }
 
 function stacksOf(hand: HandState): Record<string, number> {
@@ -91,17 +116,18 @@ export function dealNextHand(
   // room.dealer holds the seat number of the last button, or -1 before the first hand.
   const lastButton = room.hand_number === 0 ? -1 : room.dealer;
   const next = seated.find((p) => p.seat > lastButton) ?? seated[0];
+  const { bigBlind, tournament } = nextBlinds(room, now);
   const hand = startHand({
     seats: seated.map((p) => ({ id: p.user_id, name: p.name, stack: p.stack })),
     dealer: seated.indexOf(next),
-    smallBlind: room.big_blind / 2,
-    bigBlind: room.big_blind,
+    smallBlind: bigBlind / 2,
+    bigBlind,
     rng,
   });
   return {
     p_room: room.id,
     p_version: room.version,
-    p_public: publicState(hand, now),
+    p_public: publicState(hand, now, tournament),
     p_secret: hand,
     p_dealer: next.seat,
     p_hand_number: room.hand_number + 1,
@@ -143,7 +169,7 @@ export function playAction(
   return {
     p_room: room.id,
     p_version: room.version,
-    p_public: publicState(next, now),
+    p_public: publicState(next, now, room.public_state?.tournament ?? null),
     p_secret: next,
     p_stacks: stacksOf(next),
   };

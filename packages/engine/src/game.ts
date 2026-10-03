@@ -20,6 +20,8 @@ export interface PlayerState {
   folded: boolean;
   allIn: boolean;
   hole: Card[];
+  /** Short label of what this player last did this street, shown next to their seat. */
+  lastAction?: string;
 }
 
 export interface PotResult {
@@ -141,6 +143,8 @@ export function startHand(opts: StartOptions): HandState {
   const bbIndex = nextIndex(n, sbIndex);
   commit(state, state.players[sbIndex], opts.smallBlind);
   commit(state, state.players[bbIndex], opts.bigBlind);
+  state.players[sbIndex].lastAction = `P. blinde ${state.players[sbIndex].bet}`;
+  state.players[bbIndex].lastAction = `G. blinde ${state.players[bbIndex].bet}`;
   state.currentBet = Math.max(...state.players.map((p) => p.bet));
   state.log.push(`${state.players[sbIndex].name} poste la petite blinde`);
   state.log.push(`${state.players[bbIndex].name} poste la grosse blinde`);
@@ -193,17 +197,20 @@ export function applyAction(prev: HandState, playerId: string, action: Action): 
     case 'fold':
       if (!legal.fold) throw new Error('Tu peux checker, pas besoin de te coucher');
       p.folded = true;
+      p.lastAction = 'Couché';
       state.log.push(`${p.name} se couche`);
       done();
       break;
     case 'check':
       if (!legal.check) throw new Error('Tu ne peux pas checker');
+      p.lastAction = 'Check';
       state.log.push(`${p.name} checke`);
       done();
       break;
     case 'call':
       if (legal.call === 0) throw new Error('Rien à suivre, checke plutôt');
       commit(state, p, legal.call);
+      p.lastAction = p.allIn ? 'Tapis !' : `Suit ${legal.call}`;
       state.log.push(`${p.name} suit ${legal.call}`);
       done();
       break;
@@ -216,6 +223,7 @@ export function applyAction(prev: HandState, playerId: string, action: Action): 
       const raiseSize = a.to - state.currentBet;
       commit(state, p, a.to - p.bet);
       const full = raiseSize >= state.lastRaiseSize;
+      p.lastAction = p.allIn ? 'Tapis !' : `${state.currentBet === 0 ? 'Mise' : 'Relance à'} ${a.to}`;
       state.log.push(`${p.name} ${state.currentBet === 0 ? 'mise' : 'relance à'} ${a.to}`);
       state.currentBet = a.to;
       if (full) {
@@ -271,7 +279,11 @@ function dealNextStreet(state: HandState) {
   for (let i = 0; i < count; i++) state.board.push(state.deck.pop()!);
   state.log.push(`${state.street} : ${state.board.join(' ')}`);
 
-  for (const p of state.players) p.bet = 0;
+  for (const p of state.players) {
+    p.bet = 0;
+    // Folded and all-in players keep their label; everyone else starts the street fresh.
+    if (!p.folded && !p.allIn) delete p.lastAction;
+  }
   state.currentBet = 0;
   state.lastRaiseSize = state.bigBlind;
   state.actedSinceFullRaise = [];

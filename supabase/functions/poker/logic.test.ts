@@ -104,3 +104,25 @@ test('temps écoulé : le joueur se couche, ou checke quand il peut', () => {
   assert.equal(checked.p_public.street, 'flop');
   assert.ok(checked.p_secret.players.every((p) => !p.folded));
 });
+
+test('en tournoi, les blindes montent avec le temps et les actions gardent le niveau', () => {
+  const t = room({ level_minutes: 10, started_at: new Date(NOW).toISOString() });
+  const first = dealNextHand(t, players, null, NOW + 60_000);
+  assert.equal(first.p_secret.bigBlind, 20);
+  assert.deepEqual(first.p_public.tournament, { level: 0, nextLevelAt: NOW + 600_000 });
+
+  const finished = applyAction(first.p_secret, first.p_secret.players[first.p_secret.toAct].id, { type: 'fold' });
+  const later = dealNextHand({ ...t, hand_number: 1 }, players, finished, NOW + 25 * 60_000);
+  assert.equal(later.p_secret.bigBlind, 40);
+  assert.equal(later.p_secret.smallBlind, 20);
+  assert.equal(later.p_public.tournament?.level, 2);
+
+  const acted = playAction({ ...t, public_state: later.p_public }, later.p_secret, later.p_secret.players[later.p_secret.toAct].id, { type: 'fold' }, NOW + 26 * 60_000);
+  assert.deepEqual(acted.p_public.tournament, later.p_public.tournament);
+});
+
+test('sans tournoi, les blindes ne changent jamais', () => {
+  const p = dealNextHand(room({ started_at: new Date(NOW).toISOString() }), players, null, NOW + 3_600_000);
+  assert.equal(p.p_secret.bigBlind, 20);
+  assert.equal(p.p_public.tournament, null);
+});

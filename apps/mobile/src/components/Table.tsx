@@ -1,7 +1,9 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { HandView } from '@appli-poker/engine';
+import { BlindsInfo } from './BlindsInfo';
 import { ChipStack, DealerButton } from './Chip';
+import { Appear, FloatUp, FlyTo } from './Motion';
 import { PlayingCard } from './PlayingCard';
 import { colors, gradients, seatColors, shadow } from '../theme';
 
@@ -21,13 +23,17 @@ interface Props {
   /** Space the table may fill; it keeps its oval shape inside it. */
   maxWidth: number;
   maxHeight: number;
+  /** Emoji each player sent last; `key` changes with every new reaction so it animates again. */
+  reactions?: Record<string, { emoji: string; key: number }>;
+  /** In a tournament, when the blinds go up next (epoch ms). */
+  nextLevelAt?: number | null;
 }
 
 /**
  * Oval table seen from above, with players seated around it. `meId` sits at the bottom;
  * hole cards are shown only once revealed at showdown.
  */
-export function Table({ hand, meId, maxWidth, maxHeight }: Props) {
+export function Table({ hand, meId, maxWidth, maxHeight, reactions, nextLevelAt }: Props) {
   let w = Math.min(maxWidth, 440);
   let h = Math.min(Math.round(w * 1.45), maxHeight);
   // On short screens, narrow the table too so it stays an oval rather than a circle.
@@ -45,6 +51,11 @@ export function Table({ hand, meId, maxWidth, maxHeight }: Props) {
     hand.players.findIndex((p) => p.id === meId),
   );
   const pot = hand.players.reduce((s, p) => s + p.totalBet, 0);
+  // Seat 0 relative to me is at the bottom; the others follow clockwise.
+  const seatAt = (i: number) => {
+    const angle = Math.PI / 2 + (((i - meIndex + n) % n) * 2 * Math.PI) / n;
+    return { x: cx + rx * Math.cos(angle), y: cy + ry * Math.sin(angle) };
+  };
   const cardWidth = Math.max(26, Math.min(46, Math.floor((w * 0.62) / 5) - 4, Math.floor(h / 13)));
 
   return (
@@ -60,9 +71,16 @@ export function Table({ hand, meId, maxWidth, maxHeight }: Props) {
 
       <View style={[styles.center, { top: cy - (cardWidth * 1.4) / 2, width: w }]}>
         <View style={styles.board}>
-          {[0, 1, 2, 3, 4].map((i) => (
-            <PlayingCard key={i} card={hand.board[i]} width={cardWidth} />
-          ))}
+          {[0, 1, 2, 3, 4].map((i) =>
+            hand.board[i] ? (
+              // The flop's three cards land one after the other.
+              <Appear key={hand.board[i]} delay={i < 3 ? i * 160 : 0}>
+                <PlayingCard card={hand.board[i]} width={cardWidth} />
+              </Appear>
+            ) : (
+              <PlayingCard key={`slot${i}`} width={cardWidth} />
+            ),
+          )}
         </View>
         {pot > 0 && (
           <View style={styles.pot}>
@@ -70,13 +88,36 @@ export function Table({ hand, meId, maxWidth, maxHeight }: Props) {
           </View>
         )}
         <Text style={styles.street}>{STREET_NAMES[hand.street]}</Text>
+        <BlindsInfo smallBlind={hand.smallBlind} bigBlind={hand.bigBlind} nextLevelAt={nextLevelAt} />
       </View>
 
       {hand.players.map((p, i) => {
-        // Seat 0 relative to me is at the bottom; the others follow clockwise.
-        const angle = Math.PI / 2 + (((i - meIndex + n) % n) * 2 * Math.PI) / n;
-        const x = cx + rx * Math.cos(angle);
-        const y = cy + ry * Math.sin(angle);
+        const { x, y } = seatAt(i);
+        const won = hand.pots.some((pot) => pot.winners.includes(p.id));
+        return (
+          won && (
+            // The pot slides over to each winner.
+            <FlyTo
+              key={`win-${hand.log.length}-${p.id}`}
+              from={{ x: cx - 30, y: cy + 20 }}
+              to={{ x: x - 30, y: y - 10 }}
+              delay={400}
+            >
+              <View style={styles.flyingChips}>
+                <ChipStack
+                  amount={hand.pots
+                    .filter((pot) => pot.winners.includes(p.id))
+                    .reduce((s, pot) => s + Math.floor(pot.amount / pot.winners.length), 0)}
+                  large
+                />
+              </View>
+            </FlyTo>
+          )
+        );
+      })}
+
+      {hand.players.map((p, i) => {
+        const { x, y } = seatAt(i);
         // Bets sit a fixed distance from the seat, towards the middle of the table.
         const t = Math.min(0.45, Math.min(75, h * 0.17) / Math.hypot(cx - x, cy - y));
         const bx = x + (cx - x) * t;
@@ -89,9 +130,9 @@ export function Table({ hand, meId, maxWidth, maxHeight }: Props) {
         return (
           <View key={p.id} pointerEvents="none" style={StyleSheet.absoluteFill}>
             {p.bet > 0 && (
-              <View style={[styles.bet, { left: bx - 30, top: by - 10 }]}>
+              <Appear key={`${p.id}-${p.bet}`} from={0} style={[styles.bet, { left: bx - 30, top: by - 10 }]}>
                 <ChipStack amount={p.bet} />
-              </View>
+              </Appear>
             )}
             <View style={[styles.seat, { left: x - SEAT_WIDTH / 2, top: y - 30 }, p.folded && styles.folded]}>
               {shown && p.hole.length > 0 && (
@@ -124,6 +165,18 @@ export function Table({ hand, meId, maxWidth, maxHeight }: Props) {
                 <Text style={styles.stack}>{p.folded ? 'Couché' : p.allIn ? 'Tapis !' : `${p.stack}`}</Text>
               </View>
               {shown && <Text style={[styles.handName, won && styles.handNameWon]}>{shown.name}</Text>}
+              {!shown && hand.street !== 'finished' && p.lastAction && !p.folded && (
+                <Appear key={p.lastAction} from={-6}>
+                  <Text style={[styles.lastAction, p.allIn && styles.lastActionAllIn]} numberOfLines={1}>
+                    {p.lastAction}
+                  </Text>
+                </Appear>
+              )}
+              {reactions?.[p.id] && (
+                <FloatUp key={reactions[p.id].key} style={styles.reaction}>
+                  <Text style={styles.reactionText}>{reactions[p.id].emoji}</Text>
+                </FloatUp>
+              )}
             </View>
           </View>
         );
@@ -227,4 +280,20 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   handNameWon: { color: colors.gold },
+  lastAction: {
+    marginTop: 2,
+    color: '#212529',
+    fontSize: 10,
+    fontWeight: '800',
+    backgroundColor: 'rgba(255, 224, 130, 0.92)',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+    overflow: 'hidden',
+    maxWidth: SEAT_WIDTH,
+  },
+  lastActionAllIn: { backgroundColor: colors.danger, color: '#fff' },
+  reaction: { position: 'absolute', top: -34, zIndex: 5 },
+  reactionText: { fontSize: 34 },
+  flyingChips: { width: 60, alignItems: 'center' },
 });

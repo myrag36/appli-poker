@@ -107,3 +107,17 @@ test('les cartes des autres restent cachées', () => {
 test('le paquet contient 52 cartes distinctes', () => {
   assert.equal(new Set(newDeck()).size, 52);
 });
+
+test('chaque joueur affiche sa dernière action, remise à zéro à chaque tour d\'enchères', () => {
+  let s = startHand({ seats: seats(100, 100, 100), dealer: 0, smallBlind: 1, bigBlind: 2 });
+  assert.deepEqual(s.players.map((p) => p.lastAction), [undefined, 'P. blinde 1', 'G. blinde 2']);
+  s = act(s, { type: 'raise', to: 6 }, { type: 'fold' });
+  assert.deepEqual(s.players.map((p) => p.lastAction), ['Relance à 6', 'Couché', 'G. blinde 2']);
+  s = act(s, { type: 'call' });
+  assert.equal(s.street, 'flop');
+  assert.deepEqual(s.players.map((p) => p.lastAction), [undefined, 'Couché', undefined]);
+  s = act(s, { type: 'check' }, { type: 'raise', to: 10 });
+  assert.deepEqual(s.players.map((p) => p.lastAction), ['Mise 10', 'Couché', 'Check']);
+  s = act(s, { type: 'allin' });
+  assert.equal(s.players[2].lastAction, 'Tapis !');
+});
