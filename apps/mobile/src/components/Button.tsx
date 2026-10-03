@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text } from 'react-native';
-import { colors } from '../theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { colors, gradients } from '../theme';
 
 interface Props {
   label: string;
@@ -24,6 +25,12 @@ export function Button({ label, onPress, disabled, variant = 'primary', compact 
         pressed && styles.pressed,
       ]}
     >
+      <LinearGradient
+        colors={
+          variant === 'primary' ? gradients.gold : variant === 'danger' ? gradients.danger : gradients.glass
+        }
+        style={StyleSheet.absoluteFill}
+      />
       <Text
         style={[styles.label, compact && styles.labelCompact, variant === 'primary' && styles.labelDark]}
         numberOfLines={1}
@@ -42,10 +49,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginVertical: 4,
     flexGrow: 1,
+    overflow: 'hidden',
+    boxShadow: '0 2px 6px rgba(0,0,0,0.35)',
   },
-  primary: { backgroundColor: colors.gold },
-  secondary: { backgroundColor: colors.feltDark, borderWidth: 1, borderColor: colors.muted },
-  danger: { backgroundColor: colors.danger },
+  primary: { backgroundColor: colors.gold, borderWidth: 1, borderColor: '#ffe9a8' },
+  secondary: { backgroundColor: colors.glass, borderWidth: 1, borderColor: 'rgba(163, 207, 187, 0.45)' },
+  danger: { backgroundColor: colors.danger, borderWidth: 1, borderColor: 'rgba(255,160,160,0.5)' },
   compact: { paddingVertical: 9, paddingHorizontal: 10, marginVertical: 0, borderRadius: 8 },
   disabled: { opacity: 0.4 },
   pressed: { opacity: 0.7 },

@@ -1,8 +1,9 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import type { HandView } from '@appli-poker/engine';
 import { ChipStack, DealerButton } from './Chip';
 import { PlayingCard } from './PlayingCard';
-import { colors, seatColors, shadow } from '../theme';
+import { colors, gradients, seatColors, shadow } from '../theme';
 
 const STREET_NAMES: Record<string, string> = {
   preflop: 'Avant le flop',
@@ -39,15 +40,21 @@ export function Table({ hand, meId, maxWidth, maxHeight }: Props) {
   const ry = h / 2 - 50;
 
   const n = hand.players.length;
-  const meIndex = Math.max(0, hand.players.findIndex((p) => p.id === meId));
+  const meIndex = Math.max(
+    0,
+    hand.players.findIndex((p) => p.id === meId),
+  );
   const pot = hand.players.reduce((s, p) => s + p.totalBet, 0);
   const cardWidth = Math.max(26, Math.min(46, Math.floor((w * 0.62) / 5) - 4, Math.floor(h / 13)));
 
   return (
     <View style={[styles.wrap, { width: w, height: h }]}>
-      <View style={[styles.rail, shadow, { borderRadius: w / 2 }]}>
+      <View style={[styles.rail, { borderRadius: w / 2 }]}>
+        <LinearGradient colors={gradients.wood} style={StyleSheet.absoluteFill} />
         <View style={[styles.felt, { borderRadius: w / 2 }]}>
+          <LinearGradient colors={gradients.felt} style={StyleSheet.absoluteFill} />
           <View style={[styles.feltGlow, { borderRadius: w / 2 }]} />
+          <View style={[styles.feltLine, { borderRadius: w / 2 }]} />
         </View>
       </View>
 
@@ -114,9 +121,7 @@ export function Table({ hand, meId, maxWidth, maxHeight }: Props) {
                 <Text style={styles.name} numberOfLines={1}>
                   {p.id === meId ? 'Toi' : p.name}
                 </Text>
-                <Text style={styles.stack}>
-                  {p.folded ? 'Couché' : p.allIn ? 'Tapis !' : `${p.stack}`}
-                </Text>
+                <Text style={styles.stack}>{p.folded ? 'Couché' : p.allIn ? 'Tapis !' : `${p.stack}`}</Text>
               </View>
               {shown && <Text style={[styles.handName, won && styles.handNameWon]}>{shown.name}</Text>}
             </View>
@@ -136,24 +141,37 @@ const styles = StyleSheet.create({
     left: 26,
     right: 26,
     backgroundColor: colors.rail,
-    borderWidth: 3,
-    borderColor: colors.railLight,
-    padding: 10,
+    borderWidth: 2,
+    borderColor: '#a0703f',
+    padding: 11,
+    overflow: 'hidden',
+    boxShadow: '0 10px 30px rgba(0,0,0,0.6), inset 0 2px 3px rgba(255,220,170,0.35)',
   },
   felt: {
     flex: 1,
     backgroundColor: colors.felt,
     borderWidth: 2,
-    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderColor: '#2a1608',
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
+    boxShadow: 'inset 0 6px 18px rgba(0,0,0,0.55)',
   },
   feltGlow: {
-    width: '70%',
-    height: '60%',
-    backgroundColor: colors.feltLight,
-    opacity: 0.35,
+    width: '60%',
+    height: '50%',
+    borderRadius: 999,
+    backgroundColor: 'rgba(120, 230, 160, 0.10)',
+    boxShadow: '0 0 60px 40px rgba(120, 230, 160, 0.10)',
+  },
+  feltLine: {
+    position: 'absolute',
+    top: 14,
+    bottom: 14,
+    left: 14,
+    right: 14,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 213, 120, 0.22)',
   },
   center: { position: 'absolute', left: 0, alignItems: 'center' },
   street: {

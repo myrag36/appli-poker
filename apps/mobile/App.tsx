@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { type SavedRoom, ensureSignedIn, loadLastRoom } from './src/online/supabase';
 import { GameScreen } from './src/screens/GameScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
+import { Backdrop } from './src/components/Backdrop';
 import { OnlineLobbyScreen } from './src/screens/OnlineLobbyScreen';
 import { OnlineRoomScreen } from './src/screens/OnlineRoomScreen';
 import { type GameSettings, SetupScreen } from './src/screens/SetupScreen';
@@ -39,10 +40,11 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <View style={styles.container}>
+        <Backdrop />
         {screen.name === 'home' && (
           <HomeScreen
             canResume={lastRoom !== null}
-          playerName={lastRoom?.name}
+            playerName={lastRoom?.name}
             onOnline={() => setScreen({ name: 'online-lobby' })}
             onResume={() => lastRoom && openRoom(lastRoom.roomId)}
             onLocal={() => setScreen({ name: 'local-setup' })}

@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { PlayingCard } from '../components/PlayingCard';
-import { colors, shadow } from '../theme';
+import { colors, gradients, shadow } from '../theme';
 
 interface Props {
   canResume: boolean;
@@ -50,6 +51,7 @@ function Choice({
         pressed && styles.pressed,
       ]}
     >
+      <LinearGradient colors={highlight ? gradients.gold : gradients.glass} style={StyleSheet.absoluteFill} />
       <View style={[styles.icon, highlight && styles.iconHighlight]}>
         <Text style={styles.iconText}>{icon}</Text>
       </View>
@@ -197,11 +199,12 @@ const styles = StyleSheet.create({
     gap: 14,
     padding: 16,
     borderRadius: 16,
-    backgroundColor: colors.feltDark,
+    backgroundColor: colors.glass,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: colors.glassBorder,
+    overflow: 'hidden',
   },
-  choiceHighlight: { backgroundColor: colors.gold, borderColor: colors.gold },
+  choiceHighlight: { backgroundColor: colors.gold, borderColor: '#ffe9a8' },
   pressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
   icon: {
     width: 48,
@@ -221,7 +224,15 @@ const styles = StyleSheet.create({
   chevron: { color: colors.muted, fontSize: 30, fontWeight: '300' },
   rulesToggle: { alignSelf: 'center', marginTop: 24, padding: 8 },
   rulesToggleText: { color: colors.muted, fontSize: 15, fontWeight: '600', textDecorationLine: 'underline' },
-  rules: { marginTop: 8, padding: 14, borderRadius: 14, backgroundColor: colors.feltDark, gap: 8 },
+  rules: {
+    marginTop: 8,
+    padding: 14,
+    borderRadius: 14,
+    backgroundColor: colors.glass,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    gap: 8,
+  },
   rulesIntro: { color: colors.muted, fontSize: 14, lineHeight: 19, marginBottom: 4 },
   rank: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   rankName: { color: colors.text, fontSize: 14, fontWeight: '700', flex: 1 },
