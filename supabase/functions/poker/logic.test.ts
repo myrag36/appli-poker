@@ -3,12 +3,14 @@ import assert from 'node:assert/strict';
 import { applyAction } from '../_shared/engine/index.ts';
 import {
   type RoomRow,
+  BOT_MS,
   TURN_MS,
   dealNextHand,
   checkRemoval,
   firstFreeSeat,
   handRecords,
   makeRoomCode,
+  newBot,
   parseAction,
   playAction,
   pausedState,
@@ -204,4 +206,57 @@ test('retirer un joueur : réservé au créateur, et pas pendant sa main', () =>
   // Hugo has no chips, so he is not in the hand and can go at any time.
   checkRemoval(playing, players, 'a', 'c');
   checkRemoval(room(), players, 'a', 'b');
+});
+
+test('robots : pas de cartes privées, un chrono court, et ils jouent quand leur temps est écoulé', () => {
+  const withBot = [
+    { user_id: 'a', name: 'Simon', seat: 0, stack: 1000 },
+    { user_id: 'r', name: 'Robby', seat: 1, stack: 1000, is_bot: true },
+  ];
+  const r = room();
+  const dealt = dealNextHand(r, withBot, null, NOW);
+  assert.deepEqual(Object.keys(dealt.p_hands!), ['a']);
+  assert.deepEqual(dealt.p_public.bots, ['r']);
+  const actorId = dealt.p_secret.players[dealt.p_secret.toAct].id;
+  assert.equal(dealt.p_public.deadline, NOW + (actorId === 'r' ? BOT_MS : TURN_MS));
+
+  // Play the hand out: people call or check, robots play when asked after their deadline.
+  let state = { room: room({ hand_number: 1, public_state: dealt.p_public }), hand: dealt.p_secret };
+  let moves = 0;
+  while (state.hand.street !== 'finished') {
+    const id = state.hand.players[state.hand.toAct].id;
+    const t = state.room.public_state!.deadline!;
+    const saved =
+      id === 'r'
+        ? playTimeout(state.room, state.hand, t)
+        : playAction(state.room, state.hand, id, legalActionsFor(state.hand, id), t - 1000);
+    state = { room: { ...state.room, public_state: saved.p_public }, hand: saved.p_secret };
+    assert.ok(++moves < 50);
+  }
+  const records = handRecords(state.room, withBot, {
+    p_room: 'room',
+    p_version: 1,
+    p_public: state.room.public_state!,
+    p_secret: state.hand,
+    p_stacks: Object.fromEntries(state.hand.players.map((p) => [p.id, p.stack])),
+  })!;
+  // Statistics only for the person.
+  assert.deepEqual(records.results.map((x) => x.user_id), ['a']);
+  if (records.game) assert.equal(records.game.winner_id, 'a');
+});
+
+function legalActionsFor(hand: Parameters<typeof applyAction>[0], id: string) {
+  const call = hand.currentBet - hand.players.find((p) => p.id === id)!.bet;
+  return call > 0 ? ({ type: 'call' } as const) : ({ type: 'check' } as const);
+}
+
+test('ajouter un robot : réservé au créateur, nom et place libres', () => {
+  const bot = newBot(room(), players, 'a', 'id-1');
+  assert.equal(bot.seat, 1);
+  assert.equal(bot.name, 'Robby');
+  assert.equal(bot.is_bot, true);
+  assert.equal(bot.stack, 1000);
+  assert.throws(() => newBot(room(), players, 'b', 'id-2'), /créateur/);
+  const full = Array.from({ length: 8 }, (_, i) => ({ user_id: `u${i}`, name: `J${i}`, seat: i, stack: 10 }));
+  assert.throws(() => newBot(room(), full, 'a', 'id-3'), /pleine/);
 });

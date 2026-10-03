@@ -14,6 +14,7 @@ import {
   firstFreeSeat,
   handRecords,
   makeRoomCode,
+  newBot,
   parseAction,
   pausedState,
   playAction,
@@ -48,7 +49,7 @@ async function loadRoom(db: SupabaseClient, roomId: string) {
 async function loadPlayers(db: SupabaseClient, roomId: string) {
   const { data, error } = await db
     .from('room_players')
-    .select('user_id, name, seat, stack')
+    .select('user_id, name, seat, stack, is_bot')
     .eq('room_id', roomId);
   if (error) throw error;
   return data as PlayerRow[];
@@ -228,6 +229,15 @@ async function setPaused(userId: string, roomId: string, paused: boolean) {
   return { version: data.version };
 }
 
+async function addBot(userId: string, roomId: string) {
+  const room = await loadRoom(admin, roomId);
+  const bot = newBot(room, await loadPlayers(admin, roomId), userId, crypto.randomUUID());
+  const { error } = await admin.from('room_players').insert(bot);
+  if (error?.code === '23505') throw new GameError('Cette place vient d\'être prise, réessaie');
+  if (error) throw error;
+  return { ok: true };
+}
+
 async function removePlayer(userId: string, roomId: string, targetId: string) {
   const room = await loadRoom(admin, roomId);
   checkRemoval(room, await loadPlayers(admin, roomId), userId, targetId);
@@ -261,6 +271,8 @@ Deno.serve(async (req) => {
         return json(await timeout(user.id, roomId));
       case 'pause':
         return json(await setPaused(user.id, roomId, body.paused === true));
+      case 'addBot':
+        return json(await addBot(user.id, roomId));
       case 'remove':
         return json(await removePlayer(user.id, roomId, String(body.userId ?? '')));
       default:

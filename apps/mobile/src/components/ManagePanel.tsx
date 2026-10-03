@@ -103,7 +103,10 @@ export function ManagePanel({ visible, onClose, room, players, meId, avatars, on
                       {p.name}
                       {p.user_id === meId ? ' (toi)' : ''}
                     </Text>
-                    <Text style={styles.playerStack}>{p.stack} jetons</Text>
+                    <Text style={styles.playerStack}>
+                      {p.is_bot ? 'Robot · ' : ''}
+                      {p.stack} jetons
+                    </Text>
                   </View>
                   {p.user_id !== meId && (
                     <Pressable
@@ -126,6 +129,14 @@ export function ManagePanel({ visible, onClose, room, players, meId, avatars, on
                 </View>
               ))}
             </View>
+            {players.length < 8 && (
+              <Button
+                label="🤖 Ajouter un robot"
+                variant="secondary"
+                disabled={busy}
+                onPress={() => run({ type: 'addBot', roomId: room.id })}
+              />
+            )}
             {error && <Text style={styles.error}>{error}</Text>}
           </ScrollView>
         </View>

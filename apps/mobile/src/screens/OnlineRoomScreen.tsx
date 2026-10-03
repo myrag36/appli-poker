@@ -88,7 +88,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
   // The server checks the time itself, so an early or duplicate request is simply refused.
   useEffect(() => {
     const t = Date.now();
-    if (!deadline || t < deadline || t - lastTimeoutRequest.current < 3000) return;
+    if (!deadline || t < deadline || t - lastTimeoutRequest.current < 1000) return;
     lastTimeoutRequest.current = t;
     callServer({ type: 'timeout', roomId })
       .then(refresh)
@@ -139,6 +139,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
   const hand = room.public_state;
   const actor = hand && hand.toAct >= 0 ? hand.players[hand.toAct] : null;
   const myTurn = actor?.id === userId;
+  const botTurn = actor !== null && (hand?.bots?.includes(actor.id) ?? false);
   const inHand = hand?.players.some((p) => p.id === userId) ?? false;
   const withChips = players.filter((p) => p.stack > 0);
   const waiting = hand ? players.filter((p) => !hand.players.some((h) => h.id === p.user_id)) : [];
@@ -213,6 +214,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
                 {p.name}
                 {p.user_id === room.host_id ? ' 👑' : ''}
                 {p.user_id === userId ? ' (toi)' : ''}
+                {p.is_bot ? ' · robot' : ''}
               </Text>
             </View>
           ))}
@@ -237,6 +239,17 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
           variant="secondary"
           onPress={() => setChatOpen(true)}
         />
+        {isHost && players.length < 8 && (
+          <>
+            <View style={styles.spacer} />
+            <Button
+              label="🤖 Ajouter un robot"
+              variant="secondary"
+              disabled={busy}
+              onPress={() => send({ type: 'addBot', roomId })}
+            />
+          </>
+        )}
         {isHost && players.length > 1 && (
           <>
             <View style={styles.spacer} />
@@ -341,7 +354,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
       )}
       bottom={
         <>
-          {actor && hand.deadline && (
+          {actor && !botTurn && hand.deadline && (
             <TurnTimer deadline={hand.deadline} now={now} name={myTurn ? 'Toi' : actor.name} />
           )}
 
@@ -389,7 +402,13 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
                 </View>
               )}
               <Text style={styles.waitText}>
-                {!inHand ? 'Tu joueras à la prochaine main.' : actor ? `Au tour de ${actor.name}` : ''}
+                {!inHand
+                  ? 'Tu joueras à la prochaine main.'
+                  : botTurn
+                    ? `🤖 ${actor?.name} réfléchit…`
+                    : actor
+                      ? `Au tour de ${actor.name}`
+                      : ''}
               </Text>
             </View>
           )}

@@ -47,7 +47,8 @@ type Request =
   | { type: 'act'; roomId: string; action: Action }
   | { type: 'timeout'; roomId: string }
   | { type: 'pause'; roomId: string; paused: boolean }
-  | { type: 'remove'; roomId: string; userId: string };
+  | { type: 'remove'; roomId: string; userId: string }
+  | { type: 'addBot'; roomId: string };
 
 /** Calls the game server and turns its error replies into readable messages. */
 export async function callServer<T>(body: Request): Promise<T> {
