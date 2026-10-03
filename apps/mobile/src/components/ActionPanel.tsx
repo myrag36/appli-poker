@@ -32,7 +32,7 @@ export function ActionPanel({ hand, playerId, title, hole, error, busy, onAction
       <Text style={styles.title}>{title}</Text>
       <View style={[styles.row, styles.center]}>
         {hole.map((c) => (
-          <PlayingCard key={c} card={c} />
+          <PlayingCard key={c} card={c} width={64} />
         ))}
       </View>
       {legal && (
