@@ -4,3 +4,4 @@ export * from './game.ts';
 export * from './tournament.ts';
 export * from './avatars.ts';
 export * from './stats.ts';
+export * from './bot.ts';

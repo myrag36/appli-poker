@@ -19,9 +19,14 @@ export interface Room {
   /**
    * `deadline` is when the player to act runs out of time, in epoch ms.
    * `tournament` is the blind level of this hand and when the next level starts.
+   * `bots` lists the players the server plays for.
    */
   public_state:
-    | (HandView & { deadline?: number | null; tournament?: { level: number; nextLevelAt: number } | null })
+    | (HandView & {
+        deadline?: number | null;
+        tournament?: { level: number; nextLevelAt: number } | null;
+        bots?: string[];
+      })
     | null;
 }
 
@@ -34,6 +39,8 @@ export interface RoomPlayer {
   place: number | null;
   avatar: string | null;
   avatar_color: string | null;
+  /** A computer player the host added; the server plays its moves. */
+  is_bot?: boolean;
 }
 
 export type Reactions = Record<string, { emoji: string; key: number }>;
@@ -150,7 +157,7 @@ export function useRoom(roomId: string, userId: string) {
       supabase.from('rooms').select('*').eq('id', roomId).maybeSingle(),
       supabase
         .from('room_players')
-        .select('user_id, name, seat, stack, place, avatar, avatar_color')
+        .select('user_id, name, seat, stack, place, avatar, avatar_color, is_bot')
         .eq('room_id', roomId)
         .order('seat'),
       supabase
