@@ -8,6 +8,7 @@ export function HandSummary({ hand, children }: { hand: HandView; children?: Rea
   const winners = hand.players.filter((p) => ids.has(p.id));
   return (
     <Panel
+      compact
       title={`${winners.map((w) => w.name).join(' et ')} ${winners.length > 1 ? 'remportent' : 'remporte'} le pot`}
     >
       {hand.log.slice(-hand.pots.length).map((line, i) => (

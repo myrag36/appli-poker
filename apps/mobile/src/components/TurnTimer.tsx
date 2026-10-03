@@ -21,10 +21,10 @@ export function TurnTimer({ deadline, now, name }: { deadline: number; now: numb
 }
 
 const styles = StyleSheet.create({
-  box: { marginTop: 12, gap: 4 },
-  text: { color: colors.muted, textAlign: 'center', fontWeight: '600' },
+  box: { gap: 3 },
+  text: { color: colors.muted, textAlign: 'center', fontWeight: '600', fontSize: 13 },
   urgent: { color: colors.danger },
-  track: { height: 6, borderRadius: 3, backgroundColor: colors.feltDark, overflow: 'hidden' },
-  fill: { height: 6, backgroundColor: colors.gold },
+  track: { height: 4, borderRadius: 2, backgroundColor: colors.feltDark, overflow: 'hidden' },
+  fill: { height: 4, backgroundColor: colors.gold },
   fillUrgent: { backgroundColor: colors.danger },
 });
