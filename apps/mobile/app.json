@@ -19,8 +19,14 @@
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.png",
+      "name": "Appli Poker",
+      "themeColor": "#0f5132",
+      "backgroundColor": "#0f5132"
     },
-    "backgroundColor": "#0f5132"
+    "backgroundColor": "#0f5132",
+    "experiments": {
+      "baseUrl": "/appli-poker"
+    }
   }
 }
