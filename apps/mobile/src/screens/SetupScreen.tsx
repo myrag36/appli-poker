@@ -11,7 +11,12 @@ export interface GameSettings {
 
 const MAX_PLAYERS = 8;
 
-export function SetupScreen({ onStart }: { onStart: (settings: GameSettings) => void }) {
+interface Props {
+  onStart: (settings: GameSettings) => void;
+  onBack: () => void;
+}
+
+export function SetupScreen({ onStart, onBack }: Props) {
   const [names, setNames] = useState(['', '']);
   const [stack, setStack] = useState('1000');
   const [bigBlind, setBigBlind] = useState('20');
@@ -24,8 +29,7 @@ export function SetupScreen({ onStart }: { onStart: (settings: GameSettings) => 
 
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-      <Text style={styles.title}>Appli Poker</Text>
-      <Text style={styles.subtitle}>Texas Hold'em entre amis, jetons fictifs</Text>
+      <Text style={styles.title}>Sur ce téléphone</Text>
 
       <Text style={styles.section}>Joueurs</Text>
       {names.map((name, i) => (
@@ -68,8 +72,8 @@ export function SetupScreen({ onStart }: { onStart: (settings: GameSettings) => 
         </View>
       </View>
       <Text style={styles.hint}>
-        Petite blinde : {bbValue >= 2 ? bbValue / 2 : '?'}. Pour l'instant, la partie se joue sur un seul
-        téléphone qu'on se passe à tour de rôle.
+        Petite blinde : {bbValue >= 2 ? bbValue / 2 : '?'}. La partie se joue sur un seul téléphone qu'on
+        se passe à tour de rôle.
       </Text>
       {new Set(cleaned).size !== cleaned.length && (
         <Text style={styles.error}>Deux joueurs ont le même nom.</Text>
@@ -81,14 +85,14 @@ export function SetupScreen({ onStart }: { onStart: (settings: GameSettings) => 
         disabled={!valid}
         onPress={() => onStart({ names: cleaned, stack: stackValue, bigBlind: bbValue })}
       />
+      <Button label="Retour" variant="secondary" onPress={onBack} />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { padding: 20, paddingTop: 60 },
-  title: { color: colors.gold, fontSize: 34, fontWeight: '800', textAlign: 'center' },
-  subtitle: { color: colors.muted, textAlign: 'center', marginBottom: 20 },
+  title: { color: colors.gold, fontSize: 30, fontWeight: '800', textAlign: 'center', marginBottom: 8 },
   section: { color: colors.text, fontSize: 18, fontWeight: '700', marginTop: 20, marginBottom: 8 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   flex: { flex: 1 },
