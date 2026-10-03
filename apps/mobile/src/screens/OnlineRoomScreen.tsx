@@ -5,6 +5,7 @@ import { type Action, type Avatar, cleanAvatar, defaultAvatar } from '@appli-pok
 import { ActionPanel } from '../components/ActionPanel';
 import { AvatarBadge } from '../components/AvatarPicker';
 import { ChatPanel } from '../components/ChatPanel';
+import { HistoryPanel } from '../components/HistoryPanel';
 import { Button } from '../components/Button';
 import { GameLayout } from '../components/GameLayout';
 import { HandSummary } from '../components/HandSummary';
@@ -42,6 +43,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
   } = useRoom(roomId, userId);
   const [trayOpen, setTrayOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   // Newest message already seen; what came before I arrived counts as read.
   const [readUpTo, setReadUpTo] = useState<number | null>(null);
   const lastMessageId = messages.length ? messages[messages.length - 1].id : null;
@@ -217,7 +219,20 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
     <GameLayout
       top={
         <View style={styles.topWrap}>
-          <TopBar onBack={onLeave}>
+          {/* Only an arrow here: the bar also holds the history, chat, reactions and table code. */}
+          <TopBar onBack={onLeave} backLabel="←" backHint="Retour à l'accueil">
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Mains précédentes"
+              onPress={() => {
+                setTrayOpen(false);
+                setHistoryOpen(true);
+              }}
+              hitSlop={8}
+              style={styles.reactButton}
+            >
+              <Text style={styles.reactButtonText}>📜</Text>
+            </Pressable>
             {chatButton}
             <Pressable
               accessibilityRole="button"
@@ -333,6 +348,13 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
           )}
           {syncError && <Text style={styles.error}>{syncError}</Text>}
           {chat}
+          <HistoryPanel
+            visible={historyOpen}
+            onClose={() => setHistoryOpen(false)}
+            roomId={roomId}
+            meId={userId}
+            avatars={avatars}
+          />
         </>
       }
     />
