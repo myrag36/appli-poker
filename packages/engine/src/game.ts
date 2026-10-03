@@ -22,6 +22,8 @@ export interface PlayerState {
   hole: Card[];
   /** Short label of what this player last did this street, shown next to their seat. */
   lastAction?: string;
+  /** Chips this player had when the hand was dealt, before the blinds. */
+  startStack?: number;
 }
 
 export interface PotResult {
@@ -112,6 +114,7 @@ export function startHand(opts: StartOptions): HandState {
   const state: HandState = {
     players: seats.map((s) => ({
       ...s,
+      startStack: s.stack,
       bet: 0,
       totalBet: 0,
       folded: false,

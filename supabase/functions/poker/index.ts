@@ -11,6 +11,7 @@ import {
   cleanName,
   dealNextHand,
   firstFreeSeat,
+  handRecords,
   makeRoomCode,
   parseAction,
   playAction,
@@ -77,6 +78,35 @@ function avatarColumns(raw: unknown, seat: number) {
   return { avatar: avatar.emoji, avatar_color: avatar.color };
 }
 
+/** Remembers the name and avatar a player last used, for the rankings. */
+async function saveProfile(userId: string, name: string, avatar: { avatar: string; avatar_color: string }) {
+  const { error } = await admin
+    .from('profiles')
+    .upsert({ user_id: userId, name, ...avatar, updated_at: new Date().toISOString() });
+  if (error) console.error('profil non enregistré', error);
+}
+
+/**
+ * Once a hand is over, keeps it for the history and the statistics. A failure here
+ * is logged but never undoes the move that was just played.
+ */
+async function recordHand(room: RoomRow, saved: SaveParams) {
+  if (saved.p_public.street !== 'finished') return;
+  try {
+    const records = handRecords(room, await loadPlayers(admin, room.id), saved);
+    if (!records) return;
+    const writes = [
+      admin.from('hand_history').upsert(records.history, { ignoreDuplicates: true }),
+      admin.from('hand_results').upsert(records.results, { ignoreDuplicates: true }),
+    ];
+    if (records.game)
+      writes.push(admin.from('game_results').upsert(records.game, { ignoreDuplicates: true }));
+    for (const { error } of await Promise.all(writes)) if (error) throw error;
+  } catch (e) {
+    console.error('main non enregistrée', e);
+  }
+}
+
 async function createRoom(userId: string, body: Record<string, unknown>) {
   const name = cleanName(body.name);
   const bigBlind = Number(body.bigBlind);
@@ -101,10 +131,12 @@ async function createRoom(userId: string, body: Record<string, unknown>) {
       .single();
     if (error?.code === '23505') continue; // code already used, draw another
     if (error) throw error;
+    const avatar = avatarColumns(body.avatar, 0);
     const { error: seatError } = await admin
       .from('room_players')
-      .insert({ room_id: room.id, user_id: userId, name, seat: 0, stack, ...avatarColumns(body.avatar, 0) });
+      .insert({ room_id: room.id, user_id: userId, name, seat: 0, stack, ...avatar });
     if (seatError) throw seatError;
+    await saveProfile(userId, name, avatar);
     return { roomId: room.id, code: room.code };
   }
   throw new GameError('Impossible de créer la table, réessaie');
@@ -129,16 +161,18 @@ async function joinRoom(userId: string, body: Record<string, unknown>) {
   }
 
   const seat = firstFreeSeat(players);
+  const avatar = avatarColumns(body.avatar, seat);
   const { error: insertError } = await admin.from('room_players').insert({
     room_id: room.id,
     user_id: userId,
     name,
     seat,
     stack: room.starting_stack,
-    ...avatarColumns(body.avatar, seat),
+    ...avatar,
   });
   if (insertError?.code === '23505') throw new GameError('Ce prénom ou cette place vient d\'être pris, réessaie');
   if (insertError) throw insertError;
+  await saveProfile(userId, name, avatar);
   return { roomId: room.id };
 }
 
@@ -146,7 +180,10 @@ async function nextHand(userId: string, roomId: string) {
   const room = await loadRoom(admin, roomId);
   if (room.host_id !== userId) throw new GameError('Seul le créateur de la table peut distribuer');
   const [players, previous] = await Promise.all([loadPlayers(admin, roomId), loadHand(admin, roomId)]);
-  const version = await save(admin, dealNextHand(room, players, previous, Date.now()));
+  const saved = dealNextHand(room, players, previous, Date.now());
+  const version = await save(admin, saved);
+  // With only all-in players left, a hand can be over as soon as it is dealt.
+  await recordHand(room, saved);
   return { version };
 }
 
@@ -156,7 +193,9 @@ async function act(userId: string, roomId: string, rawAction: unknown) {
   const room = await loadRoom(admin, roomId);
   const hand = await loadHand(admin, roomId);
   if (!hand) throw new GameError('Aucune main en cours');
-  const version = await save(admin, playAction(room, hand, userId, action, Date.now()));
+  const saved = playAction(room, hand, userId, action, Date.now());
+  const version = await save(admin, saved);
+  await recordHand(room, saved);
   return { version };
 }
 
@@ -165,7 +204,9 @@ async function timeout(userId: string, roomId: string) {
   const [players, hand] = await Promise.all([loadPlayers(admin, roomId), loadHand(admin, roomId)]);
   if (!players.some((p) => p.user_id === userId)) throw new GameError('Tu n\'es pas à cette table');
   if (!hand) throw new GameError('Aucune main en cours');
-  const version = await save(admin, playTimeout(room, hand, Date.now()));
+  const saved = playTimeout(room, hand, Date.now());
+  const version = await save(admin, saved);
+  await recordHand(room, saved);
   return { version };
 }
 

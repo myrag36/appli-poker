@@ -8,6 +8,7 @@ import { HomeScreen } from './src/screens/HomeScreen';
 import { Backdrop } from './src/components/Backdrop';
 import { OnlineLobbyScreen } from './src/screens/OnlineLobbyScreen';
 import { OnlineRoomScreen } from './src/screens/OnlineRoomScreen';
+import { StatsScreen } from './src/screens/StatsScreen';
 import { type GameSettings, SetupScreen } from './src/screens/SetupScreen';
 import { colors } from './src/theme';
 
@@ -16,7 +17,8 @@ type Screen =
   | { name: 'local-setup' }
   | { name: 'local-game'; settings: GameSettings }
   | { name: 'online-lobby' }
-  | { name: 'online-room'; roomId: string; userId: string };
+  | { name: 'online-room'; roomId: string; userId: string }
+  | { name: 'stats' };
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>({ name: 'home' });
@@ -48,6 +50,7 @@ export default function App() {
             onOnline={() => setScreen({ name: 'online-lobby' })}
             onResume={() => lastRoom && openRoom(lastRoom.roomId)}
             onLocal={() => setScreen({ name: 'local-setup' })}
+            onStats={() => setScreen({ name: 'stats' })}
           />
         )}
         {screen.name === 'local-setup' && (
@@ -60,6 +63,7 @@ export default function App() {
         {screen.name === 'online-room' && (
           <OnlineRoomScreen roomId={screen.roomId} userId={screen.userId} onLeave={home} />
         )}
+        {screen.name === 'stats' && <StatsScreen onBack={home} />}
         <StatusBar style="light" />
       </View>
     </SafeAreaProvider>
