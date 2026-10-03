@@ -48,6 +48,9 @@ export interface HandState {
   log: string[];
 }
 
+/** Everything about a hand except the deck; hidden cards are emptied by `viewFor`. */
+export type HandView = Omit<HandState, 'deck'>;
+
 export type Action =
   | { type: 'fold' }
   | { type: 'check' }
@@ -149,7 +152,7 @@ export function startHand(opts: StartOptions): HandState {
   return settle(state);
 }
 
-export function legalActions(state: HandState, playerId: string): LegalActions | null {
+export function legalActions(state: HandView, playerId: string): LegalActions | null {
   if (state.street === 'finished' || state.toAct < 0) return null;
   const p = state.players[state.toAct];
   if (p.id !== playerId) return null;
@@ -322,8 +325,11 @@ function showdown(state: HandState) {
   state.toAct = -1;
 }
 
-/** What one player is allowed to see: other hands stay hidden until showdown. */
-export function viewFor(state: HandState, playerId: string) {
+/**
+ * What one player is allowed to see: other hands stay hidden until showdown.
+ * Pass `null` for the public view that nobody's cards appear in.
+ */
+export function viewFor(state: HandState, playerId: string | null): HandView {
   const { deck, ...rest } = state;
   const reveal = state.street === 'finished' && Object.keys(state.showdown).length > 0;
   return {
