@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Alert, StyleSheet, View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { type SavedRoom, ensureSignedIn, loadLastRoom } from './src/online/supabase';
 import { GameScreen } from './src/screens/GameScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
@@ -36,27 +37,29 @@ export default function App() {
   const home = () => setScreen({ name: 'home' });
 
   return (
-    <View style={styles.container}>
-      {screen.name === 'home' && (
-        <HomeScreen
-          canResume={lastRoom !== null}
-          onOnline={() => setScreen({ name: 'online-lobby' })}
-          onResume={() => lastRoom && openRoom(lastRoom.roomId)}
-          onLocal={() => setScreen({ name: 'local-setup' })}
-        />
-      )}
-      {screen.name === 'local-setup' && (
-        <SetupScreen onStart={(settings) => setScreen({ name: 'local-game', settings })} onBack={home} />
-      )}
-      {screen.name === 'local-game' && <GameScreen settings={screen.settings} onQuit={home} />}
-      {screen.name === 'online-lobby' && (
-        <OnlineLobbyScreen initialName={lastRoom?.name ?? ''} onEnter={openRoom} onBack={home} />
-      )}
-      {screen.name === 'online-room' && (
-        <OnlineRoomScreen roomId={screen.roomId} userId={screen.userId} onLeave={home} />
-      )}
-      <StatusBar style="light" />
-    </View>
+    <SafeAreaProvider>
+      <View style={styles.container}>
+        {screen.name === 'home' && (
+          <HomeScreen
+            canResume={lastRoom !== null}
+            onOnline={() => setScreen({ name: 'online-lobby' })}
+            onResume={() => lastRoom && openRoom(lastRoom.roomId)}
+            onLocal={() => setScreen({ name: 'local-setup' })}
+          />
+        )}
+        {screen.name === 'local-setup' && (
+          <SetupScreen onStart={(settings) => setScreen({ name: 'local-game', settings })} onBack={home} />
+        )}
+        {screen.name === 'local-game' && <GameScreen settings={screen.settings} onQuit={home} />}
+        {screen.name === 'online-lobby' && (
+          <OnlineLobbyScreen initialName={lastRoom?.name ?? ''} onEnter={openRoom} onBack={home} />
+        )}
+        {screen.name === 'online-room' && (
+          <OnlineRoomScreen roomId={screen.roomId} userId={screen.userId} onLeave={home} />
+        )}
+        <StatusBar style="light" />
+      </View>
+    </SafeAreaProvider>
   );
 }
 

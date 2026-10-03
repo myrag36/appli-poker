@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import type { HandView } from '@appli-poker/engine';
 import { ChipStack, DealerButton } from './Chip';
 import { PlayingCard } from './PlayingCard';
@@ -14,24 +14,34 @@ const STREET_NAMES: Record<string, string> = {
 
 const SEAT_WIDTH = 84;
 
+interface Props {
+  hand: HandView;
+  meId?: string;
+  /** Space the table may fill; it keeps its oval shape inside it. */
+  maxWidth: number;
+  maxHeight: number;
+}
+
 /**
  * Oval table seen from above, with players seated around it. `meId` sits at the bottom;
  * hole cards are shown only once revealed at showdown.
  */
-export function Table({ hand, meId }: { hand: HandView; meId?: string }) {
-  const { width: screenWidth } = useWindowDimensions();
-  const w = Math.min(screenWidth - 32, 440);
-  const h = Math.round(w * 1.3);
+export function Table({ hand, meId, maxWidth, maxHeight }: Props) {
+  let w = Math.min(maxWidth, 440);
+  let h = Math.min(Math.round(w * 1.45), maxHeight);
+  // On short screens, narrow the table too so it stays an oval rather than a circle.
+  if (h < w * 1.05) w = Math.round(h / 1.05);
   const cx = w / 2;
   const cy = h / 2;
   // Seats sit on an ellipse slightly inside the rail.
   const rx = w / 2 - SEAT_WIDTH / 2 + 4;
-  const ry = h / 2 - 34;
+  // Leave room under the bottom seat for its name plate and hand name.
+  const ry = h / 2 - 50;
 
   const n = hand.players.length;
   const meIndex = Math.max(0, hand.players.findIndex((p) => p.id === meId));
   const pot = hand.players.reduce((s, p) => s + p.totalBet, 0);
-  const cardWidth = Math.min(46, Math.floor((w * 0.62) / 5) - 4);
+  const cardWidth = Math.max(26, Math.min(46, Math.floor((w * 0.62) / 5) - 4, Math.floor(h / 13)));
 
   return (
     <View style={[styles.wrap, { width: w, height: h }]}>
@@ -60,8 +70,8 @@ export function Table({ hand, meId }: { hand: HandView; meId?: string }) {
         const angle = Math.PI / 2 + (((i - meIndex + n) % n) * 2 * Math.PI) / n;
         const x = cx + rx * Math.cos(angle);
         const y = cy + ry * Math.sin(angle);
-        // Bets sit about 75 points from the seat, towards the middle of the table.
-        const t = Math.min(0.45, 75 / Math.hypot(cx - x, cy - y));
+        // Bets sit a fixed distance from the seat, towards the middle of the table.
+        const t = Math.min(0.45, Math.min(75, h * 0.17) / Math.hypot(cx - x, cy - y));
         const bx = x + (cx - x) * t;
         const by = y + (cy - y) * t;
         const shown = hand.showdown[p.id];
@@ -118,7 +128,7 @@ export function Table({ hand, meId }: { hand: HandView; meId?: string }) {
 }
 
 const styles = StyleSheet.create({
-  wrap: { alignSelf: 'center', marginVertical: 8 },
+  wrap: { alignSelf: 'center' },
   rail: {
     position: 'absolute',
     top: 18,

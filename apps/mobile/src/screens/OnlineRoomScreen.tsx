@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Action } from '@appli-poker/engine';
 import { ActionPanel } from '../components/ActionPanel';
 import { Button } from '../components/Button';
+import { GameLayout } from '../components/GameLayout';
 import { HandSummary } from '../components/HandSummary';
 import { Panel, PanelText } from '../components/Panel';
 import { PlayingCard } from '../components/PlayingCard';
 import { Table } from '../components/Table';
+import { TopBar } from '../components/TopBar';
 import { TurnTimer } from '../components/TurnTimer';
 import { callServer } from '../online/supabase';
 import { useRoom } from '../online/useRoom';
@@ -24,6 +27,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const lastTimeoutRequest = useRef(0);
+  const insets = useSafeAreaInsets();
 
   const deadline = room?.public_state?.deadline ?? null;
 
@@ -77,48 +81,59 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
   const withChips = players.filter((p) => p.stack > 0);
   const waiting = hand ? players.filter((p) => !hand.players.some((h) => h.id === p.user_id)) : [];
 
-  const codeBanner = (
-    <View style={styles.codeBox}>
-      <Text style={styles.codeLabel}>Code de la table</Text>
-      <Text style={styles.code}>{room.code}</Text>
-      <Button
-        label="Inviter des amis"
-        variant="secondary"
-        onPress={() =>
-          Share.share({ message: `Viens jouer au poker avec moi ! Code de la table : ${room.code}` })
-        }
-      />
-    </View>
-  );
+  const invite = () =>
+    Share.share({ message: `Viens jouer au poker avec moi ! Code de la table : ${room.code}` });
+
+  if (!hand) {
+    return (
+      <ScrollView contentContainerStyle={[styles.container, { paddingTop: insets.top + 16 }]}>
+        <View style={styles.codeBox}>
+          <Text style={styles.codeLabel}>Code de la table</Text>
+          <Text style={styles.code}>{room.code}</Text>
+          <Button label="Inviter des amis" variant="secondary" onPress={invite} />
+        </View>
+        <Panel title={`Joueurs (${players.length}/8)`}>
+          {players.map((p) => (
+            <PanelText key={p.user_id}>
+              {p.name}
+              {p.user_id === room.host_id ? ' 👑' : ''}
+              {p.user_id === userId ? ' (toi)' : ''}
+            </PanelText>
+          ))}
+          {isHost ? (
+            <Button
+              label={players.length < 2 ? 'En attente d\'un autre joueur…' : 'Lancer la partie'}
+              disabled={busy || players.length < 2}
+              onPress={() => send({ type: 'deal', roomId })}
+            />
+          ) : (
+            <PanelText>En attente que {host?.name ?? 'le créateur'} lance la partie…</PanelText>
+          )}
+        </Panel>
+        {syncError && <Text style={styles.error}>{syncError}</Text>}
+        <View style={styles.spacer} />
+        <Button label="Retour à l'accueil" variant="secondary" onPress={onLeave} />
+      </ScrollView>
+    );
+  }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      {!hand ? (
+    <GameLayout
+      top={
+        <TopBar onBack={onLeave}>
+          <Pressable accessibilityRole="button" onPress={invite} hitSlop={8} style={styles.codePill}>
+            <Text style={styles.codePillText}>
+              Table <Text style={styles.codePillCode}>{room.code}</Text> · Inviter
+            </Text>
+          </Pressable>
+        </TopBar>
+      }
+      table={({ width, height }) => <Table hand={hand} meId={userId} maxWidth={width} maxHeight={height} />}
+      bottom={
         <>
-          {codeBanner}
-          <Panel title={`Joueurs (${players.length}/8)`}>
-            {players.map((p) => (
-              <PanelText key={p.user_id}>
-                {p.name}
-                {p.user_id === room.host_id ? ' 👑' : ''}
-                {p.user_id === userId ? ' (toi)' : ''}
-              </PanelText>
-            ))}
-            {isHost ? (
-              <Button
-                label={players.length < 2 ? 'En attente d\'un autre joueur…' : 'Lancer la partie'}
-                disabled={busy || players.length < 2}
-                onPress={() => send({ type: 'deal', roomId })}
-              />
-            ) : (
-              <PanelText>En attente que {host?.name ?? 'le créateur'} lance la partie…</PanelText>
-            )}
-          </Panel>
-        </>
-      ) : (
-        <>
-          <Table hand={hand} meId={userId} />
-          {actor && hand.deadline && <TurnTimer deadline={hand.deadline} now={now} name={myTurn ? 'Toi' : actor.name} />}
+          {actor && hand.deadline && (
+            <TurnTimer deadline={hand.deadline} now={now} name={myTurn ? 'Toi' : actor.name} />
+          )}
 
           {myTurn && hand.street !== 'finished' && (
             <ActionPanel
@@ -134,16 +149,18 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
           )}
 
           {!myTurn && hand.street !== 'finished' && (
-            <Panel title={actor ? `Au tour de ${actor.name}` : undefined}>
+            <View style={styles.waitPanel}>
               {inHand && myCards.length > 0 && (
                 <View style={styles.cards}>
                   {myCards.map((c) => (
-                    <PlayingCard key={c} card={c} />
+                    <PlayingCard key={c} card={c} width={42} />
                   ))}
                 </View>
               )}
-              {!inHand && <PanelText>Tu joueras à la prochaine main.</PanelText>}
-            </Panel>
+              <Text style={styles.waitText}>
+                {!inHand ? 'Tu joueras à la prochaine main.' : actor ? `Au tour de ${actor.name}` : ''}
+              </Text>
+            </View>
           )}
 
           {hand.street === 'finished' && (
@@ -151,7 +168,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
               {withChips.length < 2 ? (
                 <PanelText>🏆 {withChips[0]?.name} gagne la partie !</PanelText>
               ) : isHost ? (
-                <Button label="Main suivante" disabled={busy} onPress={() => send({ type: 'deal', roomId })} />
+                <Button compact label="Main suivante" disabled={busy} onPress={() => send({ type: 'deal', roomId })} />
               ) : (
                 <PanelText>En attente que {host?.name ?? 'le créateur'} distribue…</PanelText>
               )}
@@ -160,21 +177,14 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
           )}
 
           {waiting.length > 0 && (
-            <Panel>
-              <PanelText>
-                Rejoindront à la prochaine main : {waiting.map((p) => p.name).join(', ')}
-              </PanelText>
-            </Panel>
+            <Text style={styles.note} numberOfLines={1}>
+              Rejoindront à la prochaine main : {waiting.map((p) => p.name).join(', ')}
+            </Text>
           )}
-
-          {codeBanner}
+          {syncError && <Text style={styles.error}>{syncError}</Text>}
         </>
-      )}
-
-      {syncError && <Text style={styles.error}>{syncError}</Text>}
-      <View style={styles.spacer} />
-      <Button label="Retour à l'accueil" variant="secondary" onPress={onLeave} />
-    </ScrollView>
+      }
+    />
   );
 }
 
@@ -184,7 +194,28 @@ const styles = StyleSheet.create({
   codeBox: { alignItems: 'stretch', marginTop: 16, gap: 4 },
   codeLabel: { color: colors.muted, textAlign: 'center' },
   code: { color: colors.gold, fontSize: 40, fontWeight: '800', letterSpacing: 8, textAlign: 'center' },
-  cards: { flexDirection: 'row', justifyContent: 'center', marginVertical: 6 },
-  error: { color: colors.gold, textAlign: 'center', marginTop: 8 },
+  cards: { flexDirection: 'row', gap: 2 },
+  codePill: {
+    backgroundColor: colors.feltDark,
+    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  codePillText: { color: colors.muted, fontSize: 13, fontWeight: '600' },
+  codePillCode: { color: colors.gold, fontWeight: '800', letterSpacing: 2 },
+  waitPanel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: colors.feltDark,
+    minHeight: 79,
+  },
+  waitText: { color: colors.text, fontSize: 15, fontWeight: '700', flex: 1, textAlign: 'center' },
+  note: { color: colors.muted, textAlign: 'center', fontSize: 12 },
+  error: { color: colors.gold, textAlign: 'center' },
   spacer: { height: 16 },
 });

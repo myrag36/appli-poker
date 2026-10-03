@@ -29,23 +29,26 @@ export function ActionPanel({ hand, playerId, title, hole, error, busy, onAction
 
   return (
     <View style={styles.panel}>
-      <Text style={styles.title}>{title}</Text>
-      <View style={[styles.row, styles.center]}>
-        {hole.map((c) => (
-          <PlayingCard key={c} card={c} width={64} />
-        ))}
-      </View>
-      {legal && (
-        <>
-          <View style={styles.row}>
+      <Text style={styles.title} numberOfLines={1}>
+        {title}
+      </Text>
+      <View style={styles.row}>
+        <View style={styles.cards}>
+          {hole.map((c) => (
+            <PlayingCard key={c} card={c} width={42} />
+          ))}
+        </View>
+        {legal && (
+          <View style={[styles.row, styles.grow]}>
             {legal.fold && (
-              <Button label="Se coucher" variant="danger" disabled={busy} onPress={() => play({ type: 'fold' })} />
+              <Button compact label="Coucher" variant="danger" disabled={busy} onPress={() => play({ type: 'fold' })} />
             )}
             {legal.check && (
-              <Button label="Checker" variant="secondary" disabled={busy} onPress={() => play({ type: 'check' })} />
+              <Button compact label="Checker" variant="secondary" disabled={busy} onPress={() => play({ type: 'check' })} />
             )}
             {legal.call > 0 && (
               <Button
+                compact
                 label={`Suivre ${legal.call}`}
                 variant="secondary"
                 disabled={busy}
@@ -53,32 +56,37 @@ export function ActionPanel({ hand, playerId, title, hole, error, busy, onAction
               />
             )}
           </View>
-          {bounds && (
-            <>
-              <View style={[styles.row, styles.center]}>
-                <Button
-                  label="−"
-                  variant="secondary"
-                  onPress={() => setRaiseTo(Math.max(bounds.min, raiseValue - hand.bigBlind))}
-                />
-                <Text style={styles.raiseValue}>{raiseValue}</Text>
-                <Button
-                  label="+"
-                  variant="secondary"
-                  onPress={() => setRaiseTo(Math.min(bounds.max, raiseValue + hand.bigBlind))}
-                />
-              </View>
-              <View style={styles.row}>
-                <Button
-                  label={`${hand.currentBet === 0 ? 'Miser' : 'Relancer à'} ${raiseValue}`}
-                  disabled={busy}
-                  onPress={() => play({ type: 'raise', to: raiseValue })}
-                />
-                <Button label="Tapis" variant="danger" disabled={busy} onPress={() => play({ type: 'allin' })} />
-              </View>
-            </>
-          )}
-        </>
+        )}
+      </View>
+      {legal && bounds && (
+        <View style={styles.row}>
+          <View style={styles.step}>
+            <Button
+              compact
+              label="−"
+              variant="secondary"
+              onPress={() => setRaiseTo(Math.max(bounds.min, raiseValue - hand.bigBlind))}
+            />
+          </View>
+          <Text style={styles.raiseValue} numberOfLines={1}>
+            {raiseValue}
+          </Text>
+          <View style={styles.step}>
+            <Button
+              compact
+              label="+"
+              variant="secondary"
+              onPress={() => setRaiseTo(Math.min(bounds.max, raiseValue + hand.bigBlind))}
+            />
+          </View>
+          <Button
+            compact
+            label={hand.currentBet === 0 ? 'Miser' : 'Relancer'}
+            disabled={busy}
+            onPress={() => play({ type: 'raise', to: raiseValue })}
+          />
+          <Button compact label="Tapis" variant="danger" disabled={busy} onPress={() => play({ type: 'allin' })} />
+        </View>
       )}
       {error && <Text style={styles.error}>{error}</Text>}
     </View>
@@ -86,10 +94,12 @@ export function ActionPanel({ hand, playerId, title, hole, error, busy, onAction
 }
 
 const styles = StyleSheet.create({
-  panel: { marginTop: 16, padding: 14, borderRadius: 12, backgroundColor: colors.feltDark, gap: 6 },
-  title: { color: colors.text, fontSize: 18, fontWeight: '800', textAlign: 'center' },
-  row: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  center: { justifyContent: 'center', marginVertical: 6 },
-  raiseValue: { color: colors.text, fontSize: 22, fontWeight: '800', minWidth: 80, textAlign: 'center' },
+  panel: { padding: 10, borderRadius: 12, backgroundColor: colors.feltDark, gap: 8 },
+  title: { color: colors.text, fontSize: 15, fontWeight: '800', textAlign: 'center' },
+  row: { flexDirection: 'row', gap: 6, alignItems: 'center' },
+  grow: { flex: 1 },
+  cards: { flexDirection: 'row', gap: 2 },
+  step: { width: 40 },
+  raiseValue: { color: colors.text, fontSize: 17, fontWeight: '800', minWidth: 48, textAlign: 'center' },
   error: { color: colors.gold, textAlign: 'center' },
 });

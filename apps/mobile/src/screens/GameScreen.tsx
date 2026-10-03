@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
 import { type Action, type HandState, type SeatInput, applyAction, startHand } from '@appli-poker/engine';
 import { ActionPanel } from '../components/ActionPanel';
 import { Button } from '../components/Button';
+import { GameLayout } from '../components/GameLayout';
 import { HandSummary } from '../components/HandSummary';
 import { Panel, PanelText } from '../components/Panel';
 import { Table } from '../components/Table';
+import { TopBar } from '../components/TopBar';
 import { deviceRng } from '../rng';
 import type { GameSettings } from './SetupScreen';
 
@@ -57,47 +58,43 @@ export function GameScreen({ settings, onQuit }: { settings: GameSettings; onQui
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Table hand={hand} />
-
-      {actor && revealedFor !== actor.id && (
-        <Panel title={`Au tour de ${actor.name}`}>
-          <PanelText>Passe-lui le téléphone, les autres ne regardent pas !</PanelText>
-          <Button label="Voir mes cartes" onPress={() => setRevealedFor(actor.id)} />
-        </Panel>
-      )}
-
-      {actor && revealedFor === actor.id && (
-        <ActionPanel
-          hand={hand}
-          playerId={actor.id}
-          title={`${actor.name}, à toi de jouer`}
-          hole={actor.hole}
-          error={error}
-          onAction={play}
-        />
-      )}
-
-      {hand.street === 'finished' && (
-        <HandSummary hand={hand}>
-          {remaining.length > 1 ? (
-            <Button label="Main suivante" onPress={nextHand} />
-          ) : (
-            <>
-              <PanelText>🏆 {remaining[0]?.name} gagne la partie !</PanelText>
-              <Button label="Nouvelle partie" onPress={onQuit} />
-            </>
+    <GameLayout
+      top={<TopBar onBack={onQuit} backLabel="← Quitter" />}
+      table={({ width, height }) => <Table hand={hand} maxWidth={width} maxHeight={height} />}
+      bottom={
+        <>
+          {actor && revealedFor !== actor.id && (
+            <Panel compact title={`Au tour de ${actor.name}`}>
+              <PanelText>Passe-lui le téléphone, les autres ne regardent pas !</PanelText>
+              <Button compact label="Voir mes cartes" onPress={() => setRevealedFor(actor.id)} />
+            </Panel>
           )}
-        </HandSummary>
-      )}
 
-      <View style={styles.spacer} />
-      <Button label="Quitter la partie" variant="secondary" onPress={onQuit} />
-    </ScrollView>
+          {actor && revealedFor === actor.id && (
+            <ActionPanel
+              hand={hand}
+              playerId={actor.id}
+              title={`${actor.name}, à toi de jouer`}
+              hole={actor.hole}
+              error={error}
+              onAction={play}
+            />
+          )}
+
+          {hand.street === 'finished' && (
+            <HandSummary hand={hand}>
+              {remaining.length > 1 ? (
+                <Button compact label="Main suivante" onPress={nextHand} />
+              ) : (
+                <>
+                  <PanelText>🏆 {remaining[0]?.name} gagne la partie !</PanelText>
+                  <Button compact label="Nouvelle partie" onPress={onQuit} />
+                </>
+              )}
+            </HandSummary>
+          )}
+        </>
+      }
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  container: { padding: 16, paddingTop: 56 },
-  spacer: { height: 16 },
-});
