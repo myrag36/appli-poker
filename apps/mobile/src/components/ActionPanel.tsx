@@ -94,7 +94,7 @@ export function ActionPanel({ hand, playerId, title, hole, error, busy, onAction
 }
 
 const styles = StyleSheet.create({
-  panel: { padding: 10, borderRadius: 12, backgroundColor: colors.feltDark, gap: 8 },
+  panel: { padding: 10, borderRadius: 12, backgroundColor: colors.glass, borderWidth: 1, borderColor: colors.glassBorder, gap: 8 },
   title: { color: colors.text, fontSize: 15, fontWeight: '800', textAlign: 'center' },
   row: { flexDirection: 'row', gap: 6, alignItems: 'center' },
   grow: { flex: 1 },

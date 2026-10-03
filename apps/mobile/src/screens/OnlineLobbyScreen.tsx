@@ -109,7 +109,9 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   label: { color: colors.muted, marginBottom: 4 },
   input: {
-    backgroundColor: colors.feltDark,
+    backgroundColor: colors.glass,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
     color: colors.text,
     borderRadius: 8,
     paddingHorizontal: 12,
