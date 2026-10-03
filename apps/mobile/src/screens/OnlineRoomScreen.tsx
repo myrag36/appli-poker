@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { Action } from '@appli-poker/engine';
+import { type Action, type Avatar, cleanAvatar, defaultAvatar } from '@appli-poker/engine';
 import { ActionPanel } from '../components/ActionPanel';
+import { AvatarBadge } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
 import { GameLayout } from '../components/GameLayout';
 import { HandSummary } from '../components/HandSummary';
@@ -102,6 +103,13 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
   const withChips = players.filter((p) => p.stack > 0);
   const waiting = hand ? players.filter((p) => !hand.players.some((h) => h.id === p.user_id)) : [];
 
+  const avatars: Record<string, Avatar> = Object.fromEntries(
+    players.map((p) => [
+      p.user_id,
+      cleanAvatar({ emoji: p.avatar, color: p.avatar_color }, defaultAvatar(p.seat)),
+    ]),
+  );
+
   const invite = () =>
     Share.share({ message: `Viens jouer au poker avec moi ! Code de la table : ${room.code}` });
 
@@ -115,11 +123,14 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
         </View>
         <Panel title={`Joueurs (${players.length}/8)`}>
           {players.map((p) => (
-            <PanelText key={p.user_id}>
-              {p.name}
-              {p.user_id === room.host_id ? ' 👑' : ''}
-              {p.user_id === userId ? ' (toi)' : ''}
-            </PanelText>
+            <View key={p.user_id} style={styles.lobbyPlayer}>
+              <AvatarBadge avatar={avatars[p.user_id]} size={34} />
+              <Text style={styles.lobbyName}>
+                {p.name}
+                {p.user_id === room.host_id ? ' 👑' : ''}
+                {p.user_id === userId ? ' (toi)' : ''}
+              </Text>
+            </View>
           ))}
           {room.level_minutes && (
             <PanelText>
@@ -189,6 +200,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
           maxWidth={width}
           maxHeight={height}
           reactions={reactions}
+          avatars={avatars}
           nextLevelAt={hand.tournament?.nextLevelAt}
         />
       )}
@@ -281,6 +293,8 @@ const styles = StyleSheet.create({
     borderColor: colors.glassBorder,
   },
   topWrap: { zIndex: 10 },
+  lobbyPlayer: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 2 },
+  lobbyName: { color: colors.text, fontSize: 16, fontWeight: '600' },
   reactButton: {
     width: 32,
     height: 32,

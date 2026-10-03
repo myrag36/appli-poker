@@ -51,6 +51,7 @@ export function GameScreen({ settings, onQuit }: { settings: GameSettings; onQui
   const level = settings.levelMinutes ? blindLevel(startedAt, Date.now(), settings.levelMinutes) : null;
 
   useHandSounds(hand, null);
+  const avatars = Object.fromEntries(settings.avatars.map((a, i) => [`p${i}`, a]));
 
   function play(action: Action) {
     if (!actor) return;
@@ -91,7 +92,13 @@ export function GameScreen({ settings, onQuit }: { settings: GameSettings; onQui
     <GameLayout
       top={<TopBar onBack={onQuit} backLabel="← Quitter" />}
       table={({ width, height }) => (
-        <Table hand={hand} maxWidth={width} maxHeight={height} nextLevelAt={level?.nextLevelAt} />
+        <Table
+          hand={hand}
+          maxWidth={width}
+          maxHeight={height}
+          nextLevelAt={level?.nextLevelAt}
+          avatars={avatars}
+        />
       )}
       bottom={
         <>

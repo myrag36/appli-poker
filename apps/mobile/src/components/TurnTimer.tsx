@@ -24,7 +24,7 @@ const styles = StyleSheet.create({
   box: { gap: 3 },
   text: { color: colors.muted, textAlign: 'center', fontWeight: '600', fontSize: 13 },
   urgent: { color: colors.danger },
-  track: { height: 4, borderRadius: 2, backgroundColor: colors.feltDark, overflow: 'hidden' },
+  track: { height: 4, borderRadius: 2, backgroundColor: 'rgba(0,0,0,0.35)', overflow: 'hidden' },
   fill: { height: 4, backgroundColor: colors.gold },
   fillUrgent: { backgroundColor: colors.danger },
 });

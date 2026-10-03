@@ -57,6 +57,6 @@ const styles = StyleSheet.create({
   },
   pillActive: { backgroundColor: colors.gold, borderColor: colors.gold },
   pillText: { color: colors.text, fontWeight: '700', fontSize: 14 },
-  pillTextActive: { color: '#212529' },
+  pillTextActive: { color: colors.onGold },
   hint: { color: colors.muted, fontSize: 13 },
 });

@@ -32,7 +32,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 8,
   },
-  first: { backgroundColor: 'rgba(255, 193, 7, 0.15)' },
+  first: { backgroundColor: 'rgba(255, 255, 255, 0.08)' },
   place: { width: 30, textAlign: 'center', fontSize: 16, color: colors.muted, fontWeight: '700' },
   name: { color: colors.text, fontSize: 15, fontWeight: '600', flex: 1 },
   nameFirst: { color: colors.gold, fontWeight: '800' },

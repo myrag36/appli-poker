@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { gradients } from '../theme';
+import { colors, gradients } from '../theme';
 
 const SUITS = ['♠', '♥', '♦', '♣'];
 
@@ -42,8 +42,8 @@ const styles = StyleSheet.create({
     width: 240,
     height: 160,
     borderRadius: 120,
-    backgroundColor: 'rgba(60, 200, 130, 0.12)',
-    boxShadow: '0 0 120px 110px rgba(60, 200, 130, 0.12)',
+    backgroundColor: colors.glow,
+    boxShadow: `0 0 120px 110px ${colors.glow}`,
   },
   clip: { overflow: 'hidden' },
   suit: { position: 'absolute', fontSize: 30, color: 'rgba(255, 255, 255, 0.035)' },
