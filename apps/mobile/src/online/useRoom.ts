@@ -11,7 +11,8 @@ export interface Room {
   status: 'lobby' | 'playing';
   hand_number: number;
   version: number;
-  public_state: HandView | null;
+  /** `deadline` is when the player to act runs out of time, in epoch ms. */
+  public_state: (HandView & { deadline?: number | null }) | null;
 }
 
 export interface RoomPlayer {

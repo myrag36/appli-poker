@@ -13,6 +13,7 @@ import {
   makeRoomCode,
   parseAction,
   playAction,
+  playTimeout,
 } from './logic.ts';
 
 const cors = {
@@ -133,7 +134,7 @@ async function nextHand(userId: string, roomId: string) {
   const room = await loadRoom(admin, roomId);
   if (room.host_id !== userId) throw new GameError('Seul le créateur de la table peut distribuer');
   const [players, previous] = await Promise.all([loadPlayers(admin, roomId), loadHand(admin, roomId)]);
-  const version = await save(admin, dealNextHand(room, players, previous));
+  const version = await save(admin, dealNextHand(room, players, previous, Date.now()));
   return { version };
 }
 
@@ -143,7 +144,16 @@ async function act(userId: string, roomId: string, rawAction: unknown) {
   const room = await loadRoom(admin, roomId);
   const hand = await loadHand(admin, roomId);
   if (!hand) throw new GameError('Aucune main en cours');
-  const version = await save(admin, playAction(room, hand, userId, action));
+  const version = await save(admin, playAction(room, hand, userId, action, Date.now()));
+  return { version };
+}
+
+async function timeout(userId: string, roomId: string) {
+  const room = await loadRoom(admin, roomId);
+  const [players, hand] = await Promise.all([loadPlayers(admin, roomId), loadHand(admin, roomId)]);
+  if (!players.some((p) => p.user_id === userId)) throw new GameError('Tu n\'es pas à cette table');
+  if (!hand) throw new GameError('Aucune main en cours');
+  const version = await save(admin, playTimeout(room, hand, Date.now()));
   return { version };
 }
 
@@ -167,6 +177,8 @@ Deno.serve(async (req) => {
         return json(await nextHand(user.id, roomId));
       case 'act':
         return json(await act(user.id, roomId, body.action));
+      case 'timeout':
+        return json(await timeout(user.id, roomId));
       default:
         return json({ error: 'Requête inconnue' }, 400);
     }

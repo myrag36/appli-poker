@@ -1,0 +1,30 @@
+import { StyleSheet, Text, View } from 'react-native';
+import { colors } from '../theme';
+
+const TURN_SECONDS = 45;
+
+/** Seconds left for the player to act, with a bar that shrinks and turns red at the end. */
+export function TurnTimer({ deadline, now, name }: { deadline: number; now: number; name: string }) {
+  const left = Math.max(0, Math.ceil((deadline - now) / 1000));
+  const ratio = Math.min(1, left / TURN_SECONDS);
+  const urgent = left <= 10;
+  return (
+    <View style={styles.box}>
+      <Text style={[styles.text, urgent && styles.urgent]}>
+        {left > 0 ? `${name} : ${left} s` : `Temps écoulé pour ${name}`}
+      </Text>
+      <View style={styles.track}>
+        <View style={[styles.fill, { width: `${ratio * 100}%` }, urgent && styles.fillUrgent]} />
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  box: { marginTop: 12, gap: 4 },
+  text: { color: colors.muted, textAlign: 'center', fontWeight: '600' },
+  urgent: { color: colors.danger },
+  track: { height: 6, borderRadius: 3, backgroundColor: colors.feltDark, overflow: 'hidden' },
+  fill: { height: 6, backgroundColor: colors.gold },
+  fillUrgent: { backgroundColor: colors.danger },
+});

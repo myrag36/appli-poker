@@ -37,7 +37,8 @@ type Request =
   | { type: 'create'; name: string; bigBlind: number; stack: number }
   | { type: 'join'; name: string; code: string }
   | { type: 'deal'; roomId: string }
-  | { type: 'act'; roomId: string; action: Action };
+  | { type: 'act'; roomId: string; action: Action }
+  | { type: 'timeout'; roomId: string };
 
 /** Calls the game server and turns its error replies into readable messages. */
 export async function callServer<T>(body: Request): Promise<T> {

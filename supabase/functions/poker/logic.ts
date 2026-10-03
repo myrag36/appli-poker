@@ -4,12 +4,15 @@ import {
   type HandView,
   type Rng,
   applyAction,
+  legalActions,
   secureRng,
   startHand,
   viewFor,
 } from '../_shared/engine/index.ts';
 
 export const MAX_PLAYERS = 8;
+/** Time each player has to act before the server plays for them. */
+export const TURN_MS = 45_000;
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 export interface RoomRow {
@@ -20,7 +23,11 @@ export interface RoomRow {
   dealer: number;
   hand_number: number;
   version: number;
+  public_state?: PublicState | null;
 }
+
+/** The public view plus when the player to act runs out of time (epoch ms). */
+export type PublicState = HandView & { deadline: number | null };
 
 export interface PlayerRow {
   user_id: string;
@@ -33,7 +40,7 @@ export interface PlayerRow {
 export interface SaveParams {
   p_room: string;
   p_version: number;
-  p_public: HandView;
+  p_public: PublicState;
   p_secret: HandState;
   p_dealer?: number;
   p_hand_number?: number;
@@ -61,6 +68,10 @@ export function firstFreeSeat(players: PlayerRow[]): number {
   throw new GameError('La table est pleine (8 joueurs maximum)');
 }
 
+function publicState(hand: HandState, now: number): PublicState {
+  return { ...viewFor(hand, null), deadline: hand.toAct >= 0 ? now + TURN_MS : null };
+}
+
 function stacksOf(hand: HandState): Record<string, number> {
   return Object.fromEntries(hand.players.map((p) => [p.id, p.stack]));
 }
@@ -70,6 +81,7 @@ export function dealNextHand(
   room: RoomRow,
   players: PlayerRow[],
   previous: HandState | null,
+  now: number,
   rng?: Rng,
 ): SaveParams {
   if (previous && previous.street !== 'finished') throw new GameError('La main en cours n\'est pas finie');
@@ -89,7 +101,7 @@ export function dealNextHand(
   return {
     p_room: room.id,
     p_version: room.version,
-    p_public: viewFor(hand, null),
+    p_public: publicState(hand, now),
     p_secret: hand,
     p_dealer: next.seat,
     p_hand_number: room.hand_number + 1,
@@ -115,7 +127,13 @@ export function parseAction(raw: unknown): Action {
   }
 }
 
-export function playAction(room: RoomRow, hand: HandState, userId: string, action: Action): SaveParams {
+export function playAction(
+  room: RoomRow,
+  hand: HandState,
+  userId: string,
+  action: Action,
+  now: number,
+): SaveParams {
   let next: HandState;
   try {
     next = applyAction(hand, userId, action);
@@ -125,8 +143,18 @@ export function playAction(room: RoomRow, hand: HandState, userId: string, actio
   return {
     p_room: room.id,
     p_version: room.version,
-    p_public: viewFor(next, null),
+    p_public: publicState(next, now),
     p_secret: next,
     p_stacks: stacksOf(next),
   };
+}
+
+/** Plays for a player whose time ran out: check when allowed, otherwise fold. */
+export function playTimeout(room: RoomRow, hand: HandState, now: number): SaveParams {
+  const deadline = room.public_state?.deadline;
+  if (hand.toAct < 0 || !deadline) throw new GameError('Personne ne doit jouer');
+  if (now < deadline) throw new GameError('Le temps n\'est pas encore écoulé');
+  const actor = hand.players[hand.toAct];
+  const legal = legalActions(hand, actor.id)!;
+  return playAction(room, hand, actor.id, legal.check ? { type: 'check' } : { type: 'fold' }, now);
 }
