@@ -6,16 +6,18 @@ import { colors } from '../theme';
 interface Props {
   onBack: () => void;
   backLabel?: string;
+  /** Spoken label for the back button, useful when it shows only an arrow. */
+  backHint?: string;
   children?: ReactNode;
 }
 
-export function TopBar({ onBack, backLabel = '← Accueil', children }: Props) {
+export function TopBar({ onBack, backLabel = '← Accueil', backHint, children }: Props) {
   const [muted, setMuted] = useMuted();
   return (
     <View style={styles.bar}>
       <View style={styles.left}>
-        <Pressable accessibilityRole="button" onPress={onBack} hitSlop={10}>
-          <Text style={styles.back}>{backLabel}</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel={backHint} onPress={onBack} hitSlop={10}>
+          <Text style={[styles.back, backLabel.length === 1 && styles.arrow]}>{backLabel}</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
@@ -42,6 +44,7 @@ const styles = StyleSheet.create({
   },
   left: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   back: { color: colors.muted, fontSize: 15, fontWeight: '600' },
+  arrow: { fontSize: 24, lineHeight: 28, paddingHorizontal: 4 },
   icon: { padding: 2 },
   iconText: { fontSize: 18 },
   right: { flexDirection: 'row', alignItems: 'center', gap: 8 },
