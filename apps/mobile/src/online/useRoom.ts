@@ -14,6 +14,8 @@ export interface Room {
   version: number;
   /** Tournament level length in minutes, or null when the blinds never change. */
   level_minutes: number | null;
+  /** The host paused the game: nobody can play until it resumes. */
+  paused?: boolean;
   /**
    * `deadline` is when the player to act runs out of time, in epoch ms.
    * `tournament` is the blind level of this hand and when the next level starts.
@@ -52,6 +54,8 @@ export const MAX_MESSAGE_LENGTH = 200;
 const HISTORY = 50;
 /** How long a message stays in a bubble next to its author. */
 const BUBBLE_MS = 6000;
+/** How often the room is reloaded in case a realtime event was missed. */
+const POLL_MS = 20_000;
 
 /** The emojis players can send at the table. */
 export const REACTIONS = ['👍', '😂', '🔥', '😱', '😭', '👏'];
@@ -62,6 +66,9 @@ export function useRoom(roomId: string, userId: string) {
   const [players, setPlayers] = useState<RoomPlayer[]>([]);
   const [myCards, setMyCards] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // The room disappears from what I can read once the host removes me from it.
+  const [removed, setRemoved] = useState(false);
+  const loaded = useRef(false);
   const [reactions, setReactions] = useState<Reactions>({});
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [bubbles, setBubbles] = useState<Bubbles>({});
@@ -160,9 +167,11 @@ export function useRoom(roomId: string, userId: string) {
       return;
     }
     if (!r.data) {
-      setError('Table introuvable');
+      if (loaded.current) setRemoved(true);
+      else setError('Table introuvable');
       return;
     }
+    loaded.current = true;
     const nextRoom = r.data as Room;
     setRoom(nextRoom);
     setPlayers(p.data as RoomPlayer[]);
@@ -209,7 +218,11 @@ export function useRoom(roomId: string, userId: string) {
         }
       });
     channelRef.current = channel;
+    // Realtime can miss events (a sleeping phone, or being removed from the table, which
+    // hides the room's changes from me), so check again from time to time.
+    const poll = setInterval(refresh, POLL_MS);
     return () => {
+      clearInterval(poll);
       channelRef.current = null;
       supabase.removeChannel(channel);
     };
@@ -227,5 +240,6 @@ export function useRoom(roomId: string, userId: string) {
     messagesLoaded,
     sendMessage,
     bubbles,
+    removed,
   };
 }

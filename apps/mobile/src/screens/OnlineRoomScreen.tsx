@@ -6,6 +6,7 @@ import { ActionPanel } from '../components/ActionPanel';
 import { AvatarBadge } from '../components/AvatarPicker';
 import { ChatPanel } from '../components/ChatPanel';
 import { HistoryPanel } from '../components/HistoryPanel';
+import { ManagePanel } from '../components/ManagePanel';
 import { Button } from '../components/Button';
 import { GameLayout } from '../components/GameLayout';
 import { HandSummary } from '../components/HandSummary';
@@ -15,7 +16,7 @@ import { Ranking } from '../components/Ranking';
 import { Table } from '../components/Table';
 import { TopBar } from '../components/TopBar';
 import { TurnTimer } from '../components/TurnTimer';
-import { callServer } from '../online/supabase';
+import { callServer, saveLastRoom } from '../online/supabase';
 import { REACTIONS, useRoom } from '../online/useRoom';
 import { sounds, useHandSounds } from '../feedback';
 import { Appear } from '../components/Motion';
@@ -40,10 +41,16 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
     messagesLoaded,
     sendMessage,
     bubbles,
+    removed,
   } = useRoom(roomId, userId);
   const [trayOpen, setTrayOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
+  useEffect(() => {
+    // Don't offer to go back to a table I was removed from.
+    if (removed) saveLastRoom(null);
+  }, [removed]);
   // Newest message already seen; what came before I arrived counts as read.
   const [readUpTo, setReadUpTo] = useState<number | null>(null);
   const lastMessageId = messages.length ? messages[messages.length - 1].id : null;
@@ -100,6 +107,17 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
     } finally {
       setBusy(false);
     }
+  }
+
+  if (removed) {
+    return (
+      <View style={styles.loading}>
+        <Text style={styles.removedIcon}>🚪</Text>
+        <Text style={styles.removedText}>Le créateur de la table t’a retiré de la partie.</Text>
+        <View style={styles.spacer} />
+        <Button label="Retour à l'accueil" onPress={onLeave} />
+      </View>
+    );
   }
 
   if (!room) {
@@ -164,6 +182,18 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
     </Pressable>
   );
 
+  const manage = isHost && (
+    <ManagePanel
+      visible={manageOpen}
+      onClose={() => setManageOpen(false)}
+      room={room}
+      players={players}
+      meId={userId}
+      avatars={avatars}
+      onChanged={refresh}
+    />
+  );
+
   const invite = () =>
     Share.share({ message: `Viens jouer au poker avec moi ! Code de la table : ${room.code}` });
 
@@ -207,10 +237,17 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
           variant="secondary"
           onPress={() => setChatOpen(true)}
         />
+        {isHost && players.length > 1 && (
+          <>
+            <View style={styles.spacer} />
+            <Button label="⚙️ Gérer la table" variant="secondary" onPress={() => setManageOpen(true)} />
+          </>
+        )}
         {syncError && <Text style={styles.error}>{syncError}</Text>}
         <View style={styles.spacer} />
         <Button label="Retour à l'accueil" variant="secondary" onPress={onLeave} />
         {chat}
+        {manage}
       </ScrollView>
     );
   }
@@ -221,6 +258,20 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
         <View style={styles.topWrap}>
           {/* Only an arrow here: the bar also holds the history, chat, reactions and table code. */}
           <TopBar onBack={onLeave} backLabel="←" backHint="Retour à l'accueil">
+            {isHost && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Gérer la table"
+                onPress={() => {
+                  setTrayOpen(false);
+                  setManageOpen(true);
+                }}
+                hitSlop={8}
+                style={[styles.reactButton, room.paused && styles.reactButtonOpen]}
+              >
+                <Text style={styles.reactButtonText}>⚙️</Text>
+              </Pressable>
+            )}
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Mains précédentes"
@@ -243,9 +294,17 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
             >
               <Text style={styles.reactButtonText}>😀</Text>
             </Pressable>
-            <Pressable accessibilityRole="button" onPress={invite} hitSlop={8} style={styles.codePill}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Inviter des amis, code ${room.code}`}
+              onPress={invite}
+              hitSlop={8}
+              style={styles.codePill}
+            >
+              {/* The host has one more button, so only the code fits on a small phone. */}
               <Text style={styles.codePillText}>
-                <Text style={styles.codePillCode}>{room.code}</Text> · Inviter
+                <Text style={styles.codePillCode}>{room.code}</Text>
+                {isHost ? '' : ' · Inviter'}
               </Text>
             </Pressable>
           </TopBar>
@@ -286,7 +345,26 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
             <TurnTimer deadline={hand.deadline} now={now} name={myTurn ? 'Toi' : actor.name} />
           )}
 
-          {myTurn && hand.street !== 'finished' && (
+          {room.paused && (
+            <View style={styles.pausePanel}>
+              <Text style={styles.pauseTitle}>⏸ Partie en pause</Text>
+              {isHost ? (
+                <Button
+                  compact
+                  label="▶ Reprendre"
+                  disabled={busy}
+                  onPress={() => send({ type: 'pause', roomId, paused: false })}
+                />
+              ) : (
+                <Text style={styles.waitText}>
+                  {host?.name ?? 'Le créateur'} va bientôt reprendre la partie.
+                </Text>
+              )}
+              {error && <Text style={styles.error}>{error}</Text>}
+            </View>
+          )}
+
+          {!room.paused && myTurn && hand.street !== 'finished' && (
             <ActionPanel
               key={room.version}
               hand={hand}
@@ -299,7 +377,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
             />
           )}
 
-          {!myTurn && hand.street !== 'finished' && (
+          {!room.paused && !myTurn && hand.street !== 'finished' && (
             <View style={styles.waitPanel}>
               {inHand && myCards.length > 0 && (
                 <View style={styles.cards}>
@@ -316,7 +394,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
             </View>
           )}
 
-          {hand.street === 'finished' && (
+          {!room.paused && hand.street === 'finished' && (
             <HandSummary hand={hand}>
               {withChips.length < 2 ? (
                 <>
@@ -348,6 +426,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
           )}
           {syncError && <Text style={styles.error}>{syncError}</Text>}
           {chat}
+          {manage}
           <HistoryPanel
             visible={historyOpen}
             onClose={() => setHistoryOpen(false)}
@@ -436,6 +515,20 @@ const styles = StyleSheet.create({
     borderColor: colors.glassBorder,
     minHeight: 79,
   },
+  pausePanel: {
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: colors.glass,
+    borderWidth: 1,
+    borderColor: colors.gold,
+    minHeight: 79,
+    justifyContent: 'center',
+  },
+  pauseTitle: { color: colors.gold, fontSize: 18, fontWeight: '900' },
+  removedIcon: { fontSize: 48, textAlign: 'center' },
+  removedText: { color: colors.text, fontSize: 17, fontWeight: '700', textAlign: 'center', marginTop: 12 },
   waitText: { color: colors.text, fontSize: 15, fontWeight: '700', flex: 1, textAlign: 'center' },
   note: { color: colors.muted, textAlign: 'center', fontSize: 12 },
   error: { color: colors.gold, textAlign: 'center' },

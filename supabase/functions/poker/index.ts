@@ -8,12 +8,14 @@ import {
   type PlayerRow,
   type RoomRow,
   type SaveParams,
+  checkRemoval,
   cleanName,
   dealNextHand,
   firstFreeSeat,
   handRecords,
   makeRoomCode,
   parseAction,
+  pausedState,
   playAction,
   playTimeout,
 } from './logic.ts';
@@ -210,6 +212,31 @@ async function timeout(userId: string, roomId: string) {
   return { version };
 }
 
+async function setPaused(userId: string, roomId: string, paused: boolean) {
+  const room = await loadRoom(admin, roomId);
+  if (room.host_id !== userId) throw new GameError('Seul le créateur de la table peut mettre en pause');
+  if (Boolean(room.paused) === paused) return { version: room.version };
+  const { data, error } = await admin
+    .from('rooms')
+    .update({ paused, public_state: pausedState(room, paused, Date.now()), version: room.version + 1 })
+    .eq('id', roomId)
+    .eq('version', room.version)
+    .select('version')
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new GameError('Quelqu\'un a joué en même temps, réessaie');
+  return { version: data.version };
+}
+
+async function removePlayer(userId: string, roomId: string, targetId: string) {
+  const room = await loadRoom(admin, roomId);
+  checkRemoval(room, await loadPlayers(admin, roomId), userId, targetId);
+  const { error } = await admin.from('room_players').delete().eq('room_id', roomId).eq('user_id', targetId);
+  if (error) throw error;
+  await admin.from('private_hands').delete().eq('room_id', roomId).eq('user_id', targetId);
+  return { ok: true };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
 
@@ -232,6 +259,10 @@ Deno.serve(async (req) => {
         return json(await act(user.id, roomId, body.action));
       case 'timeout':
         return json(await timeout(user.id, roomId));
+      case 'pause':
+        return json(await setPaused(user.id, roomId, body.paused === true));
+      case 'remove':
+        return json(await removePlayer(user.id, roomId, String(body.userId ?? '')));
       default:
         return json({ error: 'Requête inconnue' }, 400);
     }

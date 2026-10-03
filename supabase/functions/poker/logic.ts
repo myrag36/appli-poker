@@ -30,6 +30,8 @@ export interface RoomRow {
   level_minutes?: number | null;
   /** When the first hand was dealt (ISO date), used to time tournament levels. */
   started_at?: string | null;
+  /** Set by the host: nobody can play, deal or time out until the game resumes. */
+  paused?: boolean;
   public_state?: PublicState | null;
 }
 
@@ -67,6 +69,8 @@ export interface SaveParams {
 }
 
 export class GameError extends Error {}
+
+const PAUSED = 'La partie est en pause';
 
 export function makeRoomCode(rng: Rng = secureRng): string {
   let code = '';
@@ -110,6 +114,7 @@ export function dealNextHand(
   now: number,
   rng?: Rng,
 ): SaveParams {
+  if (room.paused) throw new GameError(PAUSED);
   if (previous && previous.street !== 'finished') throw new GameError('La main en cours n\'est pas finie');
   const seated = players.filter((p) => p.stack > 0).sort((a, b) => a.seat - b.seat);
   if (seated.length < 2) throw new GameError('Il faut au moins 2 joueurs avec des jetons');
@@ -161,6 +166,7 @@ export function playAction(
   action: Action,
   now: number,
 ): SaveParams {
+  if (room.paused) throw new GameError(PAUSED);
   let next: HandState;
   try {
     next = applyAction(hand, userId, action);
@@ -178,6 +184,7 @@ export function playAction(
 
 /** Plays for a player whose time ran out: check when allowed, otherwise fold. */
 export function playTimeout(room: RoomRow, hand: HandState, now: number): SaveParams {
+  if (room.paused) throw new GameError(PAUSED);
   const deadline = room.public_state?.deadline;
   if (hand.toAct < 0 || !deadline) throw new GameError('Personne ne doit jouer');
   if (now < deadline) throw new GameError('Le temps n\'est pas encore écoulé');
@@ -228,4 +235,25 @@ export function handRecords(room: RoomRow, players: PlayerRow[], saved: SavePara
           }
         : null,
   };
+}
+
+/**
+ * Pausing stops the turn clock; resuming gives the player to act a full turn again.
+ * Returns the new public state, or null when no hand is being played.
+ */
+export function pausedState(room: RoomRow, paused: boolean, now: number): PublicState | null {
+  const state = room.public_state;
+  if (!state || state.street === 'finished') return state ?? null;
+  return { ...state, deadline: !paused && state.toAct >= 0 ? now + TURN_MS : null };
+}
+
+/** Checks that the host may remove this player now. */
+export function checkRemoval(room: RoomRow, players: PlayerRow[], hostId: string, targetId: string) {
+  if (room.host_id !== hostId) throw new GameError('Seul le créateur de la table peut retirer un joueur');
+  if (targetId === hostId) throw new GameError('Tu ne peux pas te retirer toi-même');
+  if (!players.some((p) => p.user_id === targetId)) throw new GameError("Ce joueur n'est plus à la table");
+  const hand = room.public_state;
+  if (hand && hand.street !== 'finished' && hand.players.some((p) => p.id === targetId)) {
+    throw new GameError('Attends la fin de la main pour retirer ce joueur');
+  }
 }
