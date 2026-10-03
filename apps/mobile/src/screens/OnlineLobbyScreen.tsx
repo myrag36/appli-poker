@@ -1,8 +1,10 @@
-import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { type Avatar, cleanAvatar, defaultAvatar } from '@appli-poker/engine';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
 import { LevelPicker } from '../components/LevelPicker';
-import { callServer, saveLastRoom } from '../online/supabase';
+import { callServer, loadAvatar, saveAvatar, saveLastRoom } from '../online/supabase';
 import { colors } from '../theme';
 
 interface Props {
@@ -20,6 +22,17 @@ export function OnlineLobbyScreen({ initialName, onEnter, onBack }: Props) {
   const [levelMinutes, setLevelMinutes] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [avatar, setAvatar] = useState<Avatar>(() => defaultAvatar(Math.floor(Math.random() * 8)));
+  const [pickingAvatar, setPickingAvatar] = useState(false);
+
+  useEffect(() => {
+    loadAvatar().then((a) => a && setAvatar(cleanAvatar(a, a)));
+  }, []);
+
+  function changeAvatar(a: Avatar) {
+    setAvatar(a);
+    saveAvatar(a);
+  }
 
   const trimmed = name.trim();
 
@@ -41,15 +54,26 @@ export function OnlineLobbyScreen({ initialName, onEnter, onBack }: Props) {
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.title}>Jouer en ligne</Text>
 
-      <Text style={styles.label}>Ton prénom</Text>
-      <TextInput
-        style={styles.input}
-        value={name}
-        onChangeText={setName}
-        maxLength={16}
-        placeholder="Simon"
-        placeholderTextColor={colors.muted}
-      />
+      <Text style={styles.label}>Ton prénom et ton avatar</Text>
+      <View style={styles.row}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Changer d'avatar"
+          onPress={() => setPickingAvatar(!pickingAvatar)}
+        >
+          <AvatarBadge avatar={avatar} size={48} />
+          <Text style={styles.edit}>✎</Text>
+        </Pressable>
+        <TextInput
+          style={[styles.input, styles.flex]}
+          value={name}
+          onChangeText={setName}
+          maxLength={16}
+          placeholder="Simon"
+          placeholderTextColor={colors.muted}
+        />
+      </View>
+      {pickingAvatar && <AvatarPicker value={avatar} onChange={changeAvatar} />}
 
       <Text style={styles.section}>Rejoindre une table</Text>
       <TextInput
@@ -65,7 +89,7 @@ export function OnlineLobbyScreen({ initialName, onEnter, onBack }: Props) {
       <Button
         label="Rejoindre"
         disabled={busy || !trimmed || code.trim().length !== 6}
-        onPress={() => run(() => callServer({ type: 'join', name: trimmed, code }))}
+        onPress={() => run(() => callServer({ type: 'join', name: trimmed, code, avatar }))}
       />
 
       <Text style={styles.section}>Ou créer une table</Text>
@@ -76,7 +100,12 @@ export function OnlineLobbyScreen({ initialName, onEnter, onBack }: Props) {
         </View>
         <View style={styles.flex}>
           <Text style={styles.label}>Grosse blinde</Text>
-          <TextInput style={styles.input} keyboardType="number-pad" value={bigBlind} onChangeText={setBigBlind} />
+          <TextInput
+            style={styles.input}
+            keyboardType="number-pad"
+            value={bigBlind}
+            onChangeText={setBigBlind}
+          />
         </View>
       </View>
       <LevelPicker value={levelMinutes} onChange={setLevelMinutes} />
@@ -92,6 +121,7 @@ export function OnlineLobbyScreen({ initialName, onEnter, onBack }: Props) {
               stack: parseInt(stack, 10),
               bigBlind: parseInt(bigBlind, 10),
               levelMinutes,
+              avatar,
             }),
           )
         }
@@ -109,7 +139,21 @@ const styles = StyleSheet.create({
   container: { padding: 20, paddingTop: 60 },
   title: { color: colors.gold, fontSize: 30, fontWeight: '800', textAlign: 'center', marginBottom: 16 },
   section: { color: colors.text, fontSize: 18, fontWeight: '700', marginTop: 24, marginBottom: 8 },
-  row: { flexDirection: 'row', gap: 8 },
+  row: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  edit: {
+    position: 'absolute',
+    right: -4,
+    bottom: -2,
+    color: colors.onGold,
+    backgroundColor: colors.gold,
+    borderRadius: 9,
+    width: 18,
+    height: 18,
+    textAlign: 'center',
+    fontSize: 11,
+    lineHeight: 18,
+    overflow: 'hidden',
+  },
   flex: { flex: 1 },
   label: { color: colors.muted, marginBottom: 4 },
   input: {

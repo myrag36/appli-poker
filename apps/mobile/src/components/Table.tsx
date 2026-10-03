@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import type { HandView } from '@appli-poker/engine';
+import type { Avatar, HandView } from '@appli-poker/engine';
 import { BlindsInfo } from './BlindsInfo';
 import { ChipStack, DealerButton } from './Chip';
 import { Appear, FloatUp, FlyTo } from './Motion';
@@ -27,13 +27,15 @@ interface Props {
   reactions?: Record<string, { emoji: string; key: number }>;
   /** In a tournament, when the blinds go up next (epoch ms). */
   nextLevelAt?: number | null;
+  /** Each player's avatar by id; players without one show their initial. */
+  avatars?: Record<string, Avatar>;
 }
 
 /**
  * Oval table seen from above, with players seated around it. `meId` sits at the bottom;
  * hole cards are shown only once revealed at showdown.
  */
-export function Table({ hand, meId, maxWidth, maxHeight, reactions, nextLevelAt }: Props) {
+export function Table({ hand, meId, maxWidth, maxHeight, reactions, nextLevelAt, avatars }: Props) {
   let w = Math.min(maxWidth, 440);
   let h = Math.min(Math.round(w * 1.45), maxHeight);
   // On short screens, narrow the table too so it stays an oval rather than a circle.
@@ -124,7 +126,8 @@ export function Table({ hand, meId, maxWidth, maxHeight, reactions, nextLevelAt 
         const by = y + (cy - y) * t;
         const shown = hand.showdown[p.id];
         const active = i === hand.toAct;
-        const color = seatColors[i % seatColors.length];
+        const avatar = avatars?.[p.id];
+        const color = avatar?.color ?? seatColors[i % seatColors.length];
         const won = hand.pots.some((pot) => pot.winners.includes(p.id));
 
         return (
@@ -151,7 +154,11 @@ export function Table({ hand, meId, maxWidth, maxHeight, reactions, nextLevelAt 
                   won && styles.avatarWon,
                 ]}
               >
-                <Text style={styles.initial}>{p.name.slice(0, 1).toUpperCase()}</Text>
+                {avatar ? (
+                  <Text style={styles.emoji}>{avatar.emoji}</Text>
+                ) : (
+                  <Text style={styles.initial}>{p.name.slice(0, 1).toUpperCase()}</Text>
+                )}
                 {i === hand.dealer && (
                   <View style={styles.dealer}>
                     <DealerButton />
@@ -195,7 +202,7 @@ const styles = StyleSheet.create({
     right: 26,
     backgroundColor: colors.rail,
     borderWidth: 2,
-    borderColor: '#a0703f',
+    borderColor: colors.railBorder,
     padding: 11,
     overflow: 'hidden',
     boxShadow: '0 10px 30px rgba(0,0,0,0.6), inset 0 2px 3px rgba(255,220,170,0.35)',
@@ -204,7 +211,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.felt,
     borderWidth: 2,
-    borderColor: '#2a1608',
+    borderColor: colors.feltBorder,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
@@ -214,8 +221,8 @@ const styles = StyleSheet.create({
     width: '60%',
     height: '50%',
     borderRadius: 999,
-    backgroundColor: 'rgba(120, 230, 160, 0.10)',
-    boxShadow: '0 0 60px 40px rgba(120, 230, 160, 0.10)',
+    backgroundColor: colors.glow,
+    boxShadow: `0 0 60px 40px ${colors.glow}`,
   },
   feltLine: {
     position: 'absolute',
@@ -252,6 +259,7 @@ const styles = StyleSheet.create({
   },
   avatarActive: { borderColor: colors.gold, borderWidth: 3, boxShadow: '0 0 14px rgba(255, 193, 7, 0.9)' },
   avatarWon: { borderColor: colors.gold, borderWidth: 3 },
+  emoji: { fontSize: 24 },
   initial: { color: '#fff', fontWeight: '900', fontSize: 18 },
   dealer: { position: 'absolute', right: -10, top: -4 },
   plate: {

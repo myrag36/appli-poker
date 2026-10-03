@@ -30,6 +30,8 @@ export interface RoomPlayer {
   stack: number;
   /** Final rank once knocked out (1 = winner), or null while still in. */
   place: number | null;
+  avatar: string | null;
+  avatar_color: string | null;
 }
 
 export type Reactions = Record<string, { emoji: string; key: number }>;
@@ -64,7 +66,11 @@ export function useRoom(roomId: string, userId: string) {
     const request = ++latestRequest.current;
     const [r, p, h] = await Promise.all([
       supabase.from('rooms').select('*').eq('id', roomId).maybeSingle(),
-      supabase.from('room_players').select('user_id, name, seat, stack, place').eq('room_id', roomId).order('seat'),
+      supabase
+        .from('room_players')
+        .select('user_id, name, seat, stack, place, avatar, avatar_color')
+        .eq('room_id', roomId)
+        .order('seat'),
       supabase
         .from('private_hands')
         .select('cards, hand_number')
@@ -93,7 +99,11 @@ export function useRoom(roomId: string, userId: string) {
     refresh();
     const channel = supabase
       .channel(`room:${roomId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` }, refresh)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'rooms', filter: `id=eq.${roomId}` },
+        refresh,
+      )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'room_players', filter: `room_id=eq.${roomId}` },

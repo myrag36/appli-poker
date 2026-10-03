@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { AppState, Platform } from 'react-native';
-import type { Action } from '@appli-poker/engine';
+import type { Action, Avatar } from '@appli-poker/engine';
 import { SUPABASE_KEY, SUPABASE_URL } from './config';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
@@ -34,8 +34,15 @@ export async function ensureSignedIn(): Promise<string> {
 }
 
 type Request =
-  | { type: 'create'; name: string; bigBlind: number; stack: number; levelMinutes: number | null }
-  | { type: 'join'; name: string; code: string }
+  | {
+      type: 'create';
+      name: string;
+      bigBlind: number;
+      stack: number;
+      levelMinutes: number | null;
+      avatar: Avatar;
+    }
+  | { type: 'join'; name: string; code: string; avatar: Avatar }
   | { type: 'deal'; roomId: string }
   | { type: 'act'; roomId: string; action: Action }
   | { type: 'timeout'; roomId: string };
@@ -74,6 +81,25 @@ export async function loadLastRoom(): Promise<SavedRoom | null> {
   try {
     const raw = await AsyncStorage.getItem(LAST_ROOM_KEY);
     return raw ? (JSON.parse(raw) as SavedRoom) : null;
+  } catch {
+    return null;
+  }
+}
+
+const AVATAR_KEY = 'appli-poker:avatar';
+
+export async function saveAvatar(avatar: Avatar) {
+  try {
+    await AsyncStorage.setItem(AVATAR_KEY, JSON.stringify(avatar));
+  } catch {
+    // Remembering the avatar is a convenience only.
+  }
+}
+
+export async function loadAvatar(): Promise<Avatar | null> {
+  try {
+    const raw = await AsyncStorage.getItem(AVATAR_KEY);
+    return raw ? (JSON.parse(raw) as Avatar) : null;
   } catch {
     return null;
   }

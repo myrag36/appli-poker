@@ -3,6 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { PlayingCard } from '../components/PlayingCard';
+import { ThemePicker } from '../components/ThemePicker';
 import { colors, gradients, shadow } from '../theme';
 
 interface Props {
@@ -121,6 +122,8 @@ export function HomeScreen({ canResume, playerName, onOnline, onResume, onLocal 
         />
       </View>
 
+      <ThemePicker />
+
       <Pressable
         accessibilityRole="button"
         onPress={() => setShowRules(!showRules)}
@@ -171,8 +174,8 @@ const styles = StyleSheet.create({
     width: 140,
     height: 90,
     borderRadius: 70,
-    backgroundColor: 'rgba(24, 121, 78, 0.35)',
-    boxShadow: '0 0 70px 50px rgba(24, 121, 78, 0.35)',
+    backgroundColor: colors.glow,
+    boxShadow: `0 0 70px 50px ${colors.glow}`,
   },
   fan: { flexDirection: 'row', justifyContent: 'center', height: 104, marginTop: 8 },
   fanCard: { marginHorizontal: -10 },
@@ -204,7 +207,7 @@ const styles = StyleSheet.create({
     borderColor: colors.glassBorder,
     overflow: 'hidden',
   },
-  choiceHighlight: { backgroundColor: colors.gold, borderColor: '#ffe9a8' },
+  choiceHighlight: { backgroundColor: colors.gold, borderColor: colors.goldBorder },
   pressed: { opacity: 0.8, transform: [{ scale: 0.98 }] },
   icon: {
     width: 48,
@@ -218,9 +221,9 @@ const styles = StyleSheet.create({
   iconText: { fontSize: 22 },
   choiceBody: { flex: 1, gap: 2 },
   choiceTitle: { color: colors.text, fontSize: 18, fontWeight: '800' },
-  choiceTitleHighlight: { color: '#212529' },
+  choiceTitleHighlight: { color: colors.onGold },
   choiceText: { color: colors.muted, fontSize: 14, lineHeight: 19 },
-  choiceTextHighlight: { color: '#3d3a2a' },
+  choiceTextHighlight: { color: colors.onGoldMuted },
   chevron: { color: colors.muted, fontSize: 30, fontWeight: '300' },
   rulesToggle: { alignSelf: 'center', marginTop: 24, padding: 8 },
   rulesToggleText: { color: colors.muted, fontSize: 15, fontWeight: '600', textDecorationLine: 'underline' },

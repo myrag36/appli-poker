@@ -1,6 +1,6 @@
 // Game server: the only code allowed to write rooms, deal cards and apply actions.
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
-import type { HandState } from '../_shared/engine/index.ts';
+import { type HandState, cleanAvatar, defaultAvatar } from '../_shared/engine/index.ts';
 import {
   GameError,
   LEVEL_CHOICES,
@@ -72,6 +72,11 @@ async function save(db: SupabaseClient, params: SaveParams) {
   return data as number;
 }
 
+function avatarColumns(raw: unknown, seat: number) {
+  const avatar = cleanAvatar(raw, defaultAvatar(seat));
+  return { avatar: avatar.emoji, avatar_color: avatar.color };
+}
+
 async function createRoom(userId: string, body: Record<string, unknown>) {
   const name = cleanName(body.name);
   const bigBlind = Number(body.bigBlind);
@@ -98,7 +103,7 @@ async function createRoom(userId: string, body: Record<string, unknown>) {
     if (error) throw error;
     const { error: seatError } = await admin
       .from('room_players')
-      .insert({ room_id: room.id, user_id: userId, name, seat: 0, stack });
+      .insert({ room_id: room.id, user_id: userId, name, seat: 0, stack, ...avatarColumns(body.avatar, 0) });
     if (seatError) throw seatError;
     return { roomId: room.id, code: room.code };
   }
@@ -123,12 +128,14 @@ async function joinRoom(userId: string, body: Record<string, unknown>) {
     throw new GameError('Ce prénom est déjà pris à cette table');
   }
 
+  const seat = firstFreeSeat(players);
   const { error: insertError } = await admin.from('room_players').insert({
     room_id: room.id,
     user_id: userId,
     name,
-    seat: firstFreeSeat(players),
+    seat,
     stack: room.starting_stack,
+    ...avatarColumns(body.avatar, seat),
   });
   if (insertError?.code === '23505') throw new GameError('Ce prénom ou cette place vient d\'être pris, réessaie');
   if (insertError) throw insertError;

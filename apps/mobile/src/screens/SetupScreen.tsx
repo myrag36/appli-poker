@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { type Avatar, defaultAvatar } from '@appli-poker/engine';
+import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
 import { LevelPicker } from '../components/LevelPicker';
 import { colors } from '../theme';
@@ -10,6 +12,8 @@ export interface GameSettings {
   bigBlind: number;
   /** Tournament level length in minutes, or null for fixed blinds. */
   levelMinutes: number | null;
+  /** One avatar per player, in the same order as `names`. */
+  avatars: Avatar[];
 }
 
 const MAX_PLAYERS = 8;
@@ -21,6 +25,9 @@ interface Props {
 
 export function SetupScreen({ onStart, onBack }: Props) {
   const [names, setNames] = useState(['', '']);
+  const [avatars, setAvatars] = useState<Avatar[]>([defaultAvatar(0), defaultAvatar(1)]);
+  /** Index of the player whose avatar is being picked. */
+  const [picking, setPicking] = useState<number | null>(null);
   const [stack, setStack] = useState('1000');
   const [bigBlind, setBigBlind] = useState('20');
   const [levelMinutes, setLevelMinutes] = useState<number | null>(null);
@@ -37,26 +44,52 @@ export function SetupScreen({ onStart, onBack }: Props) {
 
       <Text style={styles.section}>Joueurs</Text>
       {names.map((name, i) => (
-        <View key={i} style={styles.row}>
-          <TextInput
-            style={[styles.input, styles.flex]}
-            placeholder={`Joueur ${i + 1}`}
-            placeholderTextColor={colors.muted}
-            value={name}
-            maxLength={16}
-            onChangeText={(t) => setNames(names.map((n, j) => (j === i ? t : n)))}
-          />
-          {names.length > 2 && (
-            <Button
-              label="✕"
-              variant="secondary"
-              onPress={() => setNames(names.filter((_, j) => j !== i))}
+        <View key={i}>
+          <View style={styles.row}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`Changer l'avatar du joueur ${i + 1}`}
+              onPress={() => setPicking(picking === i ? null : i)}
+            >
+              <AvatarBadge avatar={avatars[i]} size={40} />
+            </Pressable>
+            <TextInput
+              style={[styles.input, styles.flex]}
+              placeholder={`Joueur ${i + 1}`}
+              placeholderTextColor={colors.muted}
+              value={name}
+              maxLength={16}
+              onChangeText={(t) => setNames(names.map((n, j) => (j === i ? t : n)))}
+            />
+            {names.length > 2 && (
+              <Button
+                label="✕"
+                variant="secondary"
+                onPress={() => {
+                  setNames(names.filter((_, j) => j !== i));
+                  setAvatars(avatars.filter((_, j) => j !== i));
+                  setPicking(null);
+                }}
+              />
+            )}
+          </View>
+          {picking === i && (
+            <AvatarPicker
+              value={avatars[i]}
+              onChange={(a) => setAvatars(avatars.map((x, j) => (j === i ? a : x)))}
             />
           )}
         </View>
       ))}
       {names.length < MAX_PLAYERS && (
-        <Button label="+ Ajouter un joueur" variant="secondary" onPress={() => setNames([...names, ''])} />
+        <Button
+          label="+ Ajouter un joueur"
+          variant="secondary"
+          onPress={() => {
+            setNames([...names, '']);
+            setAvatars([...avatars, defaultAvatar(names.length)]);
+          }}
+        />
       )}
 
       <Text style={styles.section}>Réglages</Text>
@@ -76,8 +109,8 @@ export function SetupScreen({ onStart, onBack }: Props) {
         </View>
       </View>
       <Text style={styles.hint}>
-        Petite blinde : {bbValue >= 2 ? bbValue / 2 : '?'}. La partie se joue sur un seul téléphone qu'on
-        se passe à tour de rôle.
+        Petite blinde : {bbValue >= 2 ? bbValue / 2 : '?'}. La partie se joue sur un seul téléphone qu'on se
+        passe à tour de rôle.
       </Text>
       <LevelPicker value={levelMinutes} onChange={setLevelMinutes} />
       {new Set(cleaned).size !== cleaned.length && (
@@ -88,7 +121,9 @@ export function SetupScreen({ onStart, onBack }: Props) {
       <Button
         label="Lancer la partie"
         disabled={!valid}
-        onPress={() => onStart({ names: cleaned, stack: stackValue, bigBlind: bbValue, levelMinutes })}
+        onPress={() =>
+          onStart({ names: cleaned, stack: stackValue, bigBlind: bbValue, levelMinutes, avatars })
+        }
       />
       <Button label="Retour" variant="secondary" onPress={onBack} />
     </ScrollView>
