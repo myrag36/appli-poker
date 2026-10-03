@@ -3,6 +3,7 @@ import {
   type HandState,
   type HandView,
   type Rng,
+  type Variant,
   AVATAR_COLORS,
   applyAction,
   bigBlindAt,
@@ -37,6 +38,8 @@ export interface RoomRow {
   started_at?: string | null;
   /** Set by the host: nobody can play, deal or time out until the game resumes. */
   paused?: boolean;
+  /** Missing on tables created before Omaha existed, which are Hold'em. */
+  variant?: Variant;
   public_state?: PublicState | null;
 }
 
@@ -53,6 +56,7 @@ export interface LevelInfo {
 export type PublicState = HandView & { deadline: number | null; tournament?: LevelInfo | null; bots?: string[] };
 
 export const LEVEL_CHOICES = [5, 10, 15, 20, 30];
+export const VARIANTS: Variant[] = ['holdem', 'omaha'];
 
 export interface PlayerRow {
   user_id: string;
@@ -143,6 +147,7 @@ export function dealNextHand(
     smallBlind: bigBlind / 2,
     bigBlind,
     rng,
+    variant: room.variant ?? 'holdem',
   });
   return {
     p_room: room.id,

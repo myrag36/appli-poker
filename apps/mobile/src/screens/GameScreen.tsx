@@ -4,6 +4,7 @@ import {
   type Action,
   type HandState,
   type SeatInput,
+  type Variant,
   applyAction,
   type Rng,
   bigBlindAt,
@@ -30,8 +31,8 @@ const BOT_DELAY = 1100;
 /** Robots only need ordinary randomness to vary their play. */
 const botRng: Rng = (max) => Math.floor(Math.random() * max);
 
-function deal(seats: SeatInput[], dealer: number, bigBlind: number) {
-  return startHand({ seats, dealer, smallBlind: bigBlind / 2, bigBlind, rng: deviceRng });
+function deal(seats: SeatInput[], dealer: number, bigBlind: number, variant: Variant) {
+  return startHand({ seats, dealer, smallBlind: bigBlind / 2, bigBlind, rng: deviceRng, variant });
 }
 
 /** Pass-and-play: the whole game runs on this phone, handed from player to player. */
@@ -44,6 +45,7 @@ export function GameScreen({ settings, onQuit }: { settings: GameSettings; onQui
       settings.names.map((name, i) => ({ id: `p${i}`, name, stack: settings.stack })),
       0,
       settings.bigBlind,
+      settings.variant,
     ),
   );
   /** Id of the player who has tapped to see their cards; reset whenever the turn passes. */
@@ -113,6 +115,7 @@ export function GameScreen({ settings, onQuit }: { settings: GameSettings; onQui
         seats,
         seats.findIndex((s) => s.id === dealerId),
         bigBlind,
+        settings.variant,
       ),
     );
     setRevealedFor(null);
@@ -138,7 +141,7 @@ export function GameScreen({ settings, onQuit }: { settings: GameSettings; onQui
               {mine && (
                 <View style={styles.cards}>
                   {mine.hole.map((c) => (
-                    <PlayingCard key={c} card={c} width={42} />
+                    <PlayingCard key={c} card={c} width={mine.hole.length > 2 ? 30 : 42} />
                   ))}
                 </View>
               )}

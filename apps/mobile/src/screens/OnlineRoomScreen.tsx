@@ -16,7 +16,7 @@ import { Ranking } from '../components/Ranking';
 import { Table } from '../components/Table';
 import { TopBar } from '../components/TopBar';
 import { TurnTimer } from '../components/TurnTimer';
-import { callServer, saveLastRoom } from '../online/supabase';
+import { callServer, loadAvatar, loadLastRoom, saveLastRoom, supabase } from '../online/supabase';
 import { REACTIONS, useRoom } from '../online/useRoom';
 import { sounds, useHandSounds } from '../feedback';
 import { Appear } from '../components/Motion';
@@ -46,6 +46,19 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
   const [trayOpen, setTrayOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  /** Names of the people watching, so their chat messages are signed. */
+  const [spectators, setSpectators] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!chatOpen) return;
+    supabase
+      .from('room_spectators')
+      .select('user_id, name')
+      .eq('room_id', roomId)
+      .then(({ data }) => {
+        if (data) setSpectators(Object.fromEntries(data.map((s) => [s.user_id, `👀 ${s.name}`])));
+      });
+  }, [chatOpen, roomId]);
   const [manageOpen, setManageOpen] = useState(false);
   useEffect(() => {
     // Don't offer to go back to a table I was removed from.
@@ -135,6 +148,9 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
   }
 
   const isHost = room.host_id === userId;
+  // Someone who opened the table with "Regarder" follows it without a seat.
+  const isSpectator = !players.some((p) => p.user_id === userId);
+  const omaha = room.variant === 'omaha';
   const host = players.find((p) => p.user_id === room.host_id);
   const hand = room.public_state;
   const actor = hand && hand.toAct >= 0 ? hand.players[hand.toAct] : null;
@@ -151,7 +167,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
     ]),
   );
 
-  const names = Object.fromEntries(players.map((p) => [p.user_id, p.name]));
+  const names = { ...spectators, ...Object.fromEntries(players.map((p) => [p.user_id, p.name])) };
   const chat = (
     <ChatPanel
       visible={chatOpen}
@@ -195,6 +211,17 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
     />
   );
 
+  async function joinGame() {
+    const [saved, avatar] = await Promise.all([loadLastRoom(), loadAvatar()]);
+    const name = saved?.name ?? names[userId] ?? 'Joueur';
+    await send({
+      type: 'join',
+      name,
+      code: room!.code,
+      avatar: cleanAvatar(avatar ?? defaultAvatar(players.length), defaultAvatar(players.length)),
+    });
+  }
+
   const invite = () =>
     Share.share({ message: `Viens jouer au poker avec moi ! Code de la table : ${room.code}` });
 
@@ -218,12 +245,18 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
               </Text>
             </View>
           ))}
+          {omaha && <PanelText>🃏 Omaha : 4 cartes chacun, mises limitées au pot.</PanelText>}
           {room.level_minutes && (
             <PanelText>
               🏆 Tournoi : les blindes augmentent toutes les {room.level_minutes} minutes.
             </PanelText>
           )}
-          {isHost ? (
+          {isSpectator ? (
+            <>
+              <PanelText>👀 Tu regardes cette table.</PanelText>
+              <Button label="Rejoindre la partie" disabled={busy || players.length >= 8} onPress={joinGame} />
+            </>
+          ) : isHost ? (
             <Button
               label={players.length < 2 ? "En attente d'un autre joueur…" : 'Lancer la partie'}
               disabled={busy || players.length < 2}
@@ -298,15 +331,17 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
               <Text style={styles.reactButtonText}>📜</Text>
             </Pressable>
             {chatButton}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Réagir"
-              onPress={() => setTrayOpen(!trayOpen)}
-              hitSlop={8}
-              style={[styles.reactButton, trayOpen && styles.reactButtonOpen]}
-            >
-              <Text style={styles.reactButtonText}>😀</Text>
-            </Pressable>
+            {!isSpectator && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Réagir"
+                onPress={() => setTrayOpen(!trayOpen)}
+                hitSlop={8}
+                style={[styles.reactButton, trayOpen && styles.reactButtonOpen]}
+              >
+                <Text style={styles.reactButtonText}>😀</Text>
+              </Pressable>
+            )}
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={`Inviter des amis, code ${room.code}`}
@@ -396,20 +431,26 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
                 <View style={styles.cards}>
                   {myCards.map((c, i) => (
                     <Appear key={c} delay={i * 140}>
-                      <PlayingCard card={c} width={42} />
+                      <PlayingCard card={c} width={myCards.length > 2 ? 30 : 42} />
                     </Appear>
                   ))}
                 </View>
               )}
               <Text style={styles.waitText}>
-                {!inHand
-                  ? 'Tu joueras à la prochaine main.'
-                  : botTurn
-                    ? `🤖 ${actor?.name} réfléchit…`
-                    : actor
-                      ? `Au tour de ${actor.name}`
-                      : ''}
+                {isSpectator
+                  ? '👀 Tu regardes'
+                  : !inHand
+                    ? 'Tu joueras à la prochaine main.'
+                    : botTurn
+                      ? `🤖 ${actor?.name} réfléchit…`
+                      : actor
+                        ? `Au tour de ${actor.name}`
+                        : ''}
               </Text>
+              {isSpectator && players.length < 8 && (
+                <Button compact label="Rejoindre la partie" disabled={busy} onPress={joinGame} />
+              )}
+              {isSpectator && error && <Text style={styles.error}>{error}</Text>}
             </View>
           )}
 

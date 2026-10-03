@@ -4,6 +4,7 @@ import { type HandState, cleanAvatar, defaultAvatar } from '../_shared/engine/in
 import {
   GameError,
   LEVEL_CHOICES,
+  VARIANTS,
   MAX_PLAYERS,
   type PlayerRow,
   type RoomRow,
@@ -124,12 +125,21 @@ async function createRoom(userId: string, body: Record<string, unknown>) {
   if (levelMinutes !== null && !LEVEL_CHOICES.includes(levelMinutes)) {
     throw new GameError('Durée de niveau invalide');
   }
+  const variant = body.variant ?? 'holdem';
+  if (!VARIANTS.includes(variant as never)) throw new GameError('Variante inconnue');
 
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = makeRoomCode();
     const { data: room, error } = await admin
       .from('rooms')
-      .insert({ code, host_id: userId, big_blind: bigBlind, starting_stack: stack, level_minutes: levelMinutes })
+      .insert({
+        code,
+        host_id: userId,
+        big_blind: bigBlind,
+        starting_stack: stack,
+        level_minutes: levelMinutes,
+        variant,
+      })
       .select('id, code')
       .single();
     if (error?.code === '23505') continue; // code already used, draw another
@@ -176,6 +186,25 @@ async function joinRoom(userId: string, body: Record<string, unknown>) {
   if (insertError?.code === '23505') throw new GameError('Ce prénom ou cette place vient d\'être pris, réessaie');
   if (insertError) throw insertError;
   await saveProfile(userId, name, avatar);
+  // Someone who was watching now plays.
+  await admin.from('room_spectators').delete().eq('room_id', room.id).eq('user_id', userId);
+  return { roomId: room.id };
+}
+
+async function watchRoom(userId: string, body: Record<string, unknown>) {
+  const name = cleanName(body.name);
+  const code = String(body.code ?? '').trim().toUpperCase();
+  const { data: room, error } = await admin.from('rooms').select('id').eq('code', code).maybeSingle();
+  if (error) throw error;
+  if (!room) throw new GameError('Aucune table avec ce code');
+  const players = await loadPlayers(admin, room.id);
+  // A player keeps their seat; anyone else watches.
+  if (!players.some((p) => p.user_id === userId)) {
+    const { error: watchError } = await admin
+      .from('room_spectators')
+      .upsert({ room_id: room.id, user_id: userId, name });
+    if (watchError) throw watchError;
+  }
   return { roomId: room.id };
 }
 
@@ -263,6 +292,8 @@ Deno.serve(async (req) => {
         return json(await createRoom(user.id, body));
       case 'join':
         return json(await joinRoom(user.id, body));
+      case 'watch':
+        return json(await watchRoom(user.id, body));
       case 'deal':
         return json(await nextHand(user.id, roomId));
       case 'act':
