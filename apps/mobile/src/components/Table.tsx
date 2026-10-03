@@ -16,6 +16,7 @@ const STREET_NAMES: Record<string, string> = {
 };
 
 const SEAT_WIDTH = 84;
+const BUBBLE_WIDTH = 150;
 
 interface Props {
   hand: HandView;
@@ -29,13 +30,15 @@ interface Props {
   nextLevelAt?: number | null;
   /** Each player's avatar by id; players without one show their initial. */
   avatars?: Record<string, Avatar>;
+  /** Chat message each player just sent, shown in a bubble by their seat. */
+  bubbles?: Record<string, { text: string; key: number }>;
 }
 
 /**
  * Oval table seen from above, with players seated around it. `meId` sits at the bottom;
  * hole cards are shown only once revealed at showdown.
  */
-export function Table({ hand, meId, maxWidth, maxHeight, reactions, nextLevelAt, avatars }: Props) {
+export function Table({ hand, meId, maxWidth, maxHeight, reactions, nextLevelAt, avatars, bubbles }: Props) {
   let w = Math.min(maxWidth, 440);
   let h = Math.min(Math.round(w * 1.45), maxHeight);
   // On short screens, narrow the table too so it stays an oval rather than a circle.
@@ -188,6 +191,24 @@ export function Table({ hand, meId, maxWidth, maxHeight, reactions, nextLevelAt,
                 </FloatUp>
               )}
             </View>
+            {bubbles?.[p.id] && (
+              // Above the seats in the bottom half, below those at the top, so it stays on the table.
+              <Appear
+                key={bubbles[p.id].key}
+                from={y < cy ? -8 : 8}
+                style={[
+                  styles.bubble,
+                  {
+                    left: Math.max(2, Math.min(w - BUBBLE_WIDTH - 2, x - BUBBLE_WIDTH / 2)),
+                    ...(y < cy ? { top: y + 46 } : { bottom: h - y + 34 }),
+                  },
+                ]}
+              >
+                <Text style={styles.bubbleText} numberOfLines={3}>
+                  {bubbles[p.id].text}
+                </Text>
+              </Appear>
+            )}
           </View>
         );
       })}
@@ -306,6 +327,25 @@ const styles = StyleSheet.create({
   },
   lastActionAllIn: { backgroundColor: colors.danger, color: '#fff' },
   reaction: { position: 'absolute', top: -34, zIndex: 5 },
+  bubble: {
+    position: 'absolute',
+    width: BUBBLE_WIDTH,
+    alignItems: 'center',
+    zIndex: 6,
+  },
+  bubbleText: {
+    backgroundColor: '#fffdf8',
+    color: '#1b1b1b',
+    fontSize: 13,
+    fontWeight: '600',
+    lineHeight: 17,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    overflow: 'hidden',
+    textAlign: 'center',
+    boxShadow: '0 4px 10px rgba(0,0,0,0.45)',
+  },
   reactionText: { fontSize: 34 },
   flyingChips: { width: 60, alignItems: 'center' },
 });

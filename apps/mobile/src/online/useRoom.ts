@@ -36,6 +36,23 @@ export interface RoomPlayer {
 
 export type Reactions = Record<string, { emoji: string; key: number }>;
 
+/** Last chat message each player sent while I was at the table, shown as a bubble by their seat. */
+export type Bubbles = Record<string, { text: string; key: number }>;
+
+export interface ChatMessage {
+  id: number;
+  user_id: string;
+  body: string;
+  created_at: string;
+}
+
+/** Longest chat message, also enforced by the database. */
+export const MAX_MESSAGE_LENGTH = 200;
+/** How many past messages are loaded when opening a table. */
+const HISTORY = 50;
+/** How long a message stays in a bubble next to its author. */
+const BUBBLE_MS = 6000;
+
 /** The emojis players can send at the table. */
 export const REACTIONS = ['👍', '😂', '🔥', '😱', '😭', '👏'];
 
@@ -46,6 +63,9 @@ export function useRoom(roomId: string, userId: string) {
   const [myCards, setMyCards] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [reactions, setReactions] = useState<Reactions>({});
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [bubbles, setBubbles] = useState<Bubbles>({});
+  const [messagesLoaded, setMessagesLoaded] = useState(false);
   const latestRequest = useRef(0);
   const channelRef = useRef<RealtimeChannel | null>(null);
 
@@ -60,6 +80,61 @@ export function useRoom(roomId: string, userId: string) {
       channelRef.current?.send({ type: 'broadcast', event: 'reaction', payload: { from: userId, emoji } });
     },
     [userId, showReaction],
+  );
+
+  /** Adds messages in order, skipping any already shown (a message can arrive twice after a reconnect). */
+  const addMessages = useCallback((incoming: ChatMessage[]) => {
+    setMessages((current) => {
+      const known = new Set(current.map((m) => m.id));
+      const fresh = incoming.filter((m) => !known.has(m.id));
+      if (fresh.length === 0) return current;
+      return [...current, ...fresh].sort((a, b) => a.id - b.id).slice(-HISTORY);
+    });
+  }, []);
+
+  /** A message just sent, as opposed to one loaded from the history. */
+  const receiveMessage = useCallback(
+    (message: ChatMessage) => {
+      addMessages([message]);
+      setBubbles((b) => ({ ...b, [message.user_id]: { text: message.body, key: message.id } }));
+      // The bubble goes away after a while, unless a newer message replaced it.
+      setTimeout(() => {
+        setBubbles((b) => {
+          if (b[message.user_id]?.key !== message.id) return b;
+          const { [message.user_id]: _gone, ...rest } = b;
+          return rest;
+        });
+      }, BUBBLE_MS);
+    },
+    [addMessages],
+  );
+
+  const loadMessages = useCallback(async () => {
+    const { data } = await supabase
+      .from('room_messages')
+      .select('id, user_id, body, created_at')
+      .eq('room_id', roomId)
+      .order('id', { ascending: false })
+      .limit(HISTORY);
+    if (!data) return;
+    addMessages(data as ChatMessage[]);
+    setMessagesLoaded(true);
+  }, [roomId, addMessages]);
+
+  /** Posts a chat message; the database checks that I am seated at this table. */
+  const sendMessage = useCallback(
+    async (text: string) => {
+      const body = text.trim().slice(0, MAX_MESSAGE_LENGTH);
+      if (!body) return;
+      const { data, error: sendError } = await supabase
+        .from('room_messages')
+        .insert({ room_id: roomId, body })
+        .select('id, user_id, body, created_at')
+        .single();
+      if (sendError) throw new Error('Message non envoyé, réessaie');
+      receiveMessage(data as ChatMessage);
+    },
+    [roomId, receiveMessage],
   );
 
   const refresh = useCallback(async () => {
@@ -97,6 +172,7 @@ export function useRoom(roomId: string, userId: string) {
 
   useEffect(() => {
     refresh();
+    loadMessages();
     const channel = supabase
       .channel(`room:${roomId}`)
       .on(
@@ -114,6 +190,11 @@ export function useRoom(roomId: string, userId: string) {
         { event: '*', schema: 'public', table: 'private_hands', filter: `room_id=eq.${roomId}` },
         refresh,
       )
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'room_messages', filter: `room_id=eq.${roomId}` },
+        ({ new: message }) => receiveMessage(message as ChatMessage),
+      )
       .on('broadcast', { event: 'reaction' }, ({ payload }) => {
         const { from, emoji } = (payload ?? {}) as { from?: unknown; emoji?: unknown };
         if (typeof from === 'string' && typeof emoji === 'string' && REACTIONS.includes(emoji)) {
@@ -122,14 +203,29 @@ export function useRoom(roomId: string, userId: string) {
       })
       .subscribe((status) => {
         // Catch up on anything missed while the connection was down.
-        if (status === 'SUBSCRIBED') refresh();
+        if (status === 'SUBSCRIBED') {
+          refresh();
+          loadMessages();
+        }
       });
     channelRef.current = channel;
     return () => {
       channelRef.current = null;
       supabase.removeChannel(channel);
     };
-  }, [roomId, refresh, showReaction]);
+  }, [roomId, refresh, showReaction, receiveMessage, loadMessages]);
 
-  return { room, players, myCards, error, refresh, reactions, sendReaction };
+  return {
+    room,
+    players,
+    myCards,
+    error,
+    refresh,
+    reactions,
+    sendReaction,
+    messages,
+    messagesLoaded,
+    sendMessage,
+    bubbles,
+  };
 }
