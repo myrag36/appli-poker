@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { PlayingCard } from '../components/PlayingCard';
-import { ThemePicker } from '../components/ThemePicker';
+import { ThemeChooser } from '../components/ThemeChooser';
 import { colors, gradients, shadow } from '../theme';
 
 interface Props {
@@ -122,7 +122,7 @@ export function HomeScreen({ canResume, playerName, onOnline, onResume, onLocal 
         />
       </View>
 
-      <ThemePicker />
+      <ThemeChooser />
 
       <Pressable
         accessibilityRole="button"
