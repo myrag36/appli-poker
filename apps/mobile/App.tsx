@@ -42,6 +42,7 @@ export default function App() {
         {screen.name === 'home' && (
           <HomeScreen
             canResume={lastRoom !== null}
+          playerName={lastRoom?.name}
             onOnline={() => setScreen({ name: 'online-lobby' })}
             onResume={() => lastRoom && openRoom(lastRoom.roomId)}
             onLocal={() => setScreen({ name: 'local-setup' })}
