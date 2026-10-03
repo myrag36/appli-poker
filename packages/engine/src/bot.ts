@@ -1,6 +1,6 @@
 import { type Card, type Rng, newDeck, secureRng } from './cards.ts';
-import { compareScores, evaluate } from './evaluator.ts';
-import { type Action, type HandView, legalActions } from './game.ts';
+import { compareScores } from './evaluator.ts';
+import { type Action, type HandView, type Variant, bestHand, legalActions } from './game.ts';
 
 /** Random games played out to estimate a hand's chances; enough for a steady guess, fast on a phone. */
 const SIMULATIONS = 300;
@@ -9,23 +9,31 @@ const SIMULATIONS = 300;
  * Share of the pot this hand wins on average against `opponents` random hands,
  * with the rest of the board dealt at random.
  */
-export function equity(hole: Card[], board: Card[], opponents: number, rng: Rng = secureRng): number {
+export function equity(
+  hole: Card[],
+  board: Card[],
+  opponents: number,
+  rng: Rng = secureRng,
+  variant: Variant = 'holdem',
+): number {
+  // Everyone holds as many cards as I do: 2 in Hold'em, 4 in Omaha.
+  const size = hole.length;
   const known = new Set([...hole, ...board]);
   const rest = newDeck().filter((c) => !known.has(c));
   let total = 0;
   for (let n = 0; n < SIMULATIONS; n++) {
     // Partial shuffle: only the cards this run needs.
-    const need = opponents * 2 + (5 - board.length);
+    const need = opponents * size + (5 - board.length);
     for (let i = 0; i < need; i++) {
       const j = i + rng(rest.length - i);
       [rest[i], rest[j]] = [rest[j], rest[i]];
     }
-    const fullBoard = [...board, ...rest.slice(opponents * 2, need)];
-    const mine = evaluate([...hole, ...fullBoard]).score;
+    const fullBoard = [...board, ...rest.slice(opponents * size, need)];
+    const mine = bestHand(variant, hole, fullBoard).score;
     let best = 1;
     let ties = 0;
     for (let k = 0; k < opponents && best > 0; k++) {
-      const theirs = evaluate([rest[2 * k], rest[2 * k + 1], ...fullBoard]).score;
+      const theirs = bestHand(variant, rest.slice(size * k, size * (k + 1)), fullBoard).score;
       const c = compareScores(mine, theirs);
       if (c < 0) best = 0;
       else if (c === 0) ties++;
@@ -44,7 +52,7 @@ export function chooseBotAction(hand: HandView, playerId: string, rng: Rng = sec
   if (!legal) throw new Error("Ce n'est pas au tour de ce joueur");
   const me = hand.players.find((p) => p.id === playerId)!;
   const opponents = hand.players.filter((p) => p.id !== playerId && !p.folded).length;
-  const chance = equity(me.hole, hand.board, opponents, rng);
+  const chance = equity(me.hole, hand.board, opponents, rng, hand.variant);
   const pot = hand.players.reduce((s, p) => s + p.totalBet, 0);
   const toCall = legal.call;
   // The share of the final pot I must pay to stay in: calling pays off when my chances beat it.

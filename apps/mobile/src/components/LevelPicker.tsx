@@ -3,7 +3,7 @@ import { colors } from '../theme';
 
 export const LEVEL_CHOICES = [5, 10, 15, 20, 30];
 
-function Pill({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+export function Pill({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
   return (
     <Pressable
       accessibilityRole="button"

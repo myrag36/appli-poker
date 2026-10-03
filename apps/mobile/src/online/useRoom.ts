@@ -16,6 +16,8 @@ export interface Room {
   level_minutes: number | null;
   /** The host paused the game: nobody can play until it resumes. */
   paused?: boolean;
+  /** Texas Hold'em, or Omaha with four cards each. */
+  variant?: 'holdem' | 'omaha';
   /**
    * `deadline` is when the player to act runs out of time, in epoch ms.
    * `tournament` is the blind level of this hand and when the next level starts.

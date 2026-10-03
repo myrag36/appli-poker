@@ -79,3 +79,21 @@ export function evaluate(cards: Card[]): HandResult {
   if (!best) throw new Error('evaluate needs at least 5 cards');
   return best;
 }
+
+/** Best Omaha hand: exactly two cards from the hand and three from the board. */
+export function evaluateOmaha(hole: Card[], board: Card[]): HandResult {
+  let best: HandResult | null = null;
+  for (let a = 0; a < hole.length; a++)
+    for (let b = a + 1; b < hole.length; b++)
+      for (let c = 0; c < board.length; c++)
+        for (let d = c + 1; d < board.length; d++)
+          for (let e = d + 1; e < board.length; e++) {
+            const five = [hole[a], hole[b], board[c], board[d], board[e]];
+            const score = scoreFive(five);
+            if (!best || compareScores(score, best.score) > 0) {
+              best = { score, name: CATEGORY_NAMES[score[0]], cards: five };
+            }
+          }
+  if (!best) throw new Error('evaluateOmaha needs 2 hole cards and 3 board cards');
+  return best;
+}

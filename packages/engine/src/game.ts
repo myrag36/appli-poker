@@ -1,7 +1,18 @@
 import { type Card, type Rng, newDeck, secureRng, shuffle } from './cards.ts';
-import { type HandResult, compareScores, evaluate } from './evaluator.ts';
+import { type HandResult, compareScores, evaluate, evaluateOmaha } from './evaluator.ts';
 
 export type Street = 'preflop' | 'flop' | 'turn' | 'river' | 'finished';
+
+/**
+ * Texas Hold'em (2 cards, no limit) or Omaha (4 cards, exactly 2 of them used,
+ * bets limited to the size of the pot).
+ */
+export type Variant = 'holdem' | 'omaha';
+
+/** A player's best hand with the board, following the variant's rules. */
+export function bestHand(variant: Variant | undefined, hole: Card[], board: Card[]): HandResult {
+  return variant === 'omaha' ? evaluateOmaha(hole, board) : evaluate([...hole, ...board]);
+}
 
 export interface SeatInput {
   id: string;
@@ -32,6 +43,8 @@ export interface PotResult {
 }
 
 export interface HandState {
+  /** Missing on hands dealt before Omaha existed, which were all Hold'em. */
+  variant?: Variant;
   players: PlayerState[];
   dealer: number;
   smallBlind: number;
@@ -77,6 +90,7 @@ export interface StartOptions {
   smallBlind: number;
   bigBlind: number;
   rng?: Rng;
+  variant?: Variant;
 }
 
 const nextIndex = (n: number, i: number) => (i + 1) % n;
@@ -112,6 +126,7 @@ export function startHand(opts: StartOptions): HandState {
   const deck = shuffle(newDeck(), opts.rng ?? secureRng);
 
   const state: HandState = {
+    variant: opts.variant ?? 'holdem',
     players: seats.map((s) => ({
       ...s,
       startStack: s.stack,
@@ -137,7 +152,7 @@ export function startHand(opts: StartOptions): HandState {
     log: [],
   };
 
-  for (let round = 0; round < 2; round++) {
+  for (let round = 0; round < (opts.variant === 'omaha' ? 4 : 2); round++) {
     for (let k = 1; k <= n; k++) state.players[(dealer + k) % n].hole.push(state.deck.pop()!);
   }
 
@@ -165,7 +180,12 @@ export function legalActions(state: HandView, playerId: string): LegalActions | 
   if (p.id !== playerId) return null;
 
   const toCall = Math.min(state.currentBet - p.bet, p.stack);
-  const maxTo = p.bet + p.stack;
+  let maxTo = p.bet + p.stack;
+  if (state.variant === 'omaha') {
+    // Pot limit: raise at most by the size of the pot once this player has called.
+    const pot = state.players.reduce((s, o) => s + o.totalBet, 0);
+    maxTo = Math.min(maxTo, state.currentBet + pot + toCall);
+  }
   const minTo = state.currentBet + state.lastRaiseSize;
   const othersCanRespond = state.players.some((o) => o.id !== p.id && canAct(o));
   const mayRaise =
@@ -297,7 +317,7 @@ function dealNextStreet(state: HandState) {
 
 function showdown(state: HandState) {
   const live = state.players.filter((p) => !p.folded);
-  for (const p of live) state.showdown[p.id] = evaluate([...p.hole, ...state.board]);
+  for (const p of live) state.showdown[p.id] = bestHand(state.variant, p.hole, state.board);
 
   const levels = [...new Set(state.players.map((p) => p.totalBet))]
     .filter((x) => x > 0)

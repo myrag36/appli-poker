@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { type Avatar, botName, defaultAvatar } from '@appli-poker/engine';
+import { type Avatar, type Variant, botName, defaultAvatar } from '@appli-poker/engine';
 import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
 import { LevelPicker } from '../components/LevelPicker';
+import { VariantPicker } from '../components/VariantPicker';
 import { colors } from '../theme';
 
 export interface GameSettings {
@@ -16,6 +17,8 @@ export interface GameSettings {
   avatars: Avatar[];
   /** Which players the phone plays itself, in the same order as `names`. */
   bots: boolean[];
+  /** Texas Hold'em or Omaha. */
+  variant: Variant;
 }
 
 const MAX_PLAYERS = 8;
@@ -34,6 +37,7 @@ export function SetupScreen({ onStart, onBack }: Props) {
   const [stack, setStack] = useState('1000');
   const [bigBlind, setBigBlind] = useState('20');
   const [levelMinutes, setLevelMinutes] = useState<number | null>(null);
+  const [variant, setVariant] = useState<Variant>('holdem');
 
   const cleaned = names.map((n, i) => n.trim() || `Joueur ${i + 1}`);
   const stackValue = parseInt(stack, 10);
@@ -128,6 +132,7 @@ export function SetupScreen({ onStart, onBack }: Props) {
       </Text>
 
       <Text style={styles.section}>Réglages</Text>
+      <VariantPicker value={variant} onChange={setVariant} />
       <View style={styles.row}>
         <View style={styles.flex}>
           <Text style={styles.label}>Jetons de départ</Text>
@@ -158,7 +163,15 @@ export function SetupScreen({ onStart, onBack }: Props) {
         label="Lancer la partie"
         disabled={!valid}
         onPress={() =>
-          onStart({ names: cleaned, stack: stackValue, bigBlind: bbValue, levelMinutes, avatars, bots })
+          onStart({
+            names: cleaned,
+            stack: stackValue,
+            bigBlind: bbValue,
+            levelMinutes,
+            avatars,
+            bots,
+            variant,
+          })
         }
       />
       <Button label="Retour" variant="secondary" onPress={onBack} />

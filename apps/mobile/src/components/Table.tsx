@@ -147,7 +147,7 @@ export function Table({ hand, meId, maxWidth, maxHeight, reactions, nextLevelAt,
               {shown && p.hole.length > 0 && (
                 <View style={styles.shownCards}>
                   {p.hole.map((c) => (
-                    <PlayingCard key={c} card={c} width={28} />
+                    <PlayingCard key={c} card={c} width={p.hole.length > 2 ? 20 : 28} />
                   ))}
                 </View>
               )}

@@ -22,6 +22,9 @@ export function ActionPanel({ hand, playerId, title, hole, error, busy, onAction
   const legal = legalActions(hand, playerId);
   const bounds = legal?.raise ?? null;
   const raiseValue = bounds ? Math.min(Math.max(raiseTo, bounds.min), bounds.max) : 0;
+  const me = hand.players.find((p) => p.id === playerId);
+  // In Omaha the biggest bet is often the pot, not every chip.
+  const potLimited = bounds !== null && me !== undefined && bounds.max < me.bet + me.stack;
 
   function play(action: Action) {
     setRaiseTo(0);
@@ -37,7 +40,7 @@ export function ActionPanel({ hand, playerId, title, hole, error, busy, onAction
         <View style={styles.cards}>
           {hole.map((c, i) => (
             <Appear key={c} delay={i * 140}>
-              <PlayingCard card={c} width={42} />
+              <PlayingCard card={c} width={hole.length > 2 ? 30 : 42} />
             </Appear>
           ))}
         </View>
@@ -102,7 +105,7 @@ export function ActionPanel({ hand, playerId, title, hole, error, busy, onAction
           />
           <Button
             compact
-            label="Tapis"
+            label={potLimited ? 'Pot' : 'Tapis'}
             variant="danger"
             disabled={busy}
             onPress={() => play({ type: 'allin' })}

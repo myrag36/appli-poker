@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { type Avatar, cleanAvatar, defaultAvatar } from '@appli-poker/engine';
+import { type Avatar, type Variant, cleanAvatar, defaultAvatar } from '@appli-poker/engine';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
 import { LevelPicker } from '../components/LevelPicker';
+import { VariantPicker } from '../components/VariantPicker';
 import { callServer, loadAvatar, saveAvatar, saveLastRoom } from '../online/supabase';
 import { colors } from '../theme';
 
@@ -20,6 +21,7 @@ export function OnlineLobbyScreen({ initialName, onEnter, onBack }: Props) {
   const [stack, setStack] = useState('1000');
   const [bigBlind, setBigBlind] = useState('20');
   const [levelMinutes, setLevelMinutes] = useState<number | null>(null);
+  const [variant, setVariant] = useState<Variant>('holdem');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [avatar, setAvatar] = useState<Avatar>(() => defaultAvatar(Math.floor(Math.random() * 8)));
@@ -86,11 +88,26 @@ export function OnlineLobbyScreen({ initialName, onEnter, onBack }: Props) {
         placeholder="CODE"
         placeholderTextColor={colors.muted}
       />
-      <Button
-        label="Rejoindre"
-        disabled={busy || !trimmed || code.trim().length !== 6}
-        onPress={() => run(() => callServer({ type: 'join', name: trimmed, code, avatar }))}
-      />
+      <View style={styles.row}>
+        <View style={styles.flex}>
+          <Button
+            label="Rejoindre"
+            disabled={busy || !trimmed || code.trim().length !== 6}
+            onPress={() => run(() => callServer({ type: 'join', name: trimmed, code, avatar }))}
+          />
+        </View>
+        <View style={styles.flex}>
+          <Button
+            label="👀 Regarder"
+            variant="secondary"
+            disabled={busy || !trimmed || code.trim().length !== 6}
+            onPress={() => run(() => callServer({ type: 'watch', name: trimmed, code }))}
+          />
+        </View>
+      </View>
+      <Text style={styles.hint}>
+        Regarder : tu suis la partie sans jouer, et tu peux la rejoindre ensuite.
+      </Text>
 
       <Text style={styles.section}>Ou créer une table</Text>
       <View style={styles.row}>
@@ -108,6 +125,7 @@ export function OnlineLobbyScreen({ initialName, onEnter, onBack }: Props) {
           />
         </View>
       </View>
+      <VariantPicker value={variant} onChange={setVariant} />
       <LevelPicker value={levelMinutes} onChange={setLevelMinutes} />
       <Button
         label="Créer la table"
@@ -122,6 +140,7 @@ export function OnlineLobbyScreen({ initialName, onEnter, onBack }: Props) {
               bigBlind: parseInt(bigBlind, 10),
               levelMinutes,
               avatar,
+              variant,
             }),
           )
         }
@@ -139,6 +158,7 @@ const styles = StyleSheet.create({
   container: { padding: 20, paddingTop: 60 },
   title: { color: colors.gold, fontSize: 30, fontWeight: '800', textAlign: 'center', marginBottom: 16 },
   section: { color: colors.text, fontSize: 18, fontWeight: '700', marginTop: 24, marginBottom: 8 },
+  hint: { color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: 6 },
   row: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   edit: {
     position: 'absolute',

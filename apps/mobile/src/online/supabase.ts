@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { AppState, Platform } from 'react-native';
-import type { Action, Avatar } from '@appli-poker/engine';
+import type { Action, Avatar, Variant } from '@appli-poker/engine';
 import { SUPABASE_KEY, SUPABASE_URL } from './config';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
@@ -41,6 +41,7 @@ type Request =
       stack: number;
       levelMinutes: number | null;
       avatar: Avatar;
+      variant: Variant;
     }
   | { type: 'join'; name: string; code: string; avatar: Avatar }
   | { type: 'deal'; roomId: string }
@@ -48,7 +49,8 @@ type Request =
   | { type: 'timeout'; roomId: string }
   | { type: 'pause'; roomId: string; paused: boolean }
   | { type: 'remove'; roomId: string; userId: string }
-  | { type: 'addBot'; roomId: string };
+  | { type: 'addBot'; roomId: string }
+  | { type: 'watch'; name: string; code: string };
 
 /** Calls the game server and turns its error replies into readable messages. */
 export async function callServer<T>(body: Request): Promise<T> {

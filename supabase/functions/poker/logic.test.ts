@@ -260,3 +260,13 @@ test('ajouter un robot : réservé au créateur, nom et place libres', () => {
   const full = Array.from({ length: 8 }, (_, i) => ({ user_id: `u${i}`, name: `J${i}`, seat: i, stack: 10 }));
   assert.throws(() => newBot(room(), full, 'a', 'id-3'), /pleine/);
 });
+
+test('table Omaha : quatre cartes privées, mise limitée au pot', () => {
+  const dealt = dealNextHand(room({ variant: 'omaha' }), players, null, NOW);
+  assert.equal(dealt.p_secret.variant, 'omaha');
+  for (const cards of Object.values(dealt.p_hands!)) assert.equal(cards.length, 4);
+  // Heads-up: the dealer has 10 to call into a pot of 30, so the pot raise goes to 20 + 30 + 10 = 60.
+  const actor = dealt.p_secret.players[dealt.p_secret.toAct].id;
+  assert.throws(() => playAction(room({ hand_number: 1 }), dealt.p_secret, actor, { type: 'raise', to: 61 }, NOW));
+  playAction(room({ hand_number: 1 }), dealt.p_secret, actor, { type: 'raise', to: 60 }, NOW);
+});
