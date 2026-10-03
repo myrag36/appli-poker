@@ -5,11 +5,13 @@ import {
   type RoomRow,
   TURN_MS,
   dealNextHand,
+  checkRemoval,
   firstFreeSeat,
   handRecords,
   makeRoomCode,
   parseAction,
   playAction,
+  pausedState,
   playTimeout,
 } from './logic.ts';
 
@@ -172,4 +174,34 @@ test('le numéro de la main distribuée est celui enregistré', () => {
   const dealt = dealNextHand(r, twoAllIn, null, NOW);
   assert.equal(dealt.p_secret.street, 'finished');
   assert.equal(handRecords(r, twoAllIn, dealt)!.history.hand_number, 8);
+});
+
+test('en pause, personne ne peut jouer, distribuer ou faire passer le temps', () => {
+  const r = room();
+  const dealt = dealNextHand(r, players, null, NOW);
+  const paused = room({ paused: true, hand_number: 1, public_state: dealt.p_public });
+  const actor = dealt.p_secret.players[dealt.p_secret.toAct].id;
+  assert.throws(() => playAction(paused, dealt.p_secret, actor, { type: 'call' }, NOW), /pause/);
+  assert.throws(() => playTimeout(paused, dealt.p_secret, NOW + TURN_MS + 1), /pause/);
+  assert.throws(() => dealNextHand(room({ paused: true }), players, null, NOW), /pause/);
+});
+
+test('la pause arrête le chrono, la reprise redonne un tour complet', () => {
+  const dealt = dealNextHand(room(), players, null, NOW);
+  const r = room({ hand_number: 1, public_state: dealt.p_public });
+  assert.equal(pausedState(r, true, NOW + 5000)!.deadline, null);
+  assert.equal(pausedState({ ...r, public_state: pausedState(r, true, NOW) }, false, NOW + 60_000)!.deadline, NOW + 60_000 + TURN_MS);
+  assert.equal(pausedState(room(), true, NOW), null);
+});
+
+test('retirer un joueur : réservé au créateur, et pas pendant sa main', () => {
+  const dealt = dealNextHand(room(), players, null, NOW);
+  const playing = room({ hand_number: 1, public_state: dealt.p_public });
+  assert.throws(() => checkRemoval(room(), players, 'b', 'a'), /créateur/);
+  assert.throws(() => checkRemoval(room(), players, 'a', 'a'), /toi-même/);
+  assert.throws(() => checkRemoval(room(), players, 'a', 'z'), /plus à la table/);
+  assert.throws(() => checkRemoval(playing, players, 'a', 'b'), /fin de la main/);
+  // Hugo has no chips, so he is not in the hand and can go at any time.
+  checkRemoval(playing, players, 'a', 'c');
+  checkRemoval(room(), players, 'a', 'b');
 });

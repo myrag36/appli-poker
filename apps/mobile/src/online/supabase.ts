@@ -45,7 +45,9 @@ type Request =
   | { type: 'join'; name: string; code: string; avatar: Avatar }
   | { type: 'deal'; roomId: string }
   | { type: 'act'; roomId: string; action: Action }
-  | { type: 'timeout'; roomId: string };
+  | { type: 'timeout'; roomId: string }
+  | { type: 'pause'; roomId: string; paused: boolean }
+  | { type: 'remove'; roomId: string; userId: string };
 
 /** Calls the game server and turns its error replies into readable messages. */
 export async function callServer<T>(body: Request): Promise<T> {
