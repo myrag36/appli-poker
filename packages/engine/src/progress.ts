@@ -4,7 +4,7 @@ import { AVATAR_EMOJIS, type Avatar } from './avatars.ts';
 export const MAX_LEVEL = 50;
 
 /** Every game that gives experience. */
-export type ProgressGame = 'poker' | 'blackjack' | 'president' | 'yams' | 'belote' | 'puissance4';
+export type ProgressGame = 'poker' | 'blackjack' | 'president' | 'yams' | 'belote' | 'puissance4' | 'rami';
 export const PROGRESS_GAMES: ProgressGame[] = [
   'poker',
   'blackjack',
@@ -12,6 +12,7 @@ export const PROGRESS_GAMES: ProgressGame[] = [
   'yams',
   'belote',
   'puissance4',
+  'rami',
 ];
 
 /** Experience for one finished game: playing always pays, winning pays more. */

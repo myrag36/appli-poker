@@ -31,7 +31,7 @@ import { PlayingCard } from '../components/PlayingCard';
 import { Token } from '../components/Token';
 import { colors, gradients, shadow } from '../theme';
 
-export type GameId = 'poker' | 'blackjack' | 'president' | 'yams' | 'belote' | 'puissance4';
+export type GameId = 'poker' | 'blackjack' | 'president' | 'yams' | 'belote' | 'puissance4' | 'rami';
 
 interface Game {
   id: GameId;
@@ -90,6 +90,14 @@ const GAMES: Game[] = [
     tagline: 'Fais tomber tes jetons et aligne-en quatre avant l’autre.',
     players: '2 joueurs ou contre le robot',
     art: ['r', 'y', 'r', 'y', 'r'],
+    ready: true,
+  },
+  {
+    id: 'rami',
+    title: 'Rami',
+    tagline: 'Pose tes suites et tes brelans, ouvre à 51 et vide ta main le premier.',
+    players: '2 à 4 joueurs',
+    art: ['7d', '8d', 'Xr', '9d'],
     ready: true,
   },
 ];

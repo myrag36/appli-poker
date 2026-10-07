@@ -36,7 +36,7 @@ import { RulesButton } from '../components/Rules';
 import { TOKEN_COLORS, TOKEN_NAMES, Token } from '../components/Token';
 import { TopBar } from '../components/TopBar';
 import { sounds } from '../feedback';
-import { reportLocalGame } from '../online/progress';
+import { reportFeat, reportLocalGame } from '../online/progress';
 import { deviceRng } from '../rng';
 import { PUISSANCE4_RULES } from '../rules';
 import { colors } from '../theme';
@@ -262,6 +262,7 @@ function Match({
     reported.current = game.round;
     const humanWon = game.winner !== null && !isBot(game.winner);
     reportLocalGame('puissance4', humanWon);
+    if (humanWon && settings.vsBot) reportFeat('puissance4');
     const id = setTimeout(() => {
       if (game.draw) sounds.chips();
       else if (humanWon) sounds.win();

@@ -37,6 +37,7 @@ const GAME_NAMES: Record<ProgressGame, string> = {
   yams: '🎲 Yams',
   belote: '♠️ Belote',
   puissance4: '🔴 Puissance 4',
+  rami: '🃏 Rami',
 };
 
 type Tab = keyof Equipped | 'avatar';

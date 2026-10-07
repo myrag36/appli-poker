@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-export type DecorId = 'poker' | 'blackjack' | 'president' | 'yams' | 'belote' | 'puissance4';
+export type DecorId = 'poker' | 'blackjack' | 'president' | 'yams' | 'belote' | 'puissance4' | 'rami';
 
 interface Size {
   w: number;
@@ -444,6 +444,62 @@ function Puissance4({ w, h }: Size) {
   );
 }
 
+/** A tiny face-up card for the decors: rank and suit only. */
+function MiniCard({
+  x,
+  y,
+  label,
+  red,
+  rotate = 0,
+}: {
+  x: number;
+  y: number;
+  label: string;
+  red?: boolean;
+  rotate?: number;
+}) {
+  return (
+    <View style={[styles.mini, { left: x, top: y, transform: [{ rotate: `${rotate}deg` }] }]}>
+      <Text style={[styles.miniText, { color: red ? '#c1121f' : '#111' }]}>{label}</Text>
+    </View>
+  );
+}
+
+function Rami({ w, h }: Size) {
+  // Melds already laid down on a Provençal tablecloth, a cup of coffee beside them.
+  const melds: { cards: string[]; red: boolean; x: number; y: number; rotate: number }[] = [
+    { cards: ['5♣', '6♣', '7♣', '8♣'], red: false, x: 14, y: 22, rotate: -6 },
+    { cards: ['9♦', '10♦', 'J♦'], red: true, x: w * 0.5, y: h * 0.47, rotate: -3 },
+  ];
+  return (
+    <>
+      <LinearGradient colors={['#2f5fa8', '#1f437e', '#122849']} style={StyleSheet.absoluteFill} />
+      <Pattern w={w} h={h} step={38} symbols={['✿', '❀']} color="rgba(255,214,90,0.16)" size={16} />
+      <Pattern w={w} h={h} step={76} symbols={['•']} color="rgba(255,255,255,0.12)" size={10} />
+      {/* A border of the cloth, like on printed Provençal fabric. */}
+      <View style={[styles.clothBand, { top: h * 0.4, width: w }]} />
+      <Glow x={w / 2} y={h * 0.32} size={w * 0.45} color="rgba(255,230,160,0.10)" />
+      {melds.map((m, i) => (
+        <View
+          key={i}
+          style={{ position: 'absolute', left: m.x, top: m.y, transform: [{ rotate: `${m.rotate}deg` }] }}
+        >
+          {m.cards.map((c, j) => (
+            <MiniCard key={j} x={j * 19} y={0} label={c} red={m.red} />
+          ))}
+        </View>
+      ))}
+      {/* The coffee cup and its saucer, seen from above. */}
+      <View style={[styles.saucer, { left: w - 78, top: 18 }]}>
+        <View style={styles.cup}>
+          <View style={styles.coffee} />
+        </View>
+      </View>
+      <View style={[styles.handle, { left: w - 26, top: 50 }]} />
+    </>
+  );
+}
+
 const DECORS: Record<DecorId, (size: Size) => ReactNode> = {
   poker: Poker,
   blackjack: Blackjack,
@@ -451,6 +507,7 @@ const DECORS: Record<DecorId, (size: Size) => ReactNode> = {
   yams: Yams,
   belote: Belote,
   puissance4: Puissance4,
+  rami: Rami,
 };
 
 /** The illustrated background of a game's card in the carousel. */
@@ -596,6 +653,64 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     boxShadow: '0 3px 6px rgba(0,0,0,0.35)',
+  },
+  mini: {
+    position: 'absolute',
+    width: 26,
+    height: 36,
+    borderRadius: 3,
+    backgroundColor: '#fbf7ec',
+    borderWidth: 0.5,
+    borderColor: '#cfc5a8',
+    paddingLeft: 3,
+    paddingTop: 1,
+    boxShadow: '0 2px 3px rgba(0,0,0,0.45)',
+  },
+  miniText: { fontSize: 10, fontWeight: '800' },
+  clothBand: {
+    position: 'absolute',
+    left: 0,
+    height: 14,
+    backgroundColor: 'rgba(255,214,90,0.13)',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: 'rgba(255,214,90,0.3)',
+  },
+  saucer: {
+    position: 'absolute',
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: '#f2eee4',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 4px 8px rgba(0,0,0,0.45)',
+  },
+  cup: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#ffffff',
+    borderWidth: 2,
+    borderColor: '#d9d2c2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  coffee: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#4a2a14',
+    borderWidth: 2,
+    borderColor: '#7a4a26',
+  },
+  handle: {
+    position: 'absolute',
+    width: 16,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: '#fff',
+    transform: [{ rotate: '30deg' }],
   },
   wine: { width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(110,10,35,0.85)' },
 });
