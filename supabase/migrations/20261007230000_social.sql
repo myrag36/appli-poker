@@ -12,6 +12,15 @@ alter table public.player_progress
   -- Week whose podium reward was already taken.
   add column podium_claimed date;
 
+-- Friend codes stay private: players read every other column of the progress table.
+revoke select on public.player_progress from authenticated;
+grant select (
+  user_id, xp, games, equipped, last_day, local_day, local_count, last_local_at, updated_at,
+  coins, owned, stats_day, day_stats, quests_claimed,
+  streak, best_streak, quests_done, chests, achievements, feats,
+  week_start, week_xp, week_wins, last_week_start, last_week_xp, podium_claimed
+) on public.player_progress to authenticated;
+
 create table public.friendships (
   user_id uuid not null references auth.users (id) on delete cascade,
   friend_id uuid not null references auth.users (id) on delete cascade,
@@ -87,6 +96,7 @@ returns table (
   week_xp integer,
   week_wins integer,
   streak integer,
+  last_week_xp integer,
   me boolean
 )
 language sql
@@ -104,6 +114,11 @@ as $$
          case when g.week_start = public.paris_week() then g.week_xp else 0 end,
          case when g.week_start = public.paris_week() then g.week_wins else 0 end,
          case when g.last_day >= (now() at time zone 'Europe/Paris')::date - 1 then g.streak else 0 end,
+         case
+           when g.week_start = public.paris_week() - 7 then g.week_xp
+           when g.last_week_start = public.paris_week() - 7 then g.last_week_xp
+           else 0
+         end,
          p.id = (select auth.uid())
   from people p
   left join public.profiles pr on pr.user_id = p.id
