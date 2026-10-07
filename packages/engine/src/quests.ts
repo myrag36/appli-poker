@@ -1,5 +1,5 @@
 // Coins and daily quests. Coins buy the shop items; quests change every day (Paris time).
-import { PROGRESS_GAMES, type ProgressGame } from './progress.ts';
+import type { ProgressGame } from './progress.ts';
 
 /** Coins for one finished game, and extra when it is won. */
 export const COINS_PLAY = 10;
@@ -21,7 +21,10 @@ export interface Quest {
   coins: number;
 }
 
-const GAME_LABELS: Record<ProgressGame, string> = {
+// Kept fixed so that adding a game never changes the quests of a day already started.
+const QUEST_GAMES: ProgressGame[] = ['poker', 'blackjack', 'president', 'yams', 'belote'];
+
+const GAME_LABELS: Partial<Record<ProgressGame, string>> = {
   poker: 'de poker',
   blackjack: 'de blackjack',
   president: 'de Président',
@@ -66,7 +69,7 @@ export function questsFor(day: string): Quest[] {
   const rnd = seeded(day);
   const pick = <T>(list: T[]) => list[Math.floor(rnd() * list.length)];
   const easy = pick([quest('play', 3, 'Joue 3 parties', 3, 40), quest('play', 5, 'Joue 5 parties', 5, 60)]);
-  const game = pick(PROGRESS_GAMES);
+  const game = pick(QUEST_GAMES);
   const focused =
     rnd() < 0.5
       ? quest('playgame', game, `Joue 2 parties ${GAME_LABELS[game]}`, 2, 40)

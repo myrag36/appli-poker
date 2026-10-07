@@ -25,6 +25,7 @@ import {
   questProgress,
   questsFor,
 } from '@appli-poker/engine';
+import { ChestRow } from '../components/Chests';
 import { RewardPreview } from '../components/RewardPreview';
 import { TopBar } from '../components/TopBar';
 import { buyItem, claimQuest, equipReward, useMyProgress } from '../online/progress';
@@ -113,6 +114,8 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
           +{COINS_PLAY} par partie finie, +{COINS_WIN} de plus si tu gagnes, et les quêtes du jour.
         </Text>
       </LinearGradient>
+
+      <ChestRow chests={progress?.chests ?? []} avatar={avatar} />
 
       <Text style={styles.section}>Quêtes du jour</Text>
       <View style={styles.card}>

@@ -1,6 +1,14 @@
 // Rules of the profile server, without database access so they can be tested on their own.
 import {
+  type AchievementStats,
+  type ChestKind,
   COINS_PLAY,
+  FEATS,
+  type Feat,
+  type GameCounters,
+  achievementProgress,
+  findAchievement,
+  rollChest,
   COINS_WIN,
   DEFAULT_EQUIPPED,
   type DayStats,
@@ -63,4 +71,44 @@ export function finishedQuest(day: string, questId: unknown, statsDay: unknown, 
   const today = statsDay === day ? ((stats ?? {}) as DayStats) : {};
   if (questProgress(quest, today) < quest.target) throw new GameError('Quête pas encore finie');
   return quest;
+}
+
+/** Draws what a chest holds; the item is a shop item the player does not own yet. */
+export function chestContents(kind: unknown, owned: unknown, rnd: () => number): { coins: number; item: string | null } {
+  const roll = rollChest(kind === 'grand' ? 'grand' : ('normal' as ChestKind), rnd);
+  const mine = cleanOwned(owned);
+  const missing = SHOP_ITEMS.map((x) => ownedKey(x.kind as RewardKind, x.id)).filter((k) => !mine.includes(k));
+  const item = roll.item && missing.length > 0 ? missing[Math.floor(rnd() * missing.length)] : null;
+  return { coins: roll.coins, item };
+}
+
+interface ProgressRow {
+  xp?: number;
+  games?: unknown;
+  best_streak?: number;
+  owned?: unknown;
+  quests_done?: number;
+  feats?: unknown;
+}
+
+/** An achievement the player has reached, to take its coins. */
+export function reachedAchievement(id: unknown, row: ProgressRow) {
+  const a = findAchievement(id);
+  if (!a) throw new GameError('Succès inconnu');
+  const stats: AchievementStats = {
+    games: (row.games ?? {}) as GameCounters,
+    xp: row.xp ?? 0,
+    bestStreak: row.best_streak ?? 0,
+    owned: cleanOwned(row.owned).length,
+    questsDone: row.quests_done ?? 0,
+    feats: cleanOwned(row.feats),
+  };
+  if (achievementProgress(a.id, stats) < a.target) throw new GameError('Succès pas encore atteint');
+  return a;
+}
+
+/** A rare moment a phone reports. */
+export function cleanFeat(feat: unknown): Feat {
+  if (!FEATS.includes(feat as Feat)) throw new GameError('Exploit inconnu');
+  return feat as Feat;
 }

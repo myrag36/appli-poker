@@ -17,7 +17,7 @@ export async function awardXp(
   amount: number,
   finished: { won: boolean } | null,
 ) {
-  const { error } = await db.rpc('award_xp', {
+  const { data, error } = await db.rpc('award_xp', {
     p_user: userId,
     p_game: game,
     p_amount: amount,
@@ -27,6 +27,16 @@ export async function awardXp(
     p_coins: finished ? COINS_PLAY + (finished.won ? COINS_WIN : 0) : 0,
   });
   if (error) console.error('expérience non enregistrée', error);
+  else await levelChests(db, userId, data);
+}
+
+/** One chest for each level just reached. */
+export async function levelChests(db: SupabaseClient, userId: string, result: { before?: number; after?: number }) {
+  const gained = levelFromXp(result?.after ?? 0) - levelFromXp(result?.before ?? 0);
+  for (let i = 0; i < gained; i++) {
+    const { error } = await db.rpc('grant_chest', { p_user: userId, p_kind: 'normal', p_reason: 'niveau' });
+    if (error) console.error('coffre non donné', error);
+  }
 }
 
 /** Avatar emojis this player has unlocked with their level or bought. */

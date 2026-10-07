@@ -28,7 +28,7 @@ import {
 } from '@appli-poker/engine';
 import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
-import { reportLocalGame } from '../online/progress';
+import { reportLocalGame, useFeat } from '../online/progress';
 import { OnlineButton } from '../components/OnlineButton';
 import { RulesButton } from '../components/Rules';
 import { PRESIDENT_RULES } from '../rules';
@@ -224,6 +224,7 @@ function Game({
   const [state, setState] = useState<PresidentState>(() => presidentNewGame(roster, deviceRng));
   const [selected, setSelected] = useState<Card[]>([]);
   const [stopped, setStopped] = useState(false);
+  useFeat('president', state.titles[ME] === 'president');
   /** Round whose exchange recap I have closed; robots wait until then. */
   const [exchangeSeen, setExchangeSeen] = useState(1);
   const [error, setError] = useState<string | null>(null);

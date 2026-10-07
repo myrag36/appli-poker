@@ -3,7 +3,16 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { XP_DAILY, parisDay } from '../_shared/engine/index.ts';
 import { GameError } from '../poker/logic.ts';
-import { equip, finishedQuest, localGame, shopItem } from './logic.ts';
+import { levelChests } from '../_shared/xp.ts';
+import {
+  chestContents,
+  cleanFeat,
+  equip,
+  finishedQuest,
+  localGame,
+  reachedAchievement,
+  shopItem,
+} from './logic.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -24,11 +33,11 @@ function json(body: unknown, status = 200) {
 async function loadProgress(userId: string) {
   const { data, error } = await admin
     .from('player_progress')
-    .select('xp, equipped, owned, stats_day, day_stats')
+    .select('xp, equipped, owned, stats_day, day_stats, games, best_streak, quests_done, feats')
     .eq('user_id', userId)
     .maybeSingle();
   if (error) throw error;
-  return data ?? { xp: 0, equipped: {}, owned: [], stats_day: null, day_stats: {} };
+  return data ?? { xp: 0, equipped: {}, owned: [], stats_day: null, day_stats: {}, games: {}, best_streak: 0, quests_done: 0, feats: [] };
 }
 
 async function wear(userId: string, body: Record<string, unknown>) {
@@ -52,6 +61,7 @@ async function local(userId: string, body: Record<string, unknown>) {
     p_coins: g.coins,
   });
   if (error) throw error;
+  await levelChests(admin, userId, data);
   return data;
 }
 
@@ -75,6 +85,26 @@ async function claim(userId: string, body: Record<string, unknown>) {
   return await rpc('claim_quest', { p_user: userId, p_day: day, p_quest: quest.id, p_coins: quest.coins });
 }
 
+async function openChest(userId: string, body: Record<string, unknown>) {
+  const { data, error } = await admin.from('player_progress').select('chests, owned').eq('user_id', userId).maybeSingle();
+  if (error) throw error;
+  const chest = ((data?.chests ?? []) as { id: string; kind: string }[]).find((c) => c.id === body.chest);
+  if (!chest) throw new GameError('Coffre déjà ouvert');
+  const got = chestContents(chest.kind, data?.owned, Math.random);
+  return await rpc('open_chest', { p_user: userId, p_chest: chest.id, p_coins: got.coins, p_item: got.item });
+}
+
+async function achieve(userId: string, body: Record<string, unknown>) {
+  const a = reachedAchievement(body.id, await loadProgress(userId));
+  return await rpc('claim_achievement', { p_user: userId, p_id: a.id, p_coins: a.coins });
+}
+
+async function feat(userId: string, body: Record<string, unknown>) {
+  const { error } = await admin.rpc('add_feat', { p_user: userId, p_feat: cleanFeat(body.feat) });
+  if (error) throw error;
+  return { ok: true };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
 
@@ -94,6 +124,12 @@ Deno.serve(async (req) => {
         return json(await buy(user.id, body));
       case 'claim':
         return json(await claim(user.id, body));
+      case 'open':
+        return json(await openChest(user.id, body));
+      case 'achieve':
+        return json(await achieve(user.id, body));
+      case 'feat':
+        return json(await feat(user.id, body));
       default:
         return json({ error: 'Requête inconnue' }, 400);
     }

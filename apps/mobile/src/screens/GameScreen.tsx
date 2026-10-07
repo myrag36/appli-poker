@@ -15,7 +15,7 @@ import {
 import { ActionPanel } from '../components/ActionPanel';
 import { Button } from '../components/Button';
 import { GameLayout } from '../components/GameLayout';
-import { reportLocalGame } from '../online/progress';
+import { reportLocalGame, useFeat } from '../online/progress';
 import { HandSummary } from '../components/HandSummary';
 import { Panel, PanelText } from '../components/Panel';
 import { PlayingCard } from '../components/PlayingCard';
@@ -58,6 +58,11 @@ export function GameScreen({ settings, onQuit }: { settings: GameSettings; onQui
   const humans = settings.names.map((_, i) => `p${i}`).filter((id) => !isBot(id));
   // Alone against robots, nobody else looks at the screen: no need to hide the cards.
   const solo = humans.length === 1 ? humans[0] : null;
+  // A pot won by a person with four of a kind or better (category 7 and up).
+  useFeat(
+    'carre',
+    hand.pots.some((pot) => pot.winners.some((w) => !isBot(w) && (hand.showdown[w]?.score[0] ?? 0) >= 7)),
+  );
   const botTurn = actor !== null && isBot(actor.id);
   // Alone against robots, my cards stay in view while they play.
   const mine = solo ? hand.players.find((p) => p.id === solo && !p.folded) : undefined;

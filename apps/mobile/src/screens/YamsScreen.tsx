@@ -26,7 +26,7 @@ import {
 } from '@appli-poker/engine';
 import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
-import { reportLocalGame } from '../online/progress';
+import { reportLocalGame, useFeat } from '../online/progress';
 import { OnlineButton } from '../components/OnlineButton';
 import { RulesButton } from '../components/Rules';
 import { YAMS_RULES } from '../rules';
@@ -222,6 +222,10 @@ function YamsGame({
 }) {
   const [game, setGame] = useState<YamsState>(() =>
     yamsNewGame(settings.names.map((name, i) => ({ name, bot: settings.bots[i] }))),
+  );
+  useFeat(
+    'yams',
+    game.players.some((p) => !p.bot && p.scores.yams === 50),
   );
   const [confirmZero, setConfirmZero] = useState<YamsBox | null>(null);
   const [error, setError] = useState<string | null>(null);
