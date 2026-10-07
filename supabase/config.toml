@@ -10,3 +10,7 @@ verify_jwt = false
 [functions.jeux]
 # Same for the server of the other games.
 verify_jwt = false
+
+[functions.profil]
+# And for the profile server.
+verify_jwt = false

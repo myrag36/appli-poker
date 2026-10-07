@@ -23,6 +23,7 @@ import {
 } from '@appli-poker/engine';
 import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
+import { reportLocalGame } from '../online/progress';
 import { OnlineButton } from '../components/OnlineButton';
 import { RulesButton } from '../components/Rules';
 import { BELOTE_RULES } from '../rules';
@@ -185,6 +186,7 @@ function BeloteGame({
       if (next.trick.length === 0) setHolding(true);
     }
     if (next.phase === 'gameOver' && next.winner === 0) sounds.win();
+    if (next.phase === 'gameOver' && game.phase !== 'gameOver') reportLocalGame('belote', next.winner === 0);
     setGame(next);
   }
 

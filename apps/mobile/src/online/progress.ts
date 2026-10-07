@@ -1,0 +1,159 @@
+import { useEffect, useState, useSyncExternalStore } from 'react';
+import {
+  DEFAULT_EQUIPPED,
+  type Equipped,
+  type GameCounters,
+  type ProgressGame,
+  type Reward,
+  cleanEquipped,
+  levelFromXp,
+  rewardsAtLevel,
+} from '@appli-poker/engine';
+import { setCardBack } from '../components/cardBacks';
+import { callProfile, ensureSignedIn, supabase } from './supabase';
+
+export interface MyProgress {
+  xp: number;
+  level: number;
+  equipped: Equipped;
+  games: GameCounters;
+}
+
+/** Something to celebrate: experience just earned, maybe with a new level and its rewards. */
+export interface ProgressEvent {
+  key: number;
+  gained: number;
+  level: number;
+  levelUp: boolean;
+  rewards: Reward[];
+}
+
+let mine: MyProgress | null = null;
+let event: ProgressEvent | null = null;
+let userId: string | null = null;
+let started = false;
+const listeners = new Set<() => void>();
+const emit = () => listeners.forEach((l) => l());
+const subscribe = (l: () => void) => {
+  listeners.add(l);
+  return () => listeners.delete(l);
+};
+
+function apply(row: { xp: number; equipped: unknown; games: unknown } | null) {
+  const xp = row?.xp ?? 0;
+  const level = levelFromXp(xp);
+  const next: MyProgress = {
+    xp,
+    level,
+    equipped: cleanEquipped(row?.equipped ?? DEFAULT_EQUIPPED, level),
+    games: (row?.games ?? {}) as GameCounters,
+  };
+  // Experience earned since the last look: celebrate it (not on the first load).
+  if (mine && xp > mine.xp) {
+    const levelUp = level > mine.level;
+    const rewards: Reward[] = [];
+    for (let l = mine.level + 1; l <= level; l++) rewards.push(...rewardsAtLevel(l));
+    event = { key: Date.now(), gained: xp - mine.xp, level, levelUp, rewards };
+  }
+  mine = next;
+  setCardBack(next.equipped.cardBack);
+  emit();
+}
+
+/** Reloads my experience from the server. */
+export async function refreshProgress() {
+  try {
+    userId ??= await ensureSignedIn();
+    const { data, error } = await supabase
+      .from('player_progress')
+      .select('xp, equipped, games')
+      .eq('user_id', userId)
+      .maybeSingle();
+    if (!error) apply(data);
+  } catch {
+    // Offline: the profile simply stays as it was.
+  }
+}
+
+/** Starts following my experience: loads it and listens for changes made by the game servers. */
+function start() {
+  if (started) return;
+  started = true;
+  refreshProgress().then(() => {
+    if (!userId) return;
+    supabase
+      .channel(`progress:${userId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'player_progress', filter: `user_id=eq.${userId}` },
+        ({ new: row }) => apply(row as { xp: number; equipped: unknown; games: unknown }),
+      )
+      .subscribe();
+  });
+}
+
+/** My level, experience and what I wear; null until loaded (or offline). */
+export function useMyProgress(): MyProgress | null {
+  useEffect(start, []);
+  return useSyncExternalStore(subscribe, () => mine);
+}
+
+/** The latest experience earned, for the celebration toast. */
+export function useProgressEvent(): ProgressEvent | null {
+  useEffect(start, []);
+  return useSyncExternalStore(subscribe, () => event);
+}
+
+/** Puts on an unlocked reward. */
+export async function equipReward(slot: keyof Equipped, id: string) {
+  if (mine) apply({ xp: mine.xp, equipped: { ...mine.equipped, [slot]: id }, games: mine.games });
+  try {
+    await callProfile({ type: 'equip', slot, id });
+  } finally {
+    await refreshProgress();
+  }
+}
+
+/** A game finished on this phone: asks the server for its experience. Never fails loudly. */
+export async function reportLocalGame(game: ProgressGame, won: boolean) {
+  try {
+    await callProfile({ type: 'local', game, won });
+    await refreshProgress();
+  } catch {
+    // No connection: this game simply gives no experience.
+  }
+}
+
+export interface OtherProgress {
+  level: number;
+  frame: string;
+  title: string;
+}
+
+/** Level, border and title of the people at a table, by user id. */
+export function useProgressOf(ids: string[]): Record<string, OtherProgress> {
+  const [map, setMap] = useState<Record<string, OtherProgress>>({});
+  const key = [...ids].sort().join(',');
+  useEffect(() => {
+    if (!key) return;
+    let live = true;
+    supabase
+      .from('player_progress')
+      .select('user_id, xp, equipped')
+      .in('user_id', key.split(','))
+      .then(({ data }) => {
+        if (!live || !data) return;
+        const next: Record<string, OtherProgress> = {};
+        for (const row of data as { user_id: string; xp: number; equipped: unknown }[]) {
+          const level = levelFromXp(row.xp);
+          const e = cleanEquipped(row.equipped, level);
+          next[row.user_id] = { level, frame: e.frame, title: e.title };
+        }
+        setMap(next);
+      });
+    return () => {
+      live = false;
+    };
+  }, [key]);
+  return map;
+}

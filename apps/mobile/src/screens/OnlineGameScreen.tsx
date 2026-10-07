@@ -30,6 +30,8 @@ import {
   saveLastGameRoom,
 } from '../online/supabase';
 import { type GamePlayer, useGameRoom } from '../online/useGameRoom';
+import { type OtherProgress, useProgressOf } from '../online/progress';
+import { TitleBadge } from '../components/TitleBadge';
 import { colors } from '../theme';
 
 interface Props {
@@ -199,6 +201,7 @@ function Room({
   onGone: () => void;
 }) {
   const { room, players, myView, error, removed, refresh, now } = useGameRoom(roomId, userId);
+  const progressOf = useProgressOf(players.filter((p) => !p.is_bot).map((p) => p.user_id));
   const [busy, setBusy] = useState(false);
   const [moveError, setMoveError] = useState<string | null>(null);
 
@@ -237,6 +240,7 @@ function Room({
         code={room.code}
         title={ui.title}
         players={players}
+        progressOf={progressOf}
         isHost={room.host_id === userId}
         userId={userId}
         game={game}
@@ -254,7 +258,10 @@ function Room({
   }
 
   const byId = new Map(players.map((p) => [p.user_id, p]));
-  const seats: BoardSeat[] = state.seats.map((s, i) => ({ ...s, avatar: avatarOf(byId.get(s.id), i) }));
+  const seats: BoardSeat[] = state.seats.map((s, i) => ({
+    ...s,
+    avatar: avatarOf(byId.get(s.id), i, progressOf[s.id]),
+  }));
   const mySeat = state.seats.findIndex((s) => s.id === userId);
   const Board = ui.Board;
   return (
@@ -275,15 +282,19 @@ function Room({
   );
 }
 
-function avatarOf(p: GamePlayer | undefined, seat: number): Avatar {
-  if (p?.avatar) return { emoji: p.avatar, color: p.avatar_color ?? defaultAvatar(seat).color };
-  return defaultAvatar(seat);
+function avatarOf(p: GamePlayer | undefined, seat: number, progress?: OtherProgress): Avatar {
+  const base = p?.avatar
+    ? { emoji: p.avatar, color: p.avatar_color ?? defaultAvatar(seat).color }
+    : defaultAvatar(seat);
+  if (!p || p.is_bot) return base;
+  return { ...base, frame: progress?.frame, level: progress?.level ?? 1 };
 }
 
 function WaitingRoom({
   code,
   title,
   players,
+  progressOf,
   isHost,
   userId,
   game,
@@ -297,6 +308,7 @@ function WaitingRoom({
   code: string;
   title: string;
   players: GamePlayer[];
+  progressOf: Record<string, OtherProgress>;
   isHost: boolean;
   userId: string;
   game: OnlineGameId;
@@ -331,11 +343,14 @@ function WaitingRoom({
       </Text>
       {players.map((p, i) => (
         <View key={p.user_id} style={styles.playerRow}>
-          <AvatarBadge avatar={avatarOf(p, i)} size={36} />
-          <Text style={[styles.playerName, styles.flex]} numberOfLines={1}>
-            {p.name}
-            {p.user_id === userId ? ' (toi)' : ''}
-          </Text>
+          <AvatarBadge avatar={avatarOf(p, i, progressOf[p.user_id])} size={40} />
+          <View style={styles.flex}>
+            <Text style={styles.playerName} numberOfLines={1}>
+              {p.name}
+              {p.user_id === userId ? ' (toi)' : ''}
+            </Text>
+            {!p.is_bot && <TitleBadge id={progressOf[p.user_id]?.title ?? 'debutant'} small />}
+          </View>
           {p.is_bot && <Text style={styles.tag}>Robot</Text>}
           {isHost && p.user_id !== userId && (
             <Pressable

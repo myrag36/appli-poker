@@ -1,6 +1,14 @@
 // Game server: the only code allowed to write rooms, deal cards and apply actions.
 import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@2';
-import { type HandState, cleanAvatar, defaultAvatar } from '../_shared/engine/index.ts';
+import {
+  type HandState,
+  XP_PLAY,
+  XP_POKER_HAND,
+  XP_POKER_POT,
+  XP_WIN,
+  cleanAvatar,
+  defaultAvatar,
+} from '../_shared/engine/index.ts';
 import {
   GameError,
   LEVEL_CHOICES,
@@ -21,6 +29,7 @@ import {
   playAction,
   playTimeout,
 } from './logic.ts';
+import { awardXp, unlockedEmojis } from '../_shared/xp.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -77,8 +86,8 @@ async function save(db: SupabaseClient, params: SaveParams) {
   return data as number;
 }
 
-function avatarColumns(raw: unknown, seat: number) {
-  const avatar = cleanAvatar(raw, defaultAvatar(seat));
+function avatarColumns(raw: unknown, seat: number, extra: string[]) {
+  const avatar = cleanAvatar(raw, defaultAvatar(seat), extra);
   return { avatar: avatar.emoji, avatar_color: avatar.color };
 }
 
@@ -99,13 +108,27 @@ async function recordHand(room: RoomRow, saved: SaveParams) {
   try {
     const records = handRecords(room, await loadPlayers(admin, room.id), saved);
     if (!records) return;
-    const writes = [
+    const [history, results, game] = await Promise.all([
       admin.from('hand_history').upsert(records.history, { ignoreDuplicates: true }),
-      admin.from('hand_results').upsert(records.results, { ignoreDuplicates: true }),
-    ];
-    if (records.game)
-      writes.push(admin.from('game_results').upsert(records.game, { ignoreDuplicates: true }));
-    for (const { error } of await Promise.all(writes)) if (error) throw error;
+      // Only rows written now come back, so a hand recorded twice gives experience once.
+      admin.from('hand_results').upsert(records.results, { ignoreDuplicates: true }).select('user_id, won'),
+      records.game
+        ? admin.from('game_results').upsert(records.game, { ignoreDuplicates: true }).select('winner_id')
+        : null,
+    ]);
+    for (const r of [history, results, game]) if (r?.error) throw r.error;
+    const awards = (results.data ?? []).map((r) =>
+      awardXp(admin, r.user_id, 'poker', XP_POKER_HAND + (r.won ? XP_POKER_POT : 0), null),
+    );
+    // The game is over: everyone who played it gets the end-of-game experience.
+    if (game?.data?.length) {
+      for (const p of await loadPlayers(admin, room.id)) {
+        if (p.is_bot) continue;
+        const won = p.user_id === records.game!.winner_id;
+        awards.push(awardXp(admin, p.user_id, 'poker', XP_PLAY + (won ? XP_WIN : 0), { won }));
+      }
+    }
+    await Promise.all(awards);
   } catch (e) {
     console.error('main non enregistrée', e);
   }
@@ -144,7 +167,7 @@ async function createRoom(userId: string, body: Record<string, unknown>) {
       .single();
     if (error?.code === '23505') continue; // code already used, draw another
     if (error) throw error;
-    const avatar = avatarColumns(body.avatar, 0);
+    const avatar = avatarColumns(body.avatar, 0, await unlockedEmojis(admin, userId));
     const { error: seatError } = await admin
       .from('room_players')
       .insert({ room_id: room.id, user_id: userId, name, seat: 0, stack, ...avatar });
@@ -174,7 +197,7 @@ async function joinRoom(userId: string, body: Record<string, unknown>) {
   }
 
   const seat = firstFreeSeat(players);
-  const avatar = avatarColumns(body.avatar, seat);
+  const avatar = avatarColumns(body.avatar, seat, await unlockedEmojis(admin, userId));
   const { error: insertError } = await admin.from('room_players').insert({
     room_id: room.id,
     user_id: userId,

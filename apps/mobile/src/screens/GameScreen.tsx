@@ -15,6 +15,7 @@ import {
 import { ActionPanel } from '../components/ActionPanel';
 import { Button } from '../components/Button';
 import { GameLayout } from '../components/GameLayout';
+import { reportLocalGame } from '../online/progress';
 import { HandSummary } from '../components/HandSummary';
 import { Panel, PanelText } from '../components/Panel';
 import { PlayingCard } from '../components/PlayingCard';
@@ -70,6 +71,11 @@ export function GameScreen({ settings, onQuit }: { settings: GameSettings; onQui
   const level = settings.levelMinutes ? blindLevel(startedAt, Date.now(), settings.levelMinutes) : null;
 
   useHandSounds(hand, null);
+  // The game is over once one player has every chip: it gives experience to this phone.
+  const gameOver = hand.street === 'finished' && remaining.length === 1;
+  useEffect(() => {
+    if (gameOver) reportLocalGame('poker', !isBot(remaining[0].id));
+  }, [gameOver]);
   const avatars = Object.fromEntries(settings.avatars.map((a, i) => [`p${i}`, a]));
 
   function play(action: Action) {

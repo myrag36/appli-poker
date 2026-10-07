@@ -28,6 +28,7 @@ import {
 } from '@appli-poker/engine';
 import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
+import { reportLocalGame } from '../online/progress';
 import { OnlineButton } from '../components/OnlineButton';
 import { RulesButton } from '../components/Rules';
 import { BLACKJACK_RULES } from '../rules';
@@ -122,7 +123,17 @@ export function BlackjackScreen({ onBack, onOnline }: { onBack: () => void; onOn
       </RankingView>
     );
   }
-  return <BlackjackGame game={game} setGame={setGame} settings={settings} onStop={() => setStopped(true)} />;
+  function stop() {
+    if (!game) return;
+    setStopped(true);
+    // Experience for the game; a win counts if a person ends with the most chips.
+    if (game.round > 1 || game.phase === 'settled')
+      reportLocalGame(
+        'blackjack',
+        bjRanking(game).some((r) => r.place === 1 && !game.players.find((p) => p.id === r.id)?.bot),
+      );
+  }
+  return <BlackjackGame game={game} setGame={setGame} settings={settings} onStop={stop} />;
 }
 
 // ---------------------------------------------------------------------------------------------

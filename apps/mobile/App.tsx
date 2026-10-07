@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Alert, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { type SavedRoom, ensureSignedIn, loadLastRoom } from './src/online/supabase';
+import { type SavedRoom, ensureSignedIn, loadLastRoom, loadName } from './src/online/supabase';
 import { GameScreen } from './src/screens/GameScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { type GameId, GamesScreen } from './src/screens/GamesScreen';
@@ -15,6 +15,8 @@ import { OnlineLobbyScreen } from './src/screens/OnlineLobbyScreen';
 import { OnlineRoomScreen } from './src/screens/OnlineRoomScreen';
 import { OnlineGameScreen } from './src/screens/OnlineGameScreen';
 import { StatsScreen } from './src/screens/StatsScreen';
+import { ProfileScreen } from './src/screens/ProfileScreen';
+import { ProgressToast } from './src/components/ProgressToast';
 import { type GameSettings, SetupScreen } from './src/screens/SetupScreen';
 import { colors } from './src/theme';
 
@@ -27,14 +29,17 @@ type Screen =
   | { name: 'local-game'; settings: GameSettings }
   | { name: 'online-lobby' }
   | { name: 'online-room'; roomId: string; userId: string }
-  | { name: 'stats' };
+  | { name: 'stats' }
+  | { name: 'profile' };
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>({ name: 'games' });
   const [lastRoom, setLastRoom] = useState<SavedRoom | null>(null);
+  const [savedName, setSavedName] = useState<string | null>(null);
 
   useEffect(() => {
     if (screen.name === 'home' || screen.name === 'games') loadLastRoom().then(setLastRoom);
+    loadName().then((n) => setSavedName(n || null));
   }, [screen.name]);
 
   async function openRoom(roomId: string) {
@@ -59,8 +64,10 @@ export default function App() {
             canResume={lastRoom !== null}
             onPlay={(game) => setScreen(game === 'poker' ? { name: 'home' } : { name: 'game', game })}
             onResume={() => lastRoom && openRoom(lastRoom.roomId)}
+            onProfile={() => setScreen({ name: 'profile' })}
           />
         )}
+        {screen.name === 'profile' && <ProfileScreen onBack={games} />}
         {screen.name === 'game' && screen.game === 'blackjack' && (
           <BlackjackScreen onBack={games} onOnline={online('blackjack')} />
         )}
@@ -77,7 +84,7 @@ export default function App() {
           <OnlineGameScreen
             key={screen.game}
             game={screen.game}
-            initialName={lastRoom?.name ?? ''}
+            initialName={savedName ?? lastRoom?.name ?? ''}
             onBack={() => setScreen({ name: 'game', game: screen.game })}
           />
         )}
@@ -97,12 +104,17 @@ export default function App() {
         )}
         {screen.name === 'local-game' && <GameScreen settings={screen.settings} onQuit={home} />}
         {screen.name === 'online-lobby' && (
-          <OnlineLobbyScreen initialName={lastRoom?.name ?? ''} onEnter={openRoom} onBack={home} />
+          <OnlineLobbyScreen
+            initialName={savedName ?? lastRoom?.name ?? ''}
+            onEnter={openRoom}
+            onBack={home}
+          />
         )}
         {screen.name === 'online-room' && (
           <OnlineRoomScreen roomId={screen.roomId} userId={screen.userId} onLeave={home} />
         )}
         {screen.name === 'stats' && <StatsScreen onBack={home} />}
+        <ProgressToast />
         <StatusBar style="light" />
       </View>
     </SafeAreaProvider>

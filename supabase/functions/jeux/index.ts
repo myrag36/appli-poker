@@ -15,8 +15,10 @@ import {
   newGameBot,
   playGameMove,
   playGameTimeout,
+  progressAwards,
   startGame,
 } from './logic.ts';
+import { awardXp, unlockedEmojis } from '../_shared/xp.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -72,8 +74,8 @@ async function save(room: GameRoomRow, snap: GameSnapshot) {
   return { version: data as number };
 }
 
-function avatarColumns(raw: unknown, seat: number) {
-  const avatar = cleanAvatar(raw, defaultAvatar(seat));
+function avatarColumns(raw: unknown, seat: number, extra: string[]) {
+  const avatar = cleanAvatar(raw, defaultAvatar(seat), extra);
   return { avatar: avatar.emoji, avatar_color: avatar.color };
 }
 
@@ -90,7 +92,7 @@ async function createRoom(userId: string, body: Record<string, unknown>) {
     if (error) throw error;
     const { error: seatError } = await admin
       .from('game_players')
-      .insert({ room_id: room.id, user_id: userId, name, seat: 0, ...avatarColumns(body.avatar, 0) });
+      .insert({ room_id: room.id, user_id: userId, name, seat: 0, ...avatarColumns(body.avatar, 0, await unlockedEmojis(admin, userId)) });
     if (seatError) throw seatError;
     return { roomId: room.id, code: room.code };
   }
@@ -112,7 +114,7 @@ async function joinRoom(userId: string, body: Record<string, unknown>) {
   const seat = firstFreeGameSeat(players);
   const { error: insertError } = await admin
     .from('game_players')
-    .insert({ room_id: room.id, user_id: userId, name, seat, ...avatarColumns(body.avatar, seat) });
+    .insert({ room_id: room.id, user_id: userId, name, seat, ...avatarColumns(body.avatar, seat, await unlockedEmojis(admin, userId)) });
   if (insertError?.code === '23505') throw new GameError('Cette place vient d’être prise, réessaie');
   if (insertError) throw insertError;
   return { roomId: room.id, game: room.game };
@@ -161,14 +163,22 @@ async function move(userId: string, roomId: string, raw: unknown) {
   // Read the room before the game: if a write lands in between, the version check rejects ours.
   const room = await loadRoom(roomId);
   const secret = await loadSecret(roomId);
-  return await save(room, playGameMove(secret, userId, raw, secureRng, Date.now()));
+  return await saveAndAward(room, secret, playGameMove(secret, userId, raw, secureRng, Date.now()));
+}
+
+async function saveAndAward(room: GameRoomRow, before: GameSecret, after: GameSnapshot) {
+  const saved = await save(room, after);
+  await Promise.all(
+    progressAwards(before, after).map((a) => awardXp(admin, a.userId, room.game, a.amount, a.finished)),
+  );
+  return saved;
 }
 
 async function tick(userId: string, roomId: string) {
   const room = await loadRoom(roomId);
   const secret = await loadSecret(roomId);
   if (!secret.seats.some((s) => s.id === userId)) throw new GameError('Tu n’es pas à cette table');
-  return await save(room, playGameTimeout(secret, secureRng, Date.now()));
+  return await saveAndAward(room, secret, playGameTimeout(secret, secureRng, Date.now()));
 }
 
 Deno.serve(async (req) => {

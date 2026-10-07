@@ -33,6 +33,8 @@ export interface OnlineGame<S = any> {
   betweenRounds(state: S): boolean;
   nextRound(state: S, rng: Rng): S;
   over(state: S): boolean;
+  /** Seats that won, once the game is over (a whole team at Belote). */
+  winners(state: S): number[];
   /** What one seat may see (null: a spectator). Hidden cards must be removed here. */
   view(state: S, seat: number | null): unknown;
 }

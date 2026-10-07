@@ -1,4 +1,5 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { type Avatar, defaultAvatar, levelProgress } from '@appli-poker/engine';
 import {
   Animated,
   Pressable,
@@ -13,6 +14,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GameDecor } from '../components/GameDecor';
 import { ThemeChooser } from '../components/ThemeChooser';
+import { AvatarBadge } from '../components/AvatarPicker';
+import { useMyProgress } from '../online/progress';
+import { loadAvatar } from '../online/supabase';
 import { PlayingCard } from '../components/PlayingCard';
 import { colors, gradients, shadow } from '../theme';
 
@@ -79,6 +83,7 @@ interface Props {
   canResume: boolean;
   onPlay: (game: GameId) => void;
   onResume: () => void;
+  onProfile: () => void;
 }
 
 function Art({ game }: { game: Game }) {
@@ -112,10 +117,10 @@ function Art({ game }: { game: Game }) {
 }
 
 /** The first screen: every game in a carousel you swipe through. */
-export function GamesScreen({ canResume, onPlay, onResume }: Props) {
+export function GamesScreen({ canResume, onPlay, onResume, onProfile }: Props) {
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const cardHeight = Math.max(370, Math.min(CARD_HEIGHT, screenHeight - 420));
+  const cardHeight = Math.max(340, Math.min(CARD_HEIGHT, screenHeight - 480));
   const viewWidth = Math.min(screenWidth, 520);
   const cardWidth = Math.round(viewWidth * 0.76);
   const step = cardWidth + GAP;
@@ -136,6 +141,7 @@ export function GamesScreen({ canResume, onPlay, onResume }: Props) {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 28, paddingBottom: insets.bottom + 20 }]}>
+      <ProfileChip onPress={onProfile} />
       <Text style={styles.title}>Jeux entre amis</Text>
       <Text style={styles.subtitle}>Glisse pour choisir ton jeu.</Text>
 
@@ -228,7 +234,52 @@ export function GamesScreen({ canResume, onPlay, onResume }: Props) {
   );
 }
 
+/** My avatar, level and progress bar; opens my profile. */
+function ProfileChip({ onPress }: { onPress: () => void }) {
+  const progress = useMyProgress();
+  const [avatar, setAvatar] = useState<Avatar>(defaultAvatar(0));
+  useEffect(() => {
+    loadAvatar().then((a) => a && setAvatar(a));
+  }, []);
+  const { level, ratio } = levelProgress(progress?.xp ?? 0);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Mon profil, niveau ${level}`}
+      onPress={onPress}
+      style={({ pressed }) => [styles.profile, pressed && styles.pressed]}
+    >
+      <AvatarBadge avatar={{ ...avatar, frame: progress?.equipped.frame }} size={40} />
+      <View style={styles.profileBody}>
+        <Text style={styles.profileLevel}>Niveau {level}</Text>
+        <View style={styles.profileTrack}>
+          <View style={[styles.profileFill, { width: `${Math.max(4, ratio * 100)}%` }]} />
+        </View>
+      </View>
+      <Text style={styles.profileGo}>Mon profil ›</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
+  profile: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 14,
+    paddingVertical: 6,
+    paddingLeft: 6,
+    paddingRight: 14,
+    borderRadius: 28,
+    backgroundColor: colors.glass,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+  },
+  profileBody: { width: 90, gap: 4 },
+  profileLevel: { color: colors.gold, fontSize: 14, fontWeight: '900' },
+  profileTrack: { height: 6, borderRadius: 3, backgroundColor: 'rgba(0,0,0,0.4)', overflow: 'hidden' },
+  profileFill: { height: 6, borderRadius: 3, backgroundColor: colors.gold },
+  profileGo: { color: colors.text, fontSize: 14, fontWeight: '800' },
   container: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   title: { color: colors.gold, fontSize: 36, fontWeight: '900', textAlign: 'center' },
   subtitle: { color: colors.muted, fontSize: 15, marginTop: 4, textAlign: 'center' },

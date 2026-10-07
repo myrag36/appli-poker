@@ -7,6 +7,9 @@ import {
   type OnlineGameId,
   type OnlineSeat,
   type Rng,
+  XP_PLAY,
+  XP_ROUND,
+  XP_WIN,
   isOnlineGame,
 } from '../_shared/engine/index.ts';
 import { GameError } from '../poker/logic.ts';
@@ -208,4 +211,21 @@ export function snapshot(secret: GameSecret, now: number): GameSnapshot {
       view: def.view(secret.state, null),
     },
   };
+}
+
+/** Experience to give after a save: a little for each finished round, more at the end of the game. */
+export function progressAwards(before: GameSecret, after: GameSnapshot) {
+  const def = gameDef(before.game);
+  const people = before.seats.map((s, i) => ({ ...s, seat: i })).filter((s) => !s.bot);
+  if (after.public.over && !def.over(before.state)) {
+    const winners = new Set(def.winners(after.secret.state));
+    return people.map((p) => {
+      const won = winners.has(p.seat);
+      return { userId: p.id, amount: XP_PLAY + (won ? XP_WIN : 0), finished: { won } };
+    });
+  }
+  if (after.public.betweenRounds && !def.betweenRounds(before.state)) {
+    return people.map((p) => ({ userId: p.id, amount: XP_ROUND, finished: null }));
+  }
+  return [];
 }

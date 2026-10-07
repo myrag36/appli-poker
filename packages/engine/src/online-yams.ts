@@ -1,6 +1,6 @@
 import type { Rng } from './cards.ts';
 import type { OnlineGame, OnlineSeat } from './online.ts';
-import { type YamsMove, type YamsState, yamsApply, yamsBotMove, yamsNewGame } from './yams.ts';
+import { type YamsMove, type YamsState, yamsApply, yamsBotMove, yamsNewGame, yamsRanking } from './yams.ts';
 
 /** Nothing is hidden at Yams: everyone sees the same dice and grids. */
 export const yamsOnline: OnlineGame<YamsState> = {
@@ -20,5 +20,6 @@ export const yamsOnline: OnlineGame<YamsState> = {
   betweenRounds: () => false,
   nextRound: (state) => state,
   over: (state) => state.finished,
+  winners: (state) => yamsRanking(state).filter((r) => r.place === 1).map((r) => Number(r.id.slice(1))),
   view: (state) => state,
 };

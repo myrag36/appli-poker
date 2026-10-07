@@ -9,6 +9,7 @@ import {
   presidentNewGame,
   presidentNextRound,
   presidentRedact,
+  presidentStandings,
 } from './president.ts';
 
 export interface PresidentOnlineState {
@@ -70,5 +71,6 @@ export const presidentOnline: OnlineGame<PresidentOnlineState> = {
     return { ...s, game: presidentNextRound(s.game, rng) };
   },
   over: isOver,
+  winners: (s) => presidentStandings(s.game).filter((r) => r.place === 1).map((r) => r.index),
   view: (s, seat) => presidentRedact(s.game, seat, s.rounds),
 };

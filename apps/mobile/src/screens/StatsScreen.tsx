@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { type Avatar, cleanAvatar, defaultAvatar } from '@appli-poker/engine';
+import { type Avatar, cleanAvatar, defaultAvatar, MAX_LEVEL, avatarEmojisFor } from '@appli-poker/engine';
 import { AvatarBadge } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
 import { TopBar } from '../components/TopBar';
@@ -11,7 +11,11 @@ import { colors, shadow } from '../theme';
 const MEDALS = ['🥇', '🥈', '🥉'];
 
 function avatarOf(p: PlayerStats, i: number): Avatar {
-  return cleanAvatar({ emoji: p.avatar, color: p.avatar_color }, defaultAvatar(i));
+  return cleanAvatar(
+    { emoji: p.avatar, color: p.avatar_color },
+    defaultAvatar(i),
+    avatarEmojisFor(MAX_LEVEL),
+  );
 }
 
 function signed(n: number) {

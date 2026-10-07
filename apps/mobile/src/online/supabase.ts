@@ -69,6 +69,15 @@ export function callGames<T>(body: GamesRequest): Promise<T> {
   return invoke<T>('jeux', body);
 }
 
+type ProfileRequest =
+  | { type: 'equip'; slot: string; id: string }
+  | { type: 'local'; game: string; won: boolean };
+
+/** Calls the profile server (experience of games on one phone, rewards worn). */
+export function callProfile<T>(body: ProfileRequest): Promise<T> {
+  return invoke<T>('profil', body);
+}
+
 async function invoke<T>(fn: string, body: unknown): Promise<T> {
   await ensureSignedIn();
   const { data, error } = await supabase.functions.invoke(fn, { body: body as Record<string, unknown> });
@@ -123,6 +132,25 @@ export async function loadLastGameRoom(game: OnlineGameId): Promise<SavedRoom | 
   try {
     const raw = await AsyncStorage.getItem(lastGameKey(game));
     return raw ? (JSON.parse(raw) as SavedRoom) : null;
+  } catch {
+    return null;
+  }
+}
+
+const NAME_KEY = 'appli-poker:name';
+
+/** The name chosen on the profile, used to fill in the lobbies. */
+export async function saveName(name: string) {
+  try {
+    await AsyncStorage.setItem(NAME_KEY, name);
+  } catch {
+    // Remembering the name is a convenience only.
+  }
+}
+
+export async function loadName(): Promise<string | null> {
+  try {
+    return await AsyncStorage.getItem(NAME_KEY);
   } catch {
     return null;
   }
