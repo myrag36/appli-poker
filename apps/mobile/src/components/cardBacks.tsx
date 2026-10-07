@@ -1,4 +1,4 @@
-import { type ReactNode, useSyncExternalStore } from 'react';
+import { Fragment, type ReactNode, useSyncExternalStore } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { REWARDS } from '@appli-poker/engine';
@@ -161,6 +161,64 @@ const LOOKS: Record<string, BackLook> = {
     emblemColor: '#ffffff',
     glow: '#ffb02e',
   },
+  // ---- Shop card backs ----
+  sakura: {
+    edge: '#fff4f8',
+    fill: ['#ffd1e3', '#f59cc0', '#d0588d'],
+    line: '#ffffff',
+    mark: '❀',
+    markColor: 'rgba(255, 255, 255, 0.4)',
+    emblem: '🌸',
+    emblemFill: '#ffe8f1',
+    emblemColor: '#ffffff',
+    extra: (w, h) => <FallingPetals w={w} h={h} />,
+  },
+  retro: {
+    edge: '#f6e6c4',
+    fill: ['#f6e6c4', '#f6e6c4'],
+    line: '#5a2a12',
+    mark: '',
+    markColor: 'transparent',
+    emblem: '✿',
+    emblemFill: '#5a2a12',
+    emblemColor: '#f6c34a',
+    extra: (w, h) => <RetroStripes w={w} h={h} />,
+  },
+  carbon: {
+    edge: '#1b1b1d',
+    fill: ['#2e2f33', '#18191b', '#0b0b0c'],
+    line: '#e0233f',
+    mark: '',
+    markColor: 'transparent',
+    emblem: '♠',
+    emblemFill: '#0d0d0f',
+    emblemColor: '#e8ebf0',
+    extra: (w, h) => <CarbonWeave w={w} h={h} />,
+  },
+  circuit: {
+    edge: '#06180d',
+    fill: ['#0f5a2e', '#0a3d20', '#04200f'],
+    line: '#5cff9d',
+    mark: '',
+    markColor: 'transparent',
+    emblem: '♦',
+    emblemFill: '#04140a',
+    emblemColor: '#5cff9d',
+    glow: '#2dff7a',
+    extra: (w, h) => <Traces w={w} h={h} />,
+  },
+  goldbar: {
+    edge: '#8a5d00',
+    fill: ['#fff4c2', '#f2c24b', '#b8860b', '#ffe17a', '#9a6a10'],
+    line: '#fff8dc',
+    mark: '❖',
+    markColor: 'rgba(110, 70, 0, 0.25)',
+    emblem: '♛',
+    emblemFill: '#a87400',
+    emblemColor: '#fff4c2',
+    glow: '#ffd700',
+    extra: (w, h) => <GoldShine w={w} h={h} />,
+  },
 };
 
 /** Thin gold lines fanning out from the center, art deco style. */
@@ -252,6 +310,238 @@ function Stars({ w, h }: { w: number; h: number }) {
             { left: x * w - w * 0.06, top: y * h - w * 0.08, fontSize: w * (i % 2 ? 0.11 : 0.14) },
           ]}
         >
+          ✦
+        </Text>
+      ))}
+    </View>
+  );
+}
+
+/** Loose cherry blossom petals drifting across the back. */
+function FallingPetals({ w, h }: { w: number; h: number }) {
+  const rnd = random(13);
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      {Array.from({ length: 9 }, (_, i) => {
+        const s = w * (0.07 + rnd() * 0.05);
+        return (
+          <View
+            key={i}
+            style={{
+              position: 'absolute',
+              left: w * (0.02 + rnd() * 0.88),
+              top: h * (0.02 + rnd() * 0.92),
+              width: s,
+              height: s * 0.6,
+              borderTopLeftRadius: s,
+              borderBottomRightRadius: s,
+              backgroundColor: i % 3 ? '#ffe4ef' : '#ffffff',
+              opacity: 0.85,
+              transform: [{ rotate: `${Math.round(rnd() * 180)}deg` }],
+            }}
+          />
+        );
+      })}
+    </View>
+  );
+}
+
+/** Seventies stripes in orange and brown, bending around the emblem. */
+function RetroStripes({ w, h }: { w: number; h: number }) {
+  const stripes = ['#f6c34a', '#f0902e', '#d9562b', '#8a3a1a', '#5a2a12'];
+  const band = w * 0.075;
+  return (
+    <View style={[StyleSheet.absoluteFill, styles.center]} pointerEvents="none">
+      {stripes.map((c, i) => {
+        const d = w * 0.62 + (stripes.length - i) * band * 2;
+        return (
+          <View
+            key={c}
+            style={{
+              position: 'absolute',
+              width: d,
+              height: d,
+              borderRadius: d / 2,
+              borderWidth: band,
+              borderColor: c,
+            }}
+          />
+        );
+      })}
+      {[-1, 1].map((side) => (
+        <View
+          key={side}
+          style={{
+            position: 'absolute',
+            [side < 0 ? 'top' : 'bottom']: h * 0.04,
+            flexDirection: 'row',
+            gap: band * 0.35,
+          }}
+        >
+          {stripes.map((c) => (
+            <View
+              key={c}
+              style={{ width: band * 0.6, height: band * 0.6, borderRadius: band, backgroundColor: c }}
+            />
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/** A woven carbon fiber pattern: small tiles shaded alternately across and down. */
+function CarbonWeave({ w, h }: { w: number; h: number }) {
+  const cell = Math.max(3, w * 0.085);
+  const cols = Math.ceil(w / cell) + 1;
+  const rows = Math.ceil(h / cell) + 1;
+  const light = 'rgba(255,255,255,0.13)';
+  const dark = 'rgba(0,0,0,0.35)';
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      {Array.from({ length: rows }, (_, r) =>
+        Array.from({ length: cols }, (_, c) => {
+          const across = (r + c) % 2 === 0;
+          return (
+            <LinearGradient
+              key={`${r}-${c}`}
+              colors={[light, dark]}
+              start={across ? { x: 0, y: 0.5 } : { x: 0.5, y: 0 }}
+              end={across ? { x: 1, y: 0.5 } : { x: 0.5, y: 1 }}
+              style={{
+                position: 'absolute',
+                left: c * cell,
+                top: r * cell,
+                width: cell - 0.5,
+                height: cell - 0.5,
+              }}
+            />
+          );
+        }),
+      )}
+      <LinearGradient
+        colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.14)', 'rgba(255,255,255,0)']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+    </View>
+  );
+}
+
+/** Printed circuit traces ending on little gold pads. */
+function Traces({ w, h }: { w: number; h: number }) {
+  const t = Math.max(0.75, w * 0.02);
+  const pad = Math.max(2, w * 0.055);
+  const trace = 'rgba(92, 255, 157, 0.55)';
+  // Each trace is a horizontal run then a vertical run, from the edge toward the emblem.
+  const runs = [
+    { x: 0, y: 0.12, len: 0.4, down: 0.18 },
+    { x: 0.55, y: 0.08, len: 0.45, down: 0.14 },
+    { x: 0, y: 0.88, len: 0.35, down: -0.16 },
+    { x: 0.6, y: 0.92, len: 0.4, down: -0.2 },
+    { x: 0, y: 0.5, len: 0.2, down: 0 },
+    { x: 0.8, y: 0.5, len: 0.2, down: 0 },
+    { x: 0.1, y: 0.3, len: 0.0, down: 0.2 },
+    { x: 0.9, y: 0.55, len: 0.0, down: 0.25 },
+  ];
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      {runs.map((r, i) => {
+        // Runs from the left edge bend at their right end; runs reaching the right edge at their left end.
+        const bendX = r.x < 0.5 ? r.x + r.len : r.x;
+        return (
+          <Fragment key={i}>
+            {r.len > 0 && (
+              <View
+                style={{
+                  position: 'absolute',
+                  left: w * r.x,
+                  top: h * r.y - t / 2,
+                  width: w * r.len,
+                  height: t,
+                  backgroundColor: trace,
+                }}
+              />
+            )}
+            {r.down !== 0 && (
+              <View
+                style={{
+                  position: 'absolute',
+                  left: w * bendX - t / 2,
+                  top: h * Math.min(r.y, r.y + r.down),
+                  width: t,
+                  height: h * Math.abs(r.down),
+                  backgroundColor: trace,
+                }}
+              />
+            )}
+            <View
+              style={[
+                styles.pad,
+                {
+                  left: w * bendX - pad / 2,
+                  top: h * (r.y + r.down) - pad / 2,
+                  width: pad,
+                  height: pad,
+                  borderRadius: pad / 2,
+                  borderWidth: Math.max(0.75, pad * 0.25),
+                },
+              ]}
+            />
+          </Fragment>
+        );
+      })}
+      {[0.22, 0.78].map((y) => (
+        <View
+          key={y}
+          style={[
+            styles.chip,
+            {
+              left: w * 0.62,
+              top: h * y - w * 0.07,
+              width: w * 0.22,
+              height: w * 0.14,
+              borderRadius: w * 0.02,
+            },
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
+
+/** A polished gold bar: a bright diagonal sheen and engraved corner stars. */
+function GoldShine({ w, h }: { w: number; h: number }) {
+  const f = w * 0.13;
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      <LinearGradient
+        colors={['rgba(255,255,255,0)', 'rgba(255,255,255,0.75)', 'rgba(255,255,255,0)']}
+        start={{ x: 0, y: 0.5 }}
+        end={{ x: 1, y: 0.5 }}
+        style={{
+          position: 'absolute',
+          left: w * 0.05,
+          top: -h * 0.2,
+          width: w * 0.3,
+          height: h * 1.4,
+          transform: [{ rotate: '28deg' }],
+        }}
+      />
+      <View
+        style={[
+          styles.engrave,
+          { left: w * 0.08, right: w * 0.08, top: w * 0.08, bottom: w * 0.08, borderRadius: w * 0.06 },
+        ]}
+      />
+      {[
+        { left: w * 0.03, top: w * 0.02 },
+        { right: w * 0.03, top: w * 0.02 },
+        { left: w * 0.03, bottom: w * 0.02 },
+        { right: w * 0.03, bottom: w * 0.02 },
+      ].map((p, i) => (
+        <Text key={i} style={[styles.goldStar, p, { fontSize: f, lineHeight: f * 1.15 }]}>
           ✦
         </Text>
       ))}
@@ -355,6 +645,21 @@ const styles = StyleSheet.create({
   },
   latticeMark: { width: '33%', textAlign: 'center' },
   emblem: { alignItems: 'center', justifyContent: 'center' },
+  pad: { position: 'absolute', backgroundColor: '#e8c36a', borderColor: '#0a3d20' },
+  chip: {
+    position: 'absolute',
+    backgroundColor: '#111611',
+    borderWidth: 0.75,
+    borderColor: 'rgba(92, 255, 157, 0.6)',
+  },
+  engrave: { position: 'absolute', borderWidth: 0.75, borderColor: 'rgba(120, 80, 0, 0.5)' },
+  goldStar: {
+    position: 'absolute',
+    color: '#fffbe6',
+    textShadowColor: 'rgba(140, 90, 0, 0.9)',
+    textShadowRadius: 2,
+    textShadowOffset: { width: 0, height: 0 },
+  },
   twinkle: {
     position: 'absolute',
     color: '#fff',

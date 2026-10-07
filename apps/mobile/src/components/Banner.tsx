@@ -199,6 +199,169 @@ function Planet({ h, size }: { h: number; size: number }) {
   );
 }
 
+/** A triangle made from borders, pointing up (or down), centered on x. */
+function Tri({
+  x,
+  top,
+  w,
+  h,
+  color,
+  down,
+}: {
+  x: number;
+  top: number;
+  w: number;
+  h: number;
+  color: string;
+  down?: boolean;
+}) {
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        left: pct(x),
+        top,
+        marginLeft: -w / 2,
+        width: 0,
+        height: 0,
+        borderLeftWidth: w / 2,
+        borderRightWidth: w / 2,
+        borderLeftColor: 'transparent',
+        borderRightColor: 'transparent',
+        ...(down
+          ? { borderTopWidth: h, borderTopColor: color }
+          : { borderBottomWidth: h, borderBottomColor: color }),
+      }}
+    />
+  );
+}
+
+/** A fir tree: three stacked tiers on a short trunk, standing on `base`. */
+function Pine({ x, base, size, color }: { x: number; base: number; size: number; color: string }) {
+  const tier = size * 0.42;
+  return (
+    <>
+      <View
+        style={{
+          position: 'absolute',
+          left: pct(x),
+          top: base - size * 0.12,
+          width: size * 0.08,
+          height: size * 0.12,
+          marginLeft: -size * 0.04,
+          backgroundColor: '#2b1a0e',
+        }}
+      />
+      {[0, 1, 2].map((i) => (
+        <Tri
+          key={i}
+          x={x}
+          top={base - size * 0.1 - tier - i * size * 0.27}
+          w={size * (0.62 - i * 0.14)}
+          h={tier}
+          color={color}
+        />
+      ))}
+    </>
+  );
+}
+
+/** A snowy peak whose tip is at `top`: a square turned on its corner, capped with snow. */
+function Peak({ x, top, size, color }: { x: number; top: number; size: number; color: string }) {
+  const s = size / Math.SQRT2;
+  return (
+    <View
+      style={[
+        styles.peak,
+        styles.peakBox,
+        {
+          left: pct(x),
+          top: top - s / 2 + size / 2,
+          width: s,
+          height: s,
+          marginLeft: -s / 2,
+          backgroundColor: color,
+        },
+      ]}
+    >
+      <View style={[styles.snowCap, { width: s * 0.3, height: s * 0.3 }]} />
+    </View>
+  );
+}
+
+/** A row of buildings along the bottom, with a scatter of lit windows. */
+function Skyline({
+  h,
+  seed,
+  count,
+  colors,
+  lit,
+  rim,
+  minH,
+  maxH,
+}: {
+  h: number;
+  seed: number;
+  count: number;
+  colors: readonly string[];
+  lit: readonly string[];
+  /** Color of a glowing outline on the roofs, for neon skylines. */
+  rim?: string;
+  minH: number;
+  maxH: number;
+}) {
+  const rnd = random(seed);
+  const step = 100 / count;
+  const win = Math.max(1.5, h * 0.03);
+  return (
+    <>
+      {Array.from({ length: count }, (_, i) => {
+        const bh = h * (minH + rnd() * (maxH - minH));
+        const cols = 3;
+        const rows = Math.max(2, Math.floor(bh / (win * 2.6)));
+        return (
+          <View
+            key={i}
+            style={{
+              position: 'absolute',
+              left: pct(i * step - rnd() * 1.5),
+              width: pct(step + 1.5),
+              top: h - bh,
+              height: bh,
+              backgroundColor: colors[i % colors.length],
+              borderTopWidth: rim ? 1 : 0,
+              borderColor: rim,
+              boxShadow: rim ? `0 0 6px ${rim}` : undefined,
+              flexDirection: 'row',
+              flexWrap: 'wrap',
+              justifyContent: 'space-evenly',
+              alignContent: 'flex-start',
+              paddingTop: win,
+              rowGap: win * 1.4,
+            }}
+          >
+            {Array.from({ length: cols * rows }, (_, k) => {
+              const on = rnd() < 0.45;
+              const c = lit[Math.floor(rnd() * lit.length)];
+              return (
+                <View
+                  key={k}
+                  style={{
+                    width: win,
+                    height: win * 1.2,
+                    backgroundColor: on ? c : 'rgba(255,255,255,0.05)',
+                    boxShadow: on ? `0 0 ${win * 1.5}px ${c}` : undefined,
+                  }}
+                />
+              );
+            })}
+          </View>
+        );
+      })}
+    </>
+  );
+}
+
 const SCENES: Record<string, { fill: Stops; draw: (h: number) => ReactNode }> = {
   felt: {
     fill: ['#22925c', '#13693f', '#0a3d24'],
@@ -542,6 +705,320 @@ const SCENES: Record<string, { fill: Stops; draw: (h: number) => ReactNode }> = 
       );
     },
   },
+  // ---- Shop banners ----
+  forest: {
+    fill: ['#f6e7a8', '#9fd49a', '#3f8a5c', '#163d2a'],
+    draw: (h) => {
+      const rnd = random(31);
+      return (
+        <>
+          <Dot x={70} y={30} size={h * 0.34} color="#fff6c9" glow="0 0 30px 8px rgba(255, 240, 170, 0.7)" />
+          {Array.from({ length: 13 }, (_, i) => (
+            <Pine
+              key={`b${i}`}
+              x={i * 8.5 + rnd() * 3}
+              base={h * 0.8}
+              size={h * (0.38 + rnd() * 0.16)}
+              color="rgba(46, 110, 72, 0.75)"
+            />
+          ))}
+          <Band
+            x={-10}
+            y={52}
+            w="120%"
+            h={h * 0.22}
+            rotate={0}
+            colors={['rgba(230,255,235,0)', 'rgba(230,255,235,0.35)', 'rgba(230,255,235,0)']}
+          />
+          <Hump x={30} w={h * 4} h={h * 4} top={h * 0.82} color="#123522" />
+          <Hump x={85} w={h * 3} h={h * 3} top={h * 0.86} color="#0e2b1b" />
+          {Array.from({ length: 7 }, (_, i) => (
+            <Pine
+              key={`f${i}`}
+              x={2 + i * 16 + rnd() * 5}
+              base={h * (1.0 + rnd() * 0.05)}
+              size={h * (0.48 + rnd() * 0.22)}
+              color={i % 2 ? '#0b2a18' : '#0f331f'}
+            />
+          ))}
+          {Array.from({ length: 9 }, (_, i) => (
+            <Dot
+              key={`l${i}`}
+              x={rnd() * 100}
+              y={45 + rnd() * 45}
+              size={Math.max(1.5, h * 0.025)}
+              color="#f6ff9a"
+              glow="0 0 6px 2px rgba(220, 255, 100, 0.8)"
+            />
+          ))}
+        </>
+      );
+    },
+  },
+  desert: {
+    fill: ['#ffe9a8', '#ffc46b', '#ff8e4f', '#e0603a'],
+    draw: (h) => {
+      const sun = h * 0.5;
+      return (
+        <>
+          <Dot x={74} y={34} size={sun} color="#fff7d1" glow="0 0 30px 10px rgba(255, 220, 120, 0.85)" />
+          {[0.3, 0.42].map((y, i) => (
+            <View
+              key={y}
+              style={[styles.haze, { top: h * y, opacity: 0.35 - i * 0.1, height: Math.max(1, h * 0.012) }]}
+            />
+          ))}
+          <Mark x={34} y={22} size={h * 0.09} color="rgba(120, 50, 20, 0.6)">
+            ︶
+          </Mark>
+          <Mark x={40} y={18} size={h * 0.07} color="rgba(120, 50, 20, 0.5)">
+            ︶
+          </Mark>
+          <Hump x={78} w={h * 3.6} h={h * 3.6} top={h * 0.6} color="#f0a65a" />
+          <Hump x={15} w={h * 3.2} h={h * 3.2} top={h * 0.66} color="#e48f45" />
+          <Mark x={60} y={66} size={h * 0.28}>
+            🌵
+          </Mark>
+          <Hump x={50} w={h * 5} h={h * 5} top={h * 0.8} color="#cf7634" />
+          <Hump x={95} w={h * 3} h={h * 3} top={h * 0.86} color="#b35f26" />
+          <Mark x={14} y={70} size={h * 0.42}>
+            🌵
+          </Mark>
+          <Mark x={88} y={76} size={h * 0.34}>
+            🌵
+          </Mark>
+          <Mark x={36} y={90} size={h * 0.12} rotate={-10}>
+            🦂
+          </Mark>
+        </>
+      );
+    },
+  },
+  snow: {
+    fill: ['#3b6db3', '#7fb3ea', '#d6ebff'],
+    draw: (h) => {
+      const rnd = random(41);
+      return (
+        <>
+          <Dot x={18} y={22} size={h * 0.22} color="#ffffff" glow="0 0 20px 6px rgba(255, 255, 255, 0.6)" />
+          <Peak x={30} top={h * 0.18} size={h * 1.4} color="#6f8fbf" />
+          <Peak x={72} top={h * 0.06} size={h * 1.7} color="#5b7cb0" />
+          <Peak x={98} top={h * 0.3} size={h * 1.1} color="#7d9cc9" />
+          <Peak x={5} top={h * 0.38} size={h * 1.0} color="#86a5d1" />
+          <Hump x={25} w={h * 4} h={h * 4} top={h * 0.8} color="#eef6ff" />
+          <Hump x={85} w={h * 3.4} h={h * 3.4} top={h * 0.76} color="#ffffff" />
+          <Pine x={62} base={h * 0.9} size={h * 0.36} color="#2e4f6b" />
+          <Pine x={68} base={h * 0.94} size={h * 0.28} color="#28455e" />
+          {Array.from({ length: 22 }, (_, i) => (
+            <Dot
+              key={`d${i}`}
+              x={rnd() * 100}
+              y={rnd() * 100}
+              size={Math.max(1.5, h * (0.015 + rnd() * 0.025))}
+              color="#ffffff"
+              opacity={0.6 + rnd() * 0.4}
+            />
+          ))}
+          {Array.from({ length: 7 }, (_, i) => (
+            <Mark
+              key={`f${i}`}
+              x={6 + i * 14 + rnd() * 5}
+              y={10 + rnd() * 60}
+              size={h * (0.09 + rnd() * 0.08)}
+              rotate={rnd() * 60}
+              color="#ffffff"
+              glow="rgba(120, 190, 255, 0.9)"
+            >
+              ❄
+            </Mark>
+          ))}
+        </>
+      );
+    },
+  },
+  city: {
+    fill: ['#05081f', '#141a4d', '#3a2a6e', '#6b3f7a'],
+    draw: (h) => (
+      <>
+        <Stars h={h * 0.6} count={26} seed={51} />
+        <View
+          style={[
+            styles.moon,
+            { top: h * 0.12, width: h * 0.3, height: h * 0.3, borderRadius: h * 0.15, marginLeft: -h * 0.15 },
+          ]}
+        >
+          <View
+            style={{
+              position: 'absolute',
+              left: h * 0.08,
+              top: -h * 0.03,
+              width: h * 0.3,
+              height: h * 0.3,
+              borderRadius: h * 0.15,
+              backgroundColor: '#0d1238',
+            }}
+          />
+        </View>
+        <Skyline
+          h={h}
+          seed={52}
+          count={11}
+          colors={['#1b1f48', '#23285a', '#191c40']}
+          lit={['rgba(120, 140, 255, 0.5)']}
+          minH={0.35}
+          maxH={0.62}
+        />
+        <Skyline
+          h={h}
+          seed={53}
+          count={8}
+          colors={['#0a0c22', '#0d1029', '#080a1c']}
+          lit={['#ffe08a', '#fff3c4', '#ffd060']}
+          minH={0.28}
+          maxH={0.78}
+        />
+        <Dot
+          x={47}
+          y={10}
+          size={Math.max(2, h * 0.025)}
+          color="#ff4d4d"
+          glow="0 0 6px 2px rgba(255, 60, 60, 0.9)"
+        />
+      </>
+    ),
+  },
+  vegas: {
+    fill: ['#3d0a52', '#1c0329', '#08000f'],
+    draw: (h) => {
+      const bulbs = 18;
+      const sign = Math.min(h * 0.4, 44);
+      return (
+        <>
+          <Band
+            x={-10}
+            y={30}
+            w="120%"
+            h={h * 0.5}
+            rotate={0}
+            colors={[
+              'rgba(255,60,172,0)',
+              'rgba(255,60,172,0.25)',
+              'rgba(0,240,255,0.2)',
+              'rgba(0,240,255,0)',
+            ]}
+          />
+          <Skyline
+            h={h}
+            seed={61}
+            count={9}
+            colors={['#14021f', '#1a0428', '#10011a']}
+            lit={['#ff3cac', '#00f0ff', '#ffe066', '#c13cff']}
+            rim="rgba(255, 60, 172, 0.9)"
+            minH={0.2}
+            maxH={0.48}
+          />
+          <View
+            style={[
+              styles.neonSign,
+              {
+                top: h * 0.2,
+                height: sign,
+                paddingHorizontal: sign * 0.3,
+                borderRadius: sign * 0.3,
+                borderWidth: Math.max(1.5, h * 0.018),
+              },
+            ]}
+          >
+            <Text
+              style={[
+                styles.neonText,
+                { fontSize: sign * 0.52, lineHeight: sign * 0.7, textShadowRadius: h * 0.06 },
+              ]}
+            >
+              ♠ VEGAS ♥
+            </Text>
+          </View>
+          {Array.from({ length: bulbs }, (_, i) => {
+            const x = 2.5 + (i * 95) / (bulbs - 1);
+            const s = Math.max(2.5, h * 0.06);
+            const c = i % 3 === 0 ? '#00f0ff' : i % 3 === 1 ? '#ff3cac' : '#fff3b0';
+            return (
+              <Fragment key={i}>
+                <Dot x={x} y={6} size={s} color={c} glow={`0 0 8px 2px ${c}`} />
+              </Fragment>
+            );
+          })}
+          <Mark x={10} y={42} size={h * 0.3} color="#ff3cac" glow="#ff3cac" rotate={-12}>
+            ♥
+          </Mark>
+          <Mark x={24} y={60} size={h * 0.22} color="#00f0ff" glow="#00f0ff" rotate={10}>
+            ♠
+          </Mark>
+          <Mark x={45} y={36} size={h * 0.14} color="#fff3b0" glow="#ffc933">
+            ✦
+          </Mark>
+          <Mark x={94} y={58} size={h * 0.18} color="#fff3b0" glow="#ffc933">
+            ✦
+          </Mark>
+        </>
+      );
+    },
+  },
+  dragon: {
+    fill: ['#2a0303', '#140101', '#050000'],
+    draw: (h) => {
+      const rnd = random(71);
+      return (
+        <>
+          <LinearGradient
+            colors={['rgba(255,60,0,0)', 'rgba(255,80,0,0.4)', 'rgba(255,170,40,0.75)']}
+            style={[styles.lavaFloor, { height: h * 0.6 }]}
+          />
+          {Array.from({ length: 12 }, (_, i) => (
+            <Tri
+              key={`t${i}`}
+              x={i * 9 + rnd() * 4}
+              top={-1}
+              w={h * (0.12 + rnd() * 0.1)}
+              h={h * (0.18 + rnd() * 0.22)}
+              color={i % 2 ? '#3a0907' : '#4f110b'}
+              down
+            />
+          ))}
+          <Hump x={78} w={h * 1.6} h={h * 1.6} top={h * 0.8} color="#b8860b" />
+          <Hump x={92} w={h * 1.1} h={h * 1.1} top={h * 0.72} color="#d9a21b" />
+          <Hump x={62} w={h * 0.9} h={h * 0.9} top={h * 0.86} color="#9a6e08" />
+          {Array.from({ length: 9 }, (_, i) => (
+            <Mark
+              key={`c${i}`}
+              x={58 + rnd() * 42}
+              y={78 + rnd() * 20}
+              size={h * (0.1 + rnd() * 0.06)}
+              rotate={rnd() * 60 - 30}
+            >
+              🪙
+            </Mark>
+          ))}
+          <Mark x={84} y={44} size={h * 0.55} rotate={-6} glow="rgba(255, 90, 0, 0.9)">
+            🐉
+          </Mark>
+          <Mark x={70} y={82} size={h * 0.16} rotate={-8}>
+            💎
+          </Mark>
+          {Array.from({ length: 16 }, (_, i) => (
+            <Dot
+              key={`e${i}`}
+              x={rnd() * 100}
+              y={20 + rnd() * 70}
+              size={Math.max(1.5, h * (0.015 + rnd() * 0.025))}
+              color={i % 3 ? '#ffb02e' : '#fff07a'}
+              glow="0 0 6px 1px rgba(255, 120, 0, 0.95)"
+            />
+          ))}
+        </>
+      );
+    },
+  },
 };
 
 /** Every banner id that has a drawing. */
@@ -621,4 +1098,29 @@ const styles = StyleSheet.create({
   crack: { position: 'absolute', height: 1.5, backgroundColor: 'rgba(255, 120, 20, 0.7)' },
   planetRing: { position: 'absolute', borderColor: 'rgba(255, 225, 180, 0.85)' },
   ringFront: { position: 'absolute', left: 0, overflow: 'hidden' },
+  peakBox: { overflow: 'hidden' },
+  snowCap: { position: 'absolute', left: 0, top: 0, backgroundColor: '#ffffff' },
+  haze: { position: 'absolute', left: '50%', right: 0, backgroundColor: '#fff7d1' },
+  moon: {
+    position: 'absolute',
+    left: '80%',
+    overflow: 'hidden',
+    backgroundColor: '#fff6d6',
+    boxShadow: '0 0 24px 4px rgba(255, 240, 200, 0.55)',
+  },
+  neonSign: {
+    position: 'absolute',
+    right: '6%',
+    justifyContent: 'center',
+    borderColor: '#ff3cac',
+    backgroundColor: 'rgba(20, 0, 30, 0.55)',
+    boxShadow: '0 0 12px 2px rgba(255, 60, 172, 0.85), inset 0 0 10px rgba(255, 60, 172, 0.6)',
+  },
+  neonText: {
+    color: '#fff0fa',
+    fontWeight: '900',
+    letterSpacing: 1,
+    textShadowColor: '#00f0ff',
+    textShadowOffset: { width: 0, height: 0 },
+  },
 });
