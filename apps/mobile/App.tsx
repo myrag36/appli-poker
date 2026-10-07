@@ -5,7 +5,11 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { type SavedRoom, ensureSignedIn, loadLastRoom } from './src/online/supabase';
 import { GameScreen } from './src/screens/GameScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
-import { GamesScreen } from './src/screens/GamesScreen';
+import { type GameId, GamesScreen } from './src/screens/GamesScreen';
+import { BlackjackScreen } from './src/screens/BlackjackScreen';
+import { PresidentScreen } from './src/screens/PresidentScreen';
+import { YamsScreen } from './src/screens/YamsScreen';
+import { BeloteScreen } from './src/screens/BeloteScreen';
 import { Backdrop } from './src/components/Backdrop';
 import { OnlineLobbyScreen } from './src/screens/OnlineLobbyScreen';
 import { OnlineRoomScreen } from './src/screens/OnlineRoomScreen';
@@ -15,6 +19,7 @@ import { colors } from './src/theme';
 
 type Screen =
   | { name: 'games' }
+  | { name: 'game'; game: Exclude<GameId, 'poker'> }
   | { name: 'home' }
   | { name: 'local-setup' }
   | { name: 'local-game'; settings: GameSettings }
@@ -40,6 +45,7 @@ export default function App() {
   }
 
   const home = () => setScreen({ name: 'home' });
+  const games = () => setScreen({ name: 'games' });
 
   return (
     <SafeAreaProvider>
@@ -48,13 +54,17 @@ export default function App() {
         {screen.name === 'games' && (
           <GamesScreen
             canResume={lastRoom !== null}
-            onPlay={(game) => game === 'poker' && setScreen({ name: 'home' })}
+            onPlay={(game) => setScreen(game === 'poker' ? { name: 'home' } : { name: 'game', game })}
             onResume={() => lastRoom && openRoom(lastRoom.roomId)}
           />
         )}
+        {screen.name === 'game' && screen.game === 'blackjack' && <BlackjackScreen onBack={games} />}
+        {screen.name === 'game' && screen.game === 'president' && <PresidentScreen onBack={games} />}
+        {screen.name === 'game' && screen.game === 'yams' && <YamsScreen onBack={games} />}
+        {screen.name === 'game' && screen.game === 'belote' && <BeloteScreen onBack={games} />}
         {screen.name === 'home' && (
           <HomeScreen
-            onBack={() => setScreen({ name: 'games' })}
+            onBack={games}
             canResume={lastRoom !== null}
             playerName={lastRoom?.name}
             onOnline={() => setScreen({ name: 'online-lobby' })}
