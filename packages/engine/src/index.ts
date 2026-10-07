@@ -7,3 +7,4 @@ export * from './stats.ts';
 export * from './bot.ts';
 export * from './blackjack.ts';
 export * from './president.ts';
+export * from './yams.ts';
