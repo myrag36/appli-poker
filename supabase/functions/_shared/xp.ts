@@ -1,6 +1,14 @@
 // Gives experience from the game servers. A failure is logged but never undoes a move.
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
-import { XP_DAILY, type ProgressGame, avatarEmojisFor, levelFromXp } from './engine/index.ts';
+import {
+  COINS_PLAY,
+  COINS_WIN,
+  XP_DAILY,
+  type ProgressGame,
+  avatarEmojisFor,
+  cleanOwned,
+  levelFromXp,
+} from './engine/index.ts';
 
 export async function awardXp(
   db: SupabaseClient,
@@ -16,12 +24,13 @@ export async function awardXp(
     p_played: finished !== null,
     p_won: finished?.won ?? false,
     p_daily: XP_DAILY,
+    p_coins: finished ? COINS_PLAY + (finished.won ? COINS_WIN : 0) : 0,
   });
   if (error) console.error('expérience non enregistrée', error);
 }
 
-/** Avatar emojis this player has unlocked with their level. */
+/** Avatar emojis this player has unlocked with their level or bought. */
 export async function unlockedEmojis(db: SupabaseClient, userId: string): Promise<string[]> {
-  const { data } = await db.from('player_progress').select('xp').eq('user_id', userId).maybeSingle();
-  return avatarEmojisFor(levelFromXp(data?.xp ?? 0));
+  const { data } = await db.from('player_progress').select('xp, owned').eq('user_id', userId).maybeSingle();
+  return avatarEmojisFor(levelFromXp(data?.xp ?? 0), cleanOwned(data?.owned));
 }
