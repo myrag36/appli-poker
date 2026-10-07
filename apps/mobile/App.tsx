@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { type SavedRoom, ensureSignedIn, loadLastRoom } from './src/online/supabase';
 import { GameScreen } from './src/screens/GameScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
+import { GamesScreen } from './src/screens/GamesScreen';
 import { Backdrop } from './src/components/Backdrop';
 import { OnlineLobbyScreen } from './src/screens/OnlineLobbyScreen';
 import { OnlineRoomScreen } from './src/screens/OnlineRoomScreen';
@@ -13,6 +14,7 @@ import { type GameSettings, SetupScreen } from './src/screens/SetupScreen';
 import { colors } from './src/theme';
 
 type Screen =
+  | { name: 'games' }
   | { name: 'home' }
   | { name: 'local-setup' }
   | { name: 'local-game'; settings: GameSettings }
@@ -21,11 +23,11 @@ type Screen =
   | { name: 'stats' };
 
 export default function App() {
-  const [screen, setScreen] = useState<Screen>({ name: 'home' });
+  const [screen, setScreen] = useState<Screen>({ name: 'games' });
   const [lastRoom, setLastRoom] = useState<SavedRoom | null>(null);
 
   useEffect(() => {
-    if (screen.name === 'home') loadLastRoom().then(setLastRoom);
+    if (screen.name === 'home' || screen.name === 'games') loadLastRoom().then(setLastRoom);
   }, [screen.name]);
 
   async function openRoom(roomId: string) {
@@ -43,8 +45,16 @@ export default function App() {
     <SafeAreaProvider>
       <View style={styles.container}>
         <Backdrop />
+        {screen.name === 'games' && (
+          <GamesScreen
+            canResume={lastRoom !== null}
+            onPlay={(game) => game === 'poker' && setScreen({ name: 'home' })}
+            onResume={() => lastRoom && openRoom(lastRoom.roomId)}
+          />
+        )}
         {screen.name === 'home' && (
           <HomeScreen
+            onBack={() => setScreen({ name: 'games' })}
             canResume={lastRoom !== null}
             playerName={lastRoom?.name}
             onOnline={() => setScreen({ name: 'online-lobby' })}

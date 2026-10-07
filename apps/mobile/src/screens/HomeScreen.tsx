@@ -13,6 +13,7 @@ interface Props {
   onResume: () => void;
   onLocal: () => void;
   onStats: () => void;
+  onBack: () => void;
 }
 
 /** Strongest hand first, with an example of each. */
@@ -66,7 +67,7 @@ function Choice({
   );
 }
 
-export function HomeScreen({ canResume, playerName, onOnline, onResume, onLocal, onStats }: Props) {
+export function HomeScreen({ canResume, playerName, onOnline, onResume, onLocal, onStats, onBack }: Props) {
   const insets = useSafeAreaInsets();
   const [showRules, setShowRules] = useState(false);
 
@@ -77,6 +78,9 @@ export function HomeScreen({ canResume, playerName, onOnline, onResume, onLocal,
         { paddingTop: insets.top + 28, paddingBottom: insets.bottom + 24 },
       ]}
     >
+      <Pressable accessibilityRole="button" onPress={onBack} hitSlop={10} style={styles.back}>
+        <Text style={styles.backText}>← Tous les jeux</Text>
+      </Pressable>
       <View style={styles.hero}>
         <View style={styles.glow} />
         <View style={styles.fan}>
@@ -174,6 +178,8 @@ const styles = StyleSheet.create({
     width: '100%',
     alignSelf: 'center',
   },
+  back: { alignSelf: 'flex-start', paddingVertical: 4, marginBottom: 8 },
+  backText: { color: colors.muted, fontSize: 15, fontWeight: '700' },
   hero: { alignItems: 'center', marginBottom: 28 },
   glow: {
     position: 'absolute',
