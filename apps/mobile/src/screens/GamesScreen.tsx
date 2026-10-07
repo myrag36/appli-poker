@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GameDecor } from '../components/GameDecor';
+import { ThemeChooser } from '../components/ThemeChooser';
 import { PlayingCard } from '../components/PlayingCard';
 import { colors, gradients, shadow } from '../theme';
 
@@ -71,6 +72,7 @@ const GAMES: Game[] = [
 ];
 
 const GAP = 14;
+/** Card height on a tall phone; smaller screens get shorter cards so the theme button still fits. */
 const CARD_HEIGHT = 420;
 
 interface Props {
@@ -112,7 +114,8 @@ function Art({ game }: { game: Game }) {
 /** The first screen: every game in a carousel you swipe through. */
 export function GamesScreen({ canResume, onPlay, onResume }: Props) {
   const insets = useSafeAreaInsets();
-  const { width: screenWidth } = useWindowDimensions();
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const cardHeight = Math.max(370, Math.min(CARD_HEIGHT, screenHeight - 420));
   const viewWidth = Math.min(screenWidth, 520);
   const cardWidth = Math.round(viewWidth * 0.76);
   const step = cardWidth + GAP;
@@ -178,9 +181,9 @@ export function GamesScreen({ canResume, onPlay, onResume }: Props) {
                   accessibilityRole="button"
                   accessibilityLabel={game.ready ? `Jouer : ${game.title}` : `${game.title}, bientôt`}
                   onPress={() => (i === index ? game.ready && onPlay(game.id) : goTo(i))}
-                  style={[styles.card, shadow]}
+                  style={[styles.card, shadow, { height: cardHeight }]}
                 >
-                  <GameDecor id={game.id} width={cardWidth} height={CARD_HEIGHT} />
+                  <GameDecor id={game.id} width={cardWidth} height={cardHeight} />
                   <View style={styles.artBox}>
                     <Art game={game} />
                   </View>
@@ -217,6 +220,10 @@ export function GamesScreen({ canResume, onPlay, onResume }: Props) {
           />
         ))}
       </View>
+
+      <View style={{ width: cardWidth }}>
+        <ThemeChooser />
+      </View>
     </View>
   );
 }
@@ -236,7 +243,6 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.8 },
   carouselWrap: { marginTop: 24 },
   card: {
-    height: CARD_HEIGHT,
     borderRadius: 24,
     padding: 20,
     overflow: 'hidden',

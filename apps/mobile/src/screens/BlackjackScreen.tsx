@@ -29,10 +29,11 @@ import {
 import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
 import { OnlineButton } from '../components/OnlineButton';
+import { RulesButton } from '../components/Rules';
+import { BLACKJACK_RULES } from '../rules';
 import { ChipStack } from '../components/Chip';
 import { GameLayout } from '../components/GameLayout';
 import { Appear } from '../components/Motion';
-import { Panel } from '../components/Panel';
 import { PlayingCard } from '../components/PlayingCard';
 import { TopBar } from '../components/TopBar';
 import { TurnTimer } from '../components/TurnTimer';
@@ -145,7 +146,6 @@ function BlackjackSetup({
   );
   const [stack, setStack] = useState(initial?.stack ?? 1000);
   const [picking, setPicking] = useState<number | null>(null);
-  const [help, setHelp] = useState(false);
 
   const cleaned = names.map((n, i) => n.trim() || `Joueur ${i + 1}`);
   const duplicate = new Set(cleaned.map((n) => n.toLowerCase())).size !== cleaned.length;
@@ -174,12 +174,8 @@ function BlackjackSetup({
         <Text style={setup.title}>Blackjack</Text>
         <Text style={setup.subtitle}>Tous contre la banque, sur ce téléphone</Text>
         {onOnline && <OnlineButton onPress={onOnline} />}
+        <RulesButton rules={BLACKJACK_RULES} />
       </View>
-
-      <Pressable accessibilityRole="button" onPress={() => setHelp(!help)} style={setup.helpToggle}>
-        <Text style={setup.helpToggleText}>{help ? 'Masquer les règles ▴' : 'Comment jouer ? ▾'}</Text>
-      </Pressable>
-      {help && <RulesHelp />}
 
       <Text style={setup.section}>Joueurs</Text>
       {names.map((name, i) => (
@@ -278,28 +274,6 @@ function BlackjackSetup({
   );
 }
 
-function RulesHelp() {
-  const lines = [
-    'Approche-toi le plus possible de 21 sans dépasser, et bats le croupier.',
-    'Les figures valent 10, l’as vaut 1 ou 11. « 7/17 » : la main peut compter 7 ou 17.',
-    'Blackjack = as + carte à 10 dès les deux premières cartes : payé 3 contre 2.',
-    'Tirer : une carte de plus. Rester : tu t’arrêtes là.',
-    'Doubler : tu doubles ta mise et reçois une seule carte.',
-    'Séparer : avec une paire, tu joues deux mains (une fois). Les as séparés reçoivent une carte chacun.',
-    'Le croupier tire jusqu’à 16 et reste sur 17. S’il a un as ou un 10 visible, il vérifie son blackjack.',
-    'Gagné : mise payée 1 contre 1. Égalité : mise rendue. À 0 jeton, on est éliminé.',
-  ];
-  return (
-    <Panel compact title="Comment jouer ?">
-      {lines.map((l) => (
-        <Text key={l} style={setup.helpLine}>
-          • {l}
-        </Text>
-      ))}
-    </Panel>
-  );
-}
-
 const setup = StyleSheet.create({
   container: { padding: 20, paddingTop: 40, paddingBottom: 40 },
   hero: { alignItems: 'center', marginBottom: 6 },
@@ -308,9 +282,6 @@ const setup = StyleSheet.create({
   heroCardRight: { transform: [{ rotate: '10deg' }, { translateX: -8 }, { translateY: 4 }] },
   title: { color: colors.gold, fontSize: 32, fontWeight: '800', textAlign: 'center' },
   subtitle: { color: colors.muted, fontSize: 14, textAlign: 'center', marginTop: 2 },
-  helpToggle: { alignSelf: 'center', paddingVertical: 8, paddingHorizontal: 12 },
-  helpToggleText: { color: colors.gold, fontWeight: '700', fontSize: 15 },
-  helpLine: { color: colors.text, fontSize: 13, lineHeight: 18 },
   section: { color: colors.text, fontSize: 18, fontWeight: '700', marginTop: 18, marginBottom: 8 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   flex: { flex: 1 },

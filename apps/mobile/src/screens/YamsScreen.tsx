@@ -27,10 +27,11 @@ import {
 import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
 import { OnlineButton } from '../components/OnlineButton';
+import { RulesButton } from '../components/Rules';
+import { YAMS_RULES } from '../rules';
 import { Die } from '../components/Die';
 import { GameLayout } from '../components/GameLayout';
 import { Appear, FloatUp } from '../components/Motion';
-import { Panel } from '../components/Panel';
 import { TopBar } from '../components/TopBar';
 import { TurnTimer } from '../components/TurnTimer';
 import type { OnlineBoardProps } from '../online-games/types';
@@ -95,7 +96,6 @@ function YamsSetup({
   );
   const [bots, setBots] = useState(initial?.bots ?? [false, true]);
   const [picking, setPicking] = useState<number | null>(null);
-  const [help, setHelp] = useState(false);
 
   const cleaned = names.map((n, i) => n.trim() || `Joueur ${i + 1}`);
   const duplicate = new Set(cleaned).size !== cleaned.length;
@@ -122,6 +122,7 @@ function YamsSetup({
       <Text style={styles.title}>Yams</Text>
       <Text style={styles.subtitle}>5 dés, 3 lancers, 13 cases à remplir</Text>
       {onOnline && <OnlineButton onPress={onOnline} />}
+      <RulesButton rules={YAMS_RULES} />
 
       <Text style={styles.section}>Joueurs</Text>
       {names.map((name, i) => (
@@ -193,11 +194,6 @@ function YamsSetup({
       {duplicate && <Text style={styles.error}>Deux joueurs ont le même nom.</Text>}
       {!bots.includes(false) && <Text style={styles.error}>Il faut au moins un joueur humain.</Text>}
 
-      <Pressable accessibilityRole="button" onPress={() => setHelp(!help)} style={styles.helpToggle}>
-        <Text style={styles.helpToggleText}>{help ? '▾' : '▸'} Comment jouer ?</Text>
-      </Pressable>
-      {help && <YamsRules />}
-
       <View style={styles.spacer} />
       <Button
         label="Lancer la partie"
@@ -206,29 +202,6 @@ function YamsSetup({
       />
       <Button label="Retour" variant="secondary" onPress={onBack} />
     </ScrollView>
-  );
-}
-
-function YamsRules() {
-  return (
-    <Panel compact>
-      <Text style={styles.rule}>
-        🎲 À ton tour, lance les 5 dés jusqu’à 3 fois. Entre deux lancers, touche les dés à garder 🔒 et
-        relance les autres.
-      </Text>
-      <Text style={styles.rule}>
-        ✍️ Puis inscris ton résultat dans une case libre de ta grille. Si rien ne va, il faut quand même
-        barrer une case (0 point).
-      </Text>
-      <Text style={styles.rule}>
-        ⬆️ 1 à 6 : la somme des dés de cette valeur. 63 points ou plus en haut = bonus de {YAMS_BONUS} !
-      </Text>
-      <Text style={styles.rule}>
-        ⬇️ Brelan (3 pareils) et Carré (4 pareils) : somme des dés. Full (3 + 2) : 25. Petite suite (4 qui se
-        suivent) : 30. Grande suite (5) : 40. Yams (5 pareils) : 50. Chance : la somme, sans condition.
-      </Text>
-      <Text style={styles.rule}>🏆 Quand toutes les grilles sont pleines, le plus gros total gagne.</Text>
-    </Panel>
   );
 }
 
@@ -789,9 +762,6 @@ const styles = StyleSheet.create({
   botTag: { color: colors.gold, fontSize: 12, fontWeight: '800', textTransform: 'uppercase' },
   hint: { color: colors.muted, marginTop: 8, fontSize: 13 },
   error: { color: colors.gold, marginTop: 8 },
-  helpToggle: { marginTop: 16, paddingVertical: 6 },
-  helpToggleText: { color: colors.gold, fontSize: 16, fontWeight: '700' },
-  rule: { color: colors.text, fontSize: 14, lineHeight: 20 },
   spacer: { height: 20 },
   spacerSmall: { height: 10 },
 

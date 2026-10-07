@@ -29,6 +29,8 @@ import {
 import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
 import { OnlineButton } from '../components/OnlineButton';
+import { RulesButton } from '../components/Rules';
+import { PRESIDENT_RULES } from '../rules';
 import { GameLayout } from '../components/GameLayout';
 import { Appear } from '../components/Motion';
 import { Panel } from '../components/Panel';
@@ -129,7 +131,6 @@ function Setup({
   const [avatar, setAvatar] = useState<Avatar>(defaultAvatar(0));
   const [picking, setPicking] = useState(false);
   const [robots, setRobots] = useState(3);
-  const [help, setHelp] = useState(false);
 
   return (
     <ScrollView contentContainerStyle={styles.setup} keyboardShouldPersistTaps="handled">
@@ -146,6 +147,7 @@ function Setup({
       <Text style={styles.title}>Président</Text>
       <Text style={styles.subtitle}>Vide ta main le premier pour devenir Président !</Text>
       {onOnline && <OnlineButton onPress={onOnline} />}
+      <RulesButton rules={PRESIDENT_RULES} />
 
       <Text style={styles.section}>Ton nom</Text>
       <View style={styles.row}>
@@ -193,36 +195,8 @@ function Setup({
         label="Lancer la partie"
         onPress={() => onStart({ name: name.trim() || 'Toi', avatar, robots })}
       />
-      <Button
-        label={help ? 'Masquer les règles' : 'Comment jouer ?'}
-        variant="secondary"
-        onPress={() => setHelp(!help)}
-      />
-      {help && <Rules />}
       <Button label="Retour" variant="secondary" onPress={onBack} />
     </ScrollView>
-  );
-}
-
-function Rules() {
-  const lines = [
-    'Ordre des cartes, du plus faible au plus fort : 3 4 5 6 7 8 9 10 V D R As 2.',
-    'Le joueur qui a le 3 de trèfle ouvre la première manche.',
-    'Celui qui mène pose 1, 2, 3 ou 4 cartes de même valeur. Les suivants posent autant de cartes, plus fortes, ou passent.',
-    'Tu peux rejouer dans le pli même si tu as passé avant. Quand tout le monde passe, le dernier à avoir joué ramasse et recommence.',
-    'Un 2 ferme le pli tout de suite : tu rejoues.',
-    'Le premier à vider sa main est Président, le dernier Trouduc (et Vice-président / Vice-trouduc à 4 joueurs ou plus).',
-    'Manche suivante : le Trouduc donne ses 2 meilleures cartes au Président, qui lui rend 2 cartes de son choix (1 carte entre les vices). Le Trouduc commence.',
-    'Points : Président 3 (2 à trois joueurs), Vice-président 2, Neutre 1, les autres 0.',
-  ];
-  return (
-    <Panel title="Comment jouer ?">
-      {lines.map((l) => (
-        <Text key={l} style={styles.rule}>
-          • {l}
-        </Text>
-      ))}
-    </Panel>
   );
 }
 
@@ -1116,7 +1090,6 @@ const styles = StyleSheet.create({
   hint: { color: colors.muted, marginTop: 8, fontSize: 13 },
   options: { gap: 6, marginBottom: 10 },
   optionsLabel: { color: colors.muted, fontSize: 14, fontWeight: '700' },
-  rule: { color: colors.text, fontSize: 14, lineHeight: 20 },
   spacer: { height: 22 },
 
   topInfo: { color: colors.muted, fontSize: 13, fontWeight: '700' },
