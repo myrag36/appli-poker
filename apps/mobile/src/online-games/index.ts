@@ -1,6 +1,6 @@
 import type { OnlineGameId } from '@appli-poker/engine';
 import { BeloteOnlineBoard } from '../screens/BeloteScreen';
-import { BlackjackOnlineBoard } from '../screens/BlackjackScreen';
+import { BlackjackOnlineBoard, BlackjackOnlineOptions } from '../screens/BlackjackScreen';
 import { PresidentOnlineBoard } from '../screens/PresidentScreen';
 import { YamsOnlineBoard } from '../screens/YamsScreen';
 import type { OnlineGameUi } from './types';
@@ -10,9 +10,10 @@ export const ONLINE_UI: Record<OnlineGameId, OnlineGameUi> = {
   blackjack: {
     title: 'Blackjack',
     emoji: '🃏',
-    players: '1 à 6 joueurs contre la banque',
+    players: '1 à 7 joueurs contre la banque',
     Board: BlackjackOnlineBoard,
-    defaultOptions: {},
+    Options: BlackjackOnlineOptions,
+    defaultOptions: { stack: 1000 },
   },
   president: {
     title: 'Président',

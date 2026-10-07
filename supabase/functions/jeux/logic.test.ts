@@ -110,3 +110,25 @@ test('robots fill the table when a game needs more players', () => {
   assert.equal(bots.length, 0);
   assert.equal(snapshot.public.seats.length, 1);
 });
+
+test('blackjack: everyone bets at once, robots first on timeout, the shoe stays secret', () => {
+  const { snapshot } = startGame(
+    room({ game: 'blackjack', options: cleanOptions('blackjack', { stack: 500 }) }),
+    [player('a', 0), player('r', 1, true), player('b', 2)],
+    'a',
+    newId,
+    rng,
+    NOW,
+  );
+  assert.deepEqual(snapshot.public.actors, ['a', 'r', 'b']);
+  assert.equal(snapshot.public.deadline, NOW + BOT_MS);
+  const bet = playGameMove(snapshot.secret, 'b', { type: 'bet', amount: 50 }, rng, NOW);
+  assert.deepEqual(bet.public.actors, ['a', 'r']);
+  const after = playGameTimeout(bet.secret, rng, NOW + BOT_MS);
+  assert.deepEqual(after.public.actors, ['a']);
+  assert.equal(after.public.deadline, NOW + BOT_MS + TURN_MS);
+  for (const view of [after.public.view, after.privates.a]) {
+    assert.equal(JSON.stringify(view).includes('"shoe"'), false);
+    assert.equal((view as { players: { stack: number }[] }).players[0].stack, 500);
+  }
+});
