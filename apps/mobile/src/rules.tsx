@@ -213,3 +213,52 @@ export const BELOTE_RULES: GameRules = {
   ],
   tip: 'Tous les plis pour ton équipe ? C’est un capot : 252 points !',
 };
+
+export const RAMI_RULES: GameRules = {
+  game: 'rami',
+  title: 'Rami',
+  goal: 'Vide ta main le premier en posant des combinaisons, et garde le plus petit score.',
+  steps: [
+    {
+      icon: '🃏',
+      title: 'La donne',
+      text: '2 jeux de 52 cartes et 4 jokers. 13 cartes chacun, 14 pour celui qui commence : il ne pioche pas et défausse tout de suite.',
+    },
+    {
+      icon: '🔁',
+      title: 'Ton tour',
+      text: 'Pioche une carte, ou prends celle du dessus de la défausse. Pose ce que tu peux, puis défausse une carte pour finir ton tour.',
+    },
+    {
+      icon: '🧩',
+      title: 'Les combinaisons',
+      text: 'Brelan ou carré : même valeur, couleurs toutes différentes. Suite : au moins 3 cartes qui se suivent dans la même couleur. L’as va avant le 2 ou après le roi.',
+      visual: (
+        <>
+          <Cards cards={['8s', '8h', '8d']} label="Brelan" />
+          <Cards cards={['Th', 'Jh', 'Qh', 'Kh']} label="Suite à cœur" />
+        </>
+      ),
+    },
+    {
+      icon: '🤡',
+      title: 'Le joker',
+      text: 'Il remplace n’importe quelle carte, un seul par combinaison. Une fois ouvert, échange-le contre la vraie carte pour le récupérer.',
+      visual: <Cards cards={['5c', 'Xr', '7c']} label="Le joker fait le 6 ♣" />,
+    },
+    {
+      icon: '🔓',
+      title: 'Ouvrir à 51',
+      text: 'Ta première pose doit valoir au moins 51 points (figures 10, as 11, ou 1 dans A-2-3). Ensuite, pose librement et complète les combinaisons de tout le monde.',
+      visual: (
+        <Cards cards={['Ks', 'Kh', 'Kd', '7d', '8d', '9d']} label="30 + 24 = 54 : j’ouvre !" width={30} />
+      ),
+    },
+    {
+      icon: '🏁',
+      title: 'Fin de manche',
+      text: 'Le premier qui vide sa main gagne la manche. Les autres comptent leurs cartes (joker 20). Pas encore ouvert : 100 points. Tout posé d’un coup : rami sec, pénalités doublées !',
+    },
+  ],
+  tip: 'La partie s’arrête quand quelqu’un atteint le score visé : le plus petit score gagne.',
+};

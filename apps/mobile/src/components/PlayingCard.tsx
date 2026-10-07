@@ -36,6 +36,8 @@ export function PlayingCard({ card, hidden, width, small }: Props) {
     );
   }
 
+  if (card[0] === 'X') return <JokerFace width={w} height={h} radius={radius} red={card[1] === 'r'} />;
+
   const r = card[0];
   const rank = r === 'T' ? '10' : r;
   const suit = SUIT_SYMBOLS[card[1]];
@@ -78,6 +80,93 @@ export function PlayingCard({ card, hidden, width, small }: Props) {
   );
 }
 
+/** A joker ("Xr" red, "Xb" black): a jester's hat with bells and JOKER written in the corners. */
+function JokerFace({
+  width: w,
+  height: h,
+  radius,
+  red,
+}: {
+  width: number;
+  height: number;
+  radius: number;
+  red: boolean;
+}) {
+  const main = red ? colors.red : colors.black;
+  const other = red ? colors.black : colors.red;
+  const roomy = w >= 34;
+  const hat = w * 0.62;
+  // Three points of the hat: left, middle and right, leaning out.
+  const points = [
+    { color: main, rotate: -32, dx: -hat * 0.26 },
+    { color: other, rotate: 0, dx: 0 },
+    { color: main, rotate: 32, dx: hat * 0.26 },
+  ];
+  const tipH = hat * 0.5;
+  const tipW = hat * 0.2;
+  const bell = Math.max(3, w * 0.1);
+  return (
+    <View style={[styles.base, { width: w, height: h, borderRadius: radius }, styles.face, shadow]}>
+      <LinearGradient colors={['#ffffff', '#fbf3df', '#f1e2bd']} style={StyleSheet.absoluteFill} />
+      {roomy ? (
+        <View style={styles.corner}>
+          {'JOKER'.split('').map((l, i) => (
+            <Text
+              key={i}
+              style={[styles.jokerLetter, { color: main, fontSize: w * 0.15, lineHeight: w * 0.16 }]}
+            >
+              {l}
+            </Text>
+          ))}
+        </View>
+      ) : (
+        <Text style={[styles.corner, styles.rank, { color: main, fontSize: w * 0.3 }]}>★</Text>
+      )}
+      <View
+        style={[styles.hat, { width: hat, height: hat * 0.8, left: w * (roomy ? 0.3 : 0.2), top: h * 0.3 }]}
+      >
+        {points.map((p, i) => (
+          <View
+            key={i}
+            style={{
+              position: 'absolute',
+              bottom: hat * 0.14,
+              left: hat / 2 - tipW + p.dx,
+              alignItems: 'center',
+              transform: [{ rotate: `${p.rotate}deg` }],
+            }}
+          >
+            <View
+              style={[
+                styles.bell,
+                { width: bell, height: bell, borderRadius: bell / 2, marginBottom: -bell * 0.3 },
+              ]}
+            />
+            <View
+              style={{
+                width: 0,
+                height: 0,
+                borderLeftWidth: tipW,
+                borderRightWidth: tipW,
+                borderBottomWidth: tipH,
+                borderLeftColor: 'transparent',
+                borderRightColor: 'transparent',
+                borderBottomColor: p.color,
+              }}
+            />
+          </View>
+        ))}
+        <View
+          style={[
+            styles.hatBand,
+            { height: hat * 0.16, borderRadius: hat * 0.08, left: hat * 0.12, right: hat * 0.12 },
+          ]}
+        />
+      </View>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   base: { marginHorizontal: 2, overflow: 'hidden' },
   face: { backgroundColor: colors.card, borderWidth: 1, borderColor: '#d9d0b8' },
@@ -90,6 +179,16 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0,0,0,0.15)',
     textShadowRadius: 2,
     textShadowOffset: { width: 0, height: 1 },
+  },
+  jokerLetter: { fontWeight: '900', fontFamily: SERIF },
+  hat: { position: 'absolute' },
+  bell: { backgroundColor: '#e0b324', borderWidth: 0.5, borderColor: '#9c7a12' },
+  hatBand: {
+    position: 'absolute',
+    bottom: 0,
+    backgroundColor: '#e0b324',
+    borderWidth: 0.5,
+    borderColor: '#9c7a12',
   },
   court: {
     position: 'absolute',

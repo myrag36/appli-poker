@@ -27,7 +27,7 @@ import { loadAvatar } from '../online/supabase';
 import { PlayingCard } from '../components/PlayingCard';
 import { colors, gradients, shadow } from '../theme';
 
-export type GameId = 'poker' | 'blackjack' | 'president' | 'yams' | 'belote';
+export type GameId = 'poker' | 'blackjack' | 'president' | 'yams' | 'belote' | 'rami';
 
 interface Game {
   id: GameId;
@@ -78,6 +78,14 @@ const GAMES: Game[] = [
     tagline: 'Deux équipes, un atout, et la belote-rebelote pour les chanceux.',
     players: '4 joueurs',
     art: ['Jh', '9h', 'Ah', 'Kh', 'Qh'],
+    ready: true,
+  },
+  {
+    id: 'rami',
+    title: 'Rami',
+    tagline: 'Pose tes suites et tes brelans, ouvre à 51 et vide ta main le premier.',
+    players: '2 à 4 joueurs',
+    art: ['7d', '8d', 'Xr', '9d'],
     ready: true,
   },
 ];
