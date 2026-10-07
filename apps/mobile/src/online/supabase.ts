@@ -58,7 +58,16 @@ export function callServer<T>(body: Request): Promise<T> {
 }
 
 type GamesRequest =
-  | { type: 'create'; game: OnlineGameId; name: string; avatar: Avatar; options: Record<string, unknown> }
+  | {
+      type: 'create';
+      game: OnlineGameId;
+      name: string;
+      avatar: Avatar;
+      options: Record<string, unknown>;
+      tournamentId?: string;
+    }
+  | { type: 'tournamentCreate'; title: string; games: OnlineGameId[]; name: string; avatar: Avatar }
+  | { type: 'tournamentJoin'; code: string; name: string; avatar: Avatar }
   | { type: 'join'; game: OnlineGameId; name: string; code: string; avatar: Avatar }
   | { type: 'addBot' | 'start' | 'tick'; roomId: string }
   | { type: 'remove'; roomId: string; userId: string }
@@ -76,7 +85,11 @@ type ProfileRequest =
   | { type: 'claim'; quest: string }
   | { type: 'open'; chest: string }
   | { type: 'achieve'; id: string }
-  | { type: 'feat'; feat: string };
+  | { type: 'feat'; feat: string }
+  | { type: 'me'; name?: string; avatar?: Avatar }
+  | { type: 'addFriend'; code: string }
+  | { type: 'removeFriend'; userId: string }
+  | { type: 'podium' };
 
 /** Calls the profile server (games on one phone, rewards worn, shop and quests). */
 export function callProfile<T>(body: ProfileRequest): Promise<T> {

@@ -6,6 +6,7 @@ import {
   parisDay,
   questProgress,
   questsFor,
+  seasonOf,
 } from '@appli-poker/engine';
 import {
   Animated,
@@ -94,6 +95,8 @@ interface Props {
   onResume: () => void;
   onProfile: () => void;
   onShop: () => void;
+  onFriends: () => void;
+  onTournaments: () => void;
 }
 
 function Art({ game }: { game: Game }) {
@@ -127,7 +130,15 @@ function Art({ game }: { game: Game }) {
 }
 
 /** The first screen: every game in a carousel you swipe through. */
-export function GamesScreen({ canResume, onPlay, onResume, onProfile, onShop }: Props) {
+export function GamesScreen({
+  canResume,
+  onPlay,
+  onResume,
+  onProfile,
+  onShop,
+  onFriends,
+  onTournaments,
+}: Props) {
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const cardHeight = Math.max(340, Math.min(CARD_HEIGHT, screenHeight - 480));
@@ -157,6 +168,23 @@ export function GamesScreen({ canResume, onPlay, onResume, onProfile, onShop }: 
       </View>
       <Text style={styles.title}>Jeux entre amis</Text>
       <Text style={styles.subtitle}>Glisse pour choisir ton jeu.</Text>
+      <View style={styles.social}>
+        <Pressable
+          accessibilityRole="button"
+          onPress={onFriends}
+          style={({ pressed }) => [styles.socialButton, pressed && styles.pressed]}
+        >
+          <Text style={styles.socialText}>👥 Amis</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          onPress={onTournaments}
+          style={({ pressed }) => [styles.socialButton, pressed && styles.pressed]}
+        >
+          <Text style={styles.socialText}>🏆 Tournois</Text>
+        </Pressable>
+        <SeasonPill onPress={onShop} />
+      </View>
 
       {canResume && (
         <Pressable
@@ -309,7 +337,39 @@ function CoinsChip({ onPress }: { onPress: () => void }) {
   );
 }
 
+/** The season of the month, with its limited items in the shop. */
+function SeasonPill({ onPress }: { onPress: () => void }) {
+  const season = seasonOf();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Saison ${season.name}, articles limités à la boutique`}
+      onPress={onPress}
+      style={({ pressed }) => [styles.socialButton, pressed && styles.pressed]}
+    >
+      <LinearGradient
+        colors={season.colors}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[StyleSheet.absoluteFill, { borderRadius: 18 }]}
+      />
+      <Text style={styles.socialText}>{season.emoji} Saison</Text>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
+  social: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  socialButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 18,
+    overflow: 'hidden',
+    backgroundColor: colors.glass,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+  },
+  socialText: { color: colors.text, fontSize: 14, fontWeight: '800' },
   chips: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
   coins: {
     flexDirection: 'row',

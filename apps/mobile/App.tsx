@@ -17,6 +17,8 @@ import { OnlineGameScreen } from './src/screens/OnlineGameScreen';
 import { StatsScreen } from './src/screens/StatsScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { ShopScreen } from './src/screens/ShopScreen';
+import { FriendsScreen } from './src/screens/FriendsScreen';
+import { TournamentScreen } from './src/screens/TournamentScreen';
 import { ProgressToast } from './src/components/ProgressToast';
 import { type GameSettings, SetupScreen } from './src/screens/SetupScreen';
 import { colors } from './src/theme';
@@ -32,7 +34,9 @@ type Screen =
   | { name: 'online-room'; roomId: string; userId: string }
   | { name: 'stats' }
   | { name: 'profile' }
-  | { name: 'shop'; from: 'games' | 'profile' };
+  | { name: 'shop'; from: 'games' | 'profile' }
+  | { name: 'friends' }
+  | { name: 'tournaments' };
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>({ name: 'games' });
@@ -68,11 +72,15 @@ export default function App() {
             onResume={() => lastRoom && openRoom(lastRoom.roomId)}
             onProfile={() => setScreen({ name: 'profile' })}
             onShop={() => setScreen({ name: 'shop', from: 'games' })}
+            onFriends={() => setScreen({ name: 'friends' })}
+            onTournaments={() => setScreen({ name: 'tournaments' })}
           />
         )}
         {screen.name === 'profile' && (
           <ProfileScreen onBack={games} onShop={() => setScreen({ name: 'shop', from: 'profile' })} />
         )}
+        {screen.name === 'friends' && <FriendsScreen onBack={games} />}
+        {screen.name === 'tournaments' && <TournamentScreen onBack={games} />}
         {screen.name === 'shop' && (
           <ShopScreen onBack={screen.from === 'profile' ? () => setScreen({ name: 'profile' }) : games} />
         )}
