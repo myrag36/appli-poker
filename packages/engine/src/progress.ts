@@ -10,6 +10,8 @@ export const PROGRESS_GAMES: ProgressGame[] = ['poker', 'blackjack', 'president'
 /** Experience for one finished game: playing always pays, winning pays more. */
 export const XP_PLAY = 20;
 export const XP_WIN = 30;
+/** Each finished round of an online game (a deal, a blackjack round…). */
+export const XP_ROUND = 5;
 /** Extra experience for the first game of the day. */
 export const XP_DAILY = 50;
 /** Online poker has no real end, so each hand pays a little. */

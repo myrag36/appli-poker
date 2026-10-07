@@ -12,6 +12,7 @@ import {
   bjMinBet,
   bjNewGame,
   bjNextRound,
+  bjRanking,
   bjPlaceBet,
   bjTableView,
 } from './blackjack.ts';
@@ -97,6 +98,10 @@ export const blackjackOnline: OnlineGame<BjOnlineState> = {
   betweenRounds: (state) => state.phase === 'settled' && !bjIsOver(state),
   nextRound: (state) => ({ ...bjNextRound(state), startStack: state.startStack }),
   over: (state) => bjIsOver(state),
+  winners: (state) =>
+    bjRanking(state)
+      .filter((r) => r.place === 1)
+      .map((r) => state.players.findIndex((p) => p.id === r.id)),
   // Nothing at the table is private to one player: everyone sees the same view.
   view: (state): BjTableView => bjTableView(state, state.startStack),
 };

@@ -11,6 +11,7 @@ import {
   newGameBot,
   playGameMove,
   playGameTimeout,
+  progressAwards,
   startGame,
 } from './logic.ts';
 
@@ -169,4 +170,22 @@ test('belote: robots complete the table to four and only my own hand reaches me'
   const pub = snapshot.public.view as { hands: string[][]; stock?: unknown };
   assert.ok(pub.hands.every((h) => h.length === 0));
   assert.equal(pub.stock, undefined);
+});
+
+test('experience: a little each round, more at the end, and the winners get the bonus', () => {
+  // A Yams game for one person and a robot, played to the end with timeouts.
+  const { snapshot } = startGame(room(), [player('a', 0), player('r', 1, true)], 'a', newId, rng, NOW);
+  let s = snapshot;
+  let awards: ReturnType<typeof progressAwards> = [];
+  for (let i = 0; i < 2000 && !s.public.over; i++) {
+    const next = playGameTimeout(s.secret, rng, s.secret.deadline!);
+    awards = progressAwards(s.secret, next);
+    if (!next.public.over) assert.deepEqual(awards, []);
+    s = next;
+  }
+  assert.ok(s.public.over);
+  assert.equal(awards.length, 1);
+  assert.equal(awards[0].userId, 'a');
+  assert.ok(awards[0].finished);
+  assert.equal(awards[0].amount, awards[0].finished!.won ? 50 : 20);
 });

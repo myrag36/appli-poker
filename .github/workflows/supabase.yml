@@ -33,3 +33,4 @@ jobs:
       - run: supabase db push
       - run: supabase functions deploy poker --project-ref "$PROJECT_REF"
       - run: supabase functions deploy jeux --project-ref "$PROJECT_REF"
+      - run: supabase functions deploy profil --project-ref "$PROJECT_REF"

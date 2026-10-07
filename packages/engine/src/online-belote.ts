@@ -81,5 +81,6 @@ export const beloteOnline: OnlineGame<BeloteState> = {
   betweenRounds: (state) => state.phase === 'dealOver',
   nextRound: (state, rng) => beloteNextDeal(state, rng),
   over: (state) => state.phase === 'gameOver',
+  winners: (state) => (state.winner === null ? [] : [0, 1, 2, 3].filter((s) => s % 2 === state.winner)),
   view: (state, seat) => beloteView(state, seat),
 };
