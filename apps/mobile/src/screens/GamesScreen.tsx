@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { type Avatar, defaultAvatar, levelProgress } from '@appli-poker/engine';
+import {
+  type Avatar,
+  defaultAvatar,
+  levelProgress,
+  parisDay,
+  questProgress,
+  questsFor,
+} from '@appli-poker/engine';
 import {
   Animated,
   Pressable,
@@ -84,6 +91,7 @@ interface Props {
   onPlay: (game: GameId) => void;
   onResume: () => void;
   onProfile: () => void;
+  onShop: () => void;
 }
 
 function Art({ game }: { game: Game }) {
@@ -117,7 +125,7 @@ function Art({ game }: { game: Game }) {
 }
 
 /** The first screen: every game in a carousel you swipe through. */
-export function GamesScreen({ canResume, onPlay, onResume, onProfile }: Props) {
+export function GamesScreen({ canResume, onPlay, onResume, onProfile, onShop }: Props) {
   const insets = useSafeAreaInsets();
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const cardHeight = Math.max(340, Math.min(CARD_HEIGHT, screenHeight - 480));
@@ -141,7 +149,10 @@ export function GamesScreen({ canResume, onPlay, onResume, onProfile }: Props) {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + 28, paddingBottom: insets.bottom + 20 }]}>
-      <ProfileChip onPress={onProfile} />
+      <View style={styles.chips}>
+        <ProfileChip onPress={onProfile} />
+        <CoinsChip onPress={onShop} />
+      </View>
       <Text style={styles.title}>Jeux entre amis</Text>
       <Text style={styles.subtitle}>Glisse pour choisir ton jeu.</Text>
 
@@ -256,17 +267,69 @@ function ProfileChip({ onPress }: { onPress: () => void }) {
           <View style={[styles.profileFill, { width: `${Math.max(4, ratio * 100)}%` }]} />
         </View>
       </View>
-      <Text style={styles.profileGo}>Mon profil ›</Text>
+      <Text style={styles.profileGo}>Profil ›</Text>
+    </Pressable>
+  );
+}
+
+/** My coins, and how many finished quests wait to be paid. Opens the shop. */
+function CoinsChip({ onPress }: { onPress: () => void }) {
+  const progress = useMyProgress();
+  const ready = progress
+    ? questsFor(parisDay()).filter(
+        (q) => questProgress(q, progress.today) >= q.target && !progress.claimed.includes(q.id),
+      ).length
+    : 0;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${progress?.coins ?? 0} pièces, quêtes et boutique${ready ? `, ${ready} quêtes à prendre` : ''}`}
+      onPress={onPress}
+      style={({ pressed }) => [styles.coins, pressed && styles.pressed]}
+    >
+      <Text style={styles.coinsText}>🪙 {progress?.coins ?? 0}</Text>
+      <Text style={styles.coinsGo}>🛒</Text>
+      {ready > 0 && (
+        <View style={styles.badge}>
+          <Text style={styles.badgeText}>{ready}</Text>
+        </View>
+      )}
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  chips: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
+  coins: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 54,
+    paddingHorizontal: 14,
+    borderRadius: 28,
+    backgroundColor: 'rgba(255,193,7,0.14)',
+    borderWidth: 1,
+    borderColor: colors.gold,
+  },
+  coinsText: { color: colors.gold, fontSize: 16, fontWeight: '900' },
+  coinsGo: { fontSize: 18 },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 5,
+    backgroundColor: '#e63946',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: { color: '#fff', fontSize: 12, fontWeight: '900' },
   profile: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginBottom: 14,
     paddingVertical: 6,
     paddingLeft: 6,
     paddingRight: 14,
@@ -275,7 +338,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.glassBorder,
   },
-  profileBody: { width: 90, gap: 4 },
+  profileBody: { width: 76, gap: 4 },
   profileLevel: { color: colors.gold, fontSize: 14, fontWeight: '900' },
   profileTrack: { height: 6, borderRadius: 3, backgroundColor: 'rgba(0,0,0,0.4)', overflow: 'hidden' },
   profileFill: { height: 6, borderRadius: 3, backgroundColor: colors.gold },

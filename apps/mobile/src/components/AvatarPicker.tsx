@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AVATAR_COLORS, AVATAR_EMOJIS, REWARDS, type Avatar } from '@appli-poker/engine';
+import { AVATAR_COLORS, AVATAR_EMOJIS, REWARDS, type Avatar, ownedKey } from '@appli-poker/engine';
 import { colors, shadow } from '../theme';
 
 const native = Platform.OS !== 'web';
@@ -20,7 +20,20 @@ interface FrameLook {
   crown?: boolean;
   flames?: boolean;
   frost?: boolean;
-  sparkles?: boolean;
+  /** Twinkling stars around the frame; a color string tints their glow (gold by default). */
+  sparkles?: boolean | string;
+  /** Cherry blossoms resting on the ring. */
+  petals?: boolean;
+  /** Air bubbles rising along the ring. */
+  bubbles?: boolean;
+  /** Glowing drops dripping from the bottom of the ring. */
+  drips?: string;
+  /** Dark wisps of smoke curling around the ring. */
+  smoke?: boolean;
+  /** Tiny stars scattered over the ring itself. */
+  stars?: boolean;
+  /** Ring stops with hard edges, like the cut faces of a gem. */
+  facets?: boolean;
 }
 
 const FRAMES: Record<string, FrameLook> = {
@@ -69,7 +82,56 @@ const FRAMES: Record<string, FrameLook> = {
     motion: 'spin',
     sparkles: true,
   },
+  // ---- Shop frames ----
+  sakura: {
+    ring: ['#ffe4ef', '#ff9cc2', '#e05a8f', '#ffc2da', '#c93d76'],
+    glow: 'rgba(255, 140, 190, 0.6)',
+    petals: true,
+  },
+  lagoon: {
+    ring: ['#d4fff8', '#3fe0d0', '#0a8f9e', '#7ff5e6', '#05616e'],
+    glow: 'rgba(40, 220, 210, 0.55)',
+    bubbles: true,
+  },
+  toxic: {
+    ring: ['#f2ff8a', '#9dff00', '#2f9e00', '#c8ff3d', '#1d6b00'],
+    glow: 'rgba(160, 255, 0, 0.95)',
+    motion: 'pulse',
+    drips: '#b6ff1f',
+  },
+  shadow: {
+    ring: ['#6b4a9e', '#2a1745', '#07030d', '#4b2d7a', '#000000'],
+    glow: 'rgba(110, 40, 190, 0.9)',
+    motion: 'flicker',
+    smoke: true,
+  },
+  galaxy: {
+    ring: ['#ff6ad5', '#7b3cff', '#14105e', '#2b86ff', '#0a0630', '#c13cff', '#ff6ad5'],
+    glow: 'rgba(140, 90, 255, 0.85)',
+    motion: 'spin',
+    stars: true,
+    sparkles: 'rgba(150, 120, 255, 1)',
+  },
+  diamond: {
+    ring: ['#ffffff', '#c9f1ff', '#ffffff', '#8fd8f5', '#f4fdff', '#b5e9ff', '#ffffff', '#7cc9ea'],
+    glow: 'rgba(190, 240, 255, 0.95)',
+    motion: 'spin',
+    facets: true,
+    gems: '#f2fcff',
+    sparkles: 'rgba(120, 210, 255, 1)',
+  },
 };
+
+/** A faceted ring repeats every color twice, so each one keeps a flat band with hard edges. */
+function facetColors(ring: Stops) {
+  return ring.flatMap((c) => [c, c]) as unknown as Stops;
+}
+
+function facetLocations(n: number) {
+  const out: number[] = [];
+  for (let i = 0; i < n; i++) out.push(i / n, (i + 1) / n);
+  return out as unknown as readonly [number, number, ...number[]];
+}
 
 const DURATIONS = { spin: 6000, pulse: 1800, flicker: 1100 };
 
@@ -156,11 +218,22 @@ export function AvatarBadge({ avatar, size = 44 }: { avatar: Avatar; size?: numb
         {look.motion === 'spin' ? (
           <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ rotate: spin }] }]}>
             <LinearGradient
-              colors={look.ring}
+              colors={look.facets ? facetColors(look.ring) : look.ring}
+              locations={look.facets ? facetLocations(look.ring.length) : undefined}
               start={{ x: 0, y: 0.5 }}
               end={{ x: 1, y: 0.5 }}
               style={StyleSheet.absoluteFill}
             />
+            {look.facets && (
+              <LinearGradient
+                colors={facetColors(look.ring)}
+                locations={facetLocations(look.ring.length)}
+                start={{ x: 0.2, y: 0 }}
+                end={{ x: 0.8, y: 1 }}
+                style={[StyleSheet.absoluteFill, styles.facetCross]}
+              />
+            )}
+            {look.stars && size >= 30 && <RingStars size={outer} />}
           </Animated.View>
         ) : (
           <LinearGradient
@@ -177,6 +250,7 @@ export function AvatarBadge({ avatar, size = 44 }: { avatar: Avatar; size?: numb
           style={StyleSheet.absoluteFill}
         />
       </View>
+      {look.smoke && size >= 30 && <Smoke size={size} t={t} />}
       {look.gems && size >= 36 && <Gems size={size} out={out} thick={thick} color={look.gems} />}
       <View
         style={[
@@ -197,7 +271,12 @@ export function AvatarBadge({ avatar, size = 44 }: { avatar: Avatar; size?: numb
       </View>
       {look.frost && size >= 36 && <Frost size={size} />}
       {look.flames && size >= 30 && <Flames size={size} t={t} />}
-      {look.sparkles && size >= 30 && <Sparkles size={size} t={t} />}
+      {look.bubbles && size >= 30 && <Bubbles size={size} />}
+      {look.drips && size >= 30 && <Drips size={size} color={look.drips} />}
+      {look.petals && size >= 30 && <Petals size={size} />}
+      {look.sparkles && size >= 30 && (
+        <Sparkles size={size} t={t} glow={typeof look.sparkles === 'string' ? look.sparkles : undefined} />
+      )}
       {look.crown && <Crown size={size} />}
       {chip}
     </View>
@@ -308,8 +387,210 @@ function Flames({ size, t }: { size: number; t: Animated.Value }) {
   );
 }
 
+/** Cherry blossoms resting on the ring, with a few loose petals drifting off. */
+function Petals({ size }: { size: number }) {
+  const f = size * 0.26;
+  const spots = [
+    { left: -f * 0.3, top: -f * 0.1, k: 1, rotate: '-20deg' },
+    { left: size - f * 0.7, top: size * 0.62, k: 0.85, rotate: '25deg' },
+    { left: size * 0.6, top: -f * 0.45, k: 0.6, rotate: '10deg' },
+  ];
+  return (
+    <>
+      {spots.map((s, i) => (
+        <Text
+          key={i}
+          pointerEvents="none"
+          style={[
+            styles.abs,
+            styles.centered,
+            styles.petal,
+            {
+              left: s.left,
+              top: s.top,
+              width: f * s.k,
+              fontSize: f * s.k,
+              lineHeight: f * s.k * 1.15,
+              transform: [{ rotate: s.rotate }],
+            },
+          ]}
+        >
+          🌸
+        </Text>
+      ))}
+      {[
+        { left: size * 0.02, top: size * 0.86, r: '30deg' },
+        { left: size * 0.96, top: size * 0.2, r: '-40deg' },
+        { left: size * 0.3, top: size * 1.0, r: '-10deg' },
+      ].map((p, i) => (
+        <View
+          key={`p${i}`}
+          pointerEvents="none"
+          style={[
+            styles.loosePetal,
+            {
+              left: p.left,
+              top: p.top,
+              width: size * 0.09,
+              height: size * 0.055,
+              borderRadius: size * 0.05,
+              transform: [{ rotate: p.r }],
+            },
+          ]}
+        />
+      ))}
+    </>
+  );
+}
+
+/** Little air bubbles rising along both sides of the ring. */
+function Bubbles({ size }: { size: number }) {
+  const spots = [
+    { x: -0.08, y: 0.56, k: 0.13 },
+    { x: -0.12, y: 0.33, k: 0.09 },
+    { x: -0.02, y: 0.13, k: 0.06 },
+    { x: 0.95, y: 0.64, k: 0.1 },
+    { x: 1.02, y: 0.42, k: 0.065 },
+    { x: 0.96, y: 0.24, k: 0.045 },
+  ];
+  return (
+    <>
+      {spots.map((b, i) => {
+        const d = size * b.k;
+        return (
+          <View
+            key={i}
+            pointerEvents="none"
+            style={[
+              styles.abs,
+              styles.bubble,
+              {
+                left: size * b.x,
+                top: size * b.y,
+                width: d,
+                height: d,
+                borderRadius: d / 2,
+                padding: d * 0.16,
+              },
+            ]}
+          >
+            <View style={[styles.bubbleShine, { width: d * 0.3, height: d * 0.3, borderRadius: d }]} />
+          </View>
+        );
+      })}
+    </>
+  );
+}
+
+/** Glowing drops oozing down from the bottom of the ring. */
+function Drips({ size, color }: { size: number; color: string }) {
+  const w = size * 0.075;
+  const spots = [
+    { x: 0.3, top: 0.88, len: 0.15 },
+    { x: 0.44, top: 0.93, len: 0.22 },
+    { x: 0.66, top: 0.9, len: 0.12 },
+  ];
+  return (
+    <>
+      {spots.map((d, i) => (
+        <View
+          key={i}
+          pointerEvents="none"
+          style={[
+            styles.abs,
+            {
+              left: size * d.x - w / 2,
+              top: size * d.top,
+              width: w,
+              height: size * d.len,
+              borderBottomLeftRadius: w,
+              borderBottomRightRadius: w,
+              borderTopLeftRadius: w * 0.3,
+              borderTopRightRadius: w * 0.3,
+              backgroundColor: color,
+              boxShadow: `0 0 ${size * 0.06}px ${color}`,
+            },
+          ]}
+        />
+      ))}
+    </>
+  );
+}
+
+/** Dark wisps drifting around the ring. */
+function Smoke({ size, t }: { size: number; t: Animated.Value }) {
+  const spots = [
+    { x: -0.16, y: 0.6, k: 0.4 },
+    { x: 0.68, y: -0.14, k: 0.44 },
+    { x: 0.8, y: 0.72, k: 0.32 },
+    { x: -0.08, y: -0.04, k: 0.28 },
+  ];
+  return (
+    <>
+      {spots.map((s, i) => {
+        const d = size * s.k;
+        return (
+          <Animated.View
+            key={i}
+            pointerEvents="none"
+            style={[
+              styles.abs,
+              {
+                left: size * s.x,
+                top: size * s.y,
+                width: d * 0.6,
+                height: d * 0.4,
+                borderRadius: d,
+                backgroundColor: 'rgba(40, 10, 70, 0.35)',
+                boxShadow: `0 0 ${d * 0.45}px ${d * 0.25}px rgba(55, 15, 95, 0.75)`,
+                opacity: t.interpolate({
+                  inputRange: [0, 0.5, 1],
+                  outputRange: i % 2 ? [0.5, 0.95, 0.5] : [0.95, 0.5, 0.95],
+                }),
+              },
+            ]}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+/** Tiny stars printed on the ring; they turn with it. */
+function RingStars({ size }: { size: number }) {
+  const n = 16;
+  const r = size / 2;
+  const rr = r - size * 0.05;
+  return (
+    <>
+      {Array.from({ length: n }, (_, i) => {
+        const a = (i / n) * Math.PI * 2 + (i % 2) * 0.15;
+        const d = Math.max(1, size * (i % 3 === 0 ? 0.035 : 0.02));
+        return (
+          <View
+            key={i}
+            pointerEvents="none"
+            style={[
+              styles.abs,
+              {
+                left: r + Math.cos(a) * rr - d / 2,
+                top: r + Math.sin(a) * rr - d / 2,
+                width: d,
+                height: d,
+                borderRadius: d,
+                backgroundColor: i % 4 === 0 ? '#ffe6a8' : '#ffffff',
+                boxShadow: i % 3 === 0 ? '0 0 3px #ffffff' : undefined,
+              },
+            ]}
+          />
+        );
+      })}
+    </>
+  );
+}
+
 /** Twinkling stars around a legendary frame. */
-function Sparkles({ size, t }: { size: number; t: Animated.Value }) {
+function Sparkles({ size, t, glow }: { size: number; t: Animated.Value; glow?: string }) {
   const f = Math.max(8, size * 0.2);
   const spots = [
     { left: -f * 0.45, top: size * 0.08, k: 0 },
@@ -326,6 +607,7 @@ function Sparkles({ size, t }: { size: number; t: Animated.Value }) {
           style={[
             styles.abs,
             styles.sparkle,
+            glow ? { color: '#ffffff', textShadowColor: glow } : null,
             {
               left: s.left,
               top: s.top,
@@ -377,7 +659,8 @@ function LevelChip({ level, size }: { level: number; size: number }) {
   );
 }
 
-const LOCKED_AVATARS = REWARDS.filter((r) => r.kind === 'avatar');
+const LOCKED_AVATARS = REWARDS.filter((r) => r.kind === 'avatar' && r.price === undefined);
+const SHOP_AVATARS = REWARDS.filter((r) => r.kind === 'avatar' && r.price !== undefined);
 
 /**
  * Pick an emoji and a background color. With a `level`, the emojis unlocked by levels are shown too;
@@ -387,16 +670,23 @@ export function AvatarPicker({
   value,
   onChange,
   level,
+  owned,
 }: {
   value: Avatar;
   onChange: (a: Avatar) => void;
   /** Player level; emojis unlocked above it are shown locked. Treated as 1 when missing. */
   level?: number;
+  /** Items bought in the shop; bought emojis join the choices. */
+  owned?: readonly string[];
 }) {
   const lvl = level ?? 1;
   const choices = [
     ...AVATAR_EMOJIS.map((emoji) => ({ emoji, need: 1 })),
     ...LOCKED_AVATARS.map((r) => ({ emoji: r.id, need: r.level })),
+    ...SHOP_AVATARS.filter((r) => owned?.includes(ownedKey('avatar', r.id))).map((r) => ({
+      emoji: r.id,
+      need: 1,
+    })),
   ];
   return (
     <View style={styles.box}>
@@ -480,6 +770,20 @@ const styles = StyleSheet.create({
     textShadowRadius: 5,
     textShadowOffset: { width: 0, height: 0 },
   },
+  facetCross: { opacity: 0.5 },
+  petal: {
+    textShadowColor: 'rgba(255, 120, 180, 0.9)',
+    textShadowRadius: 4,
+    textShadowOffset: { width: 0, height: 0 },
+  },
+  loosePetal: { position: 'absolute', backgroundColor: '#ffb3d1', borderWidth: 0.5, borderColor: '#ff7fb0' },
+  bubble: {
+    backgroundColor: 'rgba(160, 255, 245, 0.25)',
+    borderWidth: 1,
+    borderColor: 'rgba(220, 255, 250, 0.9)',
+    boxShadow: '0 0 3px rgba(60, 230, 220, 0.8)',
+  },
+  bubbleShine: { backgroundColor: 'rgba(255,255,255,0.95)' },
   chip: {
     alignItems: 'center',
     justifyContent: 'center',

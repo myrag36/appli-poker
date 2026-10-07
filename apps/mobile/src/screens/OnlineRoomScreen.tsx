@@ -4,8 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   type Action,
   type Avatar,
-  MAX_LEVEL,
-  avatarEmojisFor,
+  ALL_AVATAR_EMOJIS,
   cleanAvatar,
   defaultAvatar,
 } from '@appli-poker/engine';
@@ -514,7 +513,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
 }
 
 /** Every emoji levels can unlock: the server checks each player's own level. */
-const UNLOCKABLE = avatarEmojisFor(MAX_LEVEL);
+const UNLOCKABLE = ALL_AVATAR_EMOJIS;
 
 const styles = StyleSheet.create({
   container: { padding: 16, paddingTop: 56 },

@@ -16,6 +16,7 @@ import { OnlineRoomScreen } from './src/screens/OnlineRoomScreen';
 import { OnlineGameScreen } from './src/screens/OnlineGameScreen';
 import { StatsScreen } from './src/screens/StatsScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
+import { ShopScreen } from './src/screens/ShopScreen';
 import { ProgressToast } from './src/components/ProgressToast';
 import { type GameSettings, SetupScreen } from './src/screens/SetupScreen';
 import { colors } from './src/theme';
@@ -30,7 +31,8 @@ type Screen =
   | { name: 'online-lobby' }
   | { name: 'online-room'; roomId: string; userId: string }
   | { name: 'stats' }
-  | { name: 'profile' };
+  | { name: 'profile' }
+  | { name: 'shop'; from: 'games' | 'profile' };
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>({ name: 'games' });
@@ -65,9 +67,15 @@ export default function App() {
             onPlay={(game) => setScreen(game === 'poker' ? { name: 'home' } : { name: 'game', game })}
             onResume={() => lastRoom && openRoom(lastRoom.roomId)}
             onProfile={() => setScreen({ name: 'profile' })}
+            onShop={() => setScreen({ name: 'shop', from: 'games' })}
           />
         )}
-        {screen.name === 'profile' && <ProfileScreen onBack={games} />}
+        {screen.name === 'profile' && (
+          <ProfileScreen onBack={games} onShop={() => setScreen({ name: 'shop', from: 'profile' })} />
+        )}
+        {screen.name === 'shop' && (
+          <ShopScreen onBack={screen.from === 'profile' ? () => setScreen({ name: 'profile' }) : games} />
+        )}
         {screen.name === 'game' && screen.game === 'blackjack' && (
           <BlackjackScreen onBack={games} onOnline={online('blackjack')} />
         )}

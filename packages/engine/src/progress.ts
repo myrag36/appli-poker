@@ -48,6 +48,8 @@ export interface Reward {
   kind: RewardKind;
   level: number;
   name: string;
+  /** Shop items cost coins instead of unlocking with a level. */
+  price?: number;
 }
 
 export const REWARD_KIND_NAMES: Record<RewardKind, string> = {
@@ -59,6 +61,13 @@ export const REWARD_KIND_NAMES: Record<RewardKind, string> = {
 };
 
 const r = (kind: RewardKind, id: string, level: number, name: string): Reward => ({ id, kind, level, name });
+const shop = (kind: RewardKind, id: string, price: number, name: string): Reward => ({
+  id,
+  kind,
+  level: 1,
+  name,
+  price,
+});
 
 /** Everything that can be unlocked, in level order within each kind. Level 1 items are free. */
 export const REWARDS: Reward[] = [
@@ -118,7 +127,52 @@ export const REWARDS: Reward[] = [
   r('banner', 'lava', 31, 'Lave'),
   r('banner', 'cosmos', 38, 'Cosmos'),
   r('banner', 'gold', 46, 'Pluie d’or'),
+
+  // The shop: bought with coins, at any level.
+  shop('frame', 'sakura', 300, 'Sakura'),
+  shop('frame', 'lagoon', 300, 'Lagon'),
+  shop('frame', 'toxic', 500, 'Toxique'),
+  shop('frame', 'shadow', 500, 'Ombre'),
+  shop('frame', 'galaxy', 800, 'Galaxie'),
+  shop('frame', 'diamond', 1200, 'Diamant'),
+
+  shop('title', 'chanceux', 150, 'Chanceux'),
+  shop('title', 'flambeur', 200, 'Flambeur'),
+  shop('title', 'stratege', 250, 'Stratège'),
+  shop('title', 'nuit', 300, 'Oiseau de nuit'),
+  shop('title', 'repenti', 300, 'Tricheur repenti'),
+  shop('title', 'millionnaire', 1000, 'Millionnaire'),
+
+  shop('avatar', '🐧', 200, 'Pingouin'),
+  shop('avatar', '🦩', 200, 'Flamant'),
+  shop('avatar', '🎃', 250, 'Citrouille'),
+  shop('avatar', '🤡', 250, 'Clown'),
+  shop('avatar', '🧞', 350, 'Génie'),
+  shop('avatar', '🧜', 350, 'Sirène'),
+  shop('avatar', '🧛', 400, 'Vampire'),
+  shop('avatar', '🦸', 600, 'Super-héros'),
+
+  shop('cardBack', 'sakura', 300, 'Sakura'),
+  shop('cardBack', 'retro', 300, 'Rétro'),
+  shop('cardBack', 'carbon', 400, 'Carbone'),
+  shop('cardBack', 'circuit', 500, 'Circuit'),
+  shop('cardBack', 'goldbar', 900, 'Or massif'),
+
+  shop('banner', 'forest', 300, 'Forêt'),
+  shop('banner', 'desert', 300, 'Désert'),
+  shop('banner', 'snow', 300, 'Neige'),
+  shop('banner', 'city', 450, 'Ville la nuit'),
+  shop('banner', 'vegas', 700, 'Las Vegas'),
+  shop('banner', 'dragon', 1000, 'Repaire du dragon'),
 ];
+
+/** How a bought item is stored in a player's collection, since ids repeat across kinds. */
+export function ownedKey(kind: RewardKind, id: string): string {
+  return `${kind}:${id}`;
+}
+
+/** Items for sale. */
+export const SHOP_ITEMS: Reward[] = REWARDS.filter((x) => x.price !== undefined);
 
 /** What a player has chosen to show. Each slot holds a reward id of that kind. */
 export interface Equipped {
@@ -139,40 +193,61 @@ export function findReward(kind: RewardKind, id: unknown): Reward | undefined {
   return REWARDS.find((x) => x.kind === kind && x.id === id);
 }
 
-export function isUnlocked(kind: RewardKind, id: unknown, level: number): boolean {
+/** Whether a player may use an item: reached its level, or bought it. */
+export function isUnlocked(
+  kind: RewardKind,
+  id: unknown,
+  level: number,
+  owned: readonly string[] = [],
+): boolean {
   const reward = findReward(kind, id);
-  return reward !== undefined && reward.level <= level;
+  if (!reward) return false;
+  if (reward.price !== undefined) return owned.includes(ownedKey(kind, reward.id));
+  return reward.level <= level;
 }
 
 /** Rewards that unlock exactly at a level, to celebrate a level up. */
 export function rewardsAtLevel(level: number): Reward[] {
-  return REWARDS.filter((x) => x.level === level);
+  return REWARDS.filter((x) => x.level === level && x.price === undefined);
 }
 
 /** The next reward still locked, to show what is coming. */
 export function nextReward(level: number): Reward | undefined {
-  return REWARDS.filter((x) => x.level > level).sort((a, b) => a.level - b.level)[0];
+  return REWARDS.filter((x) => x.level > level && x.price === undefined).sort((a, b) => a.level - b.level)[0];
 }
 
 /** Keeps only equipped items that exist and are unlocked; anything else goes back to the default. */
-export function cleanEquipped(raw: unknown, level: number): Equipped {
+export function cleanEquipped(raw: unknown, level: number, owned: readonly string[] = []): Equipped {
   const e = (raw ?? {}) as Partial<Equipped>;
   const pick = (kind: keyof Equipped) =>
-    isUnlocked(kind, e[kind], level) ? (e[kind] as string) : DEFAULT_EQUIPPED[kind];
+    isUnlocked(kind, e[kind], level, owned) ? (e[kind] as string) : DEFAULT_EQUIPPED[kind];
   return { frame: pick('frame'), title: pick('title'), cardBack: pick('cardBack'), banner: pick('banner') };
 }
 
-/** Every avatar emoji a player may pick at a level: the free ones plus those unlocked. */
-export function avatarEmojisFor(level: number): string[] {
+/** Every avatar emoji a player may pick: the free ones plus those unlocked or bought. */
+export function avatarEmojisFor(level: number, owned: readonly string[] = []): string[] {
   return [
     ...AVATAR_EMOJIS,
-    ...REWARDS.filter((x) => x.kind === 'avatar' && x.level <= level).map((x) => x.id),
+    ...REWARDS.filter((x) => x.kind === 'avatar' && isUnlocked('avatar', x.id, level, owned)).map(
+      (x) => x.id,
+    ),
   ];
 }
 
-/** Like cleanAvatar, but also accepts the emojis this level unlocks. */
-export function avatarAllowed(avatar: Avatar, level: number): boolean {
-  return avatarEmojisFor(level).includes(avatar.emoji);
+/** Every avatar emoji anybody may have, to show other players as they are. */
+export const ALL_AVATAR_EMOJIS: string[] = [
+  ...AVATAR_EMOJIS,
+  ...REWARDS.filter((x) => x.kind === 'avatar').map((x) => x.id),
+];
+
+/** Like cleanAvatar, but also accepts the emojis this player unlocked or bought. */
+export function avatarAllowed(avatar: Avatar, level: number, owned: readonly string[] = []): boolean {
+  return avatarEmojisFor(level, owned).includes(avatar.emoji);
+}
+
+/** Cleans a stored list of bought items. */
+export function cleanOwned(raw: unknown): string[] {
+  return Array.isArray(raw) ? raw.filter((x): x is string => typeof x === 'string') : [];
 }
 
 /** Experience for a finished game, with the daily bonus if it is the first one today. */
