@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { GameDecor } from '../components/GameDecor';
 import { PlayingCard } from '../components/PlayingCard';
 import { colors, gradients, shadow } from '../theme';
 
@@ -23,7 +24,6 @@ interface Game {
   players: string;
   /** Cards fanned on the game's card, or dice faces for dice games. */
   art: string[];
-  tint: [string, string];
   ready: boolean;
 }
 
@@ -34,7 +34,6 @@ const GAMES: Game[] = [
     tagline: "Texas Hold'em ou Omaha, en ligne ou sur un seul téléphone.",
     players: '2 à 8 joueurs',
     art: ['As', 'Kh', 'Qd'],
-    tint: ['#1f7a4d', '#0b3d26'],
     ready: true,
   },
   {
@@ -43,7 +42,6 @@ const GAMES: Game[] = [
     tagline: 'Approche-toi de 21 sans dépasser, contre la banque.',
     players: '1 à 7 joueurs',
     art: ['Ah', 'Js'],
-    tint: ['#8a2a2a', '#3d0f0f'],
     ready: true,
   },
   {
@@ -52,7 +50,6 @@ const GAMES: Game[] = [
     tagline: 'Débarrasse-toi de tes cartes le premier pour devenir président.',
     players: '3 à 8 joueurs',
     art: ['2c', '2d', '2h', '2s'],
-    tint: ['#2f4f8a', '#10203d'],
     ready: true,
   },
   {
@@ -61,7 +58,6 @@ const GAMES: Game[] = [
     tagline: 'Cinq dés, trois lancers, une grille de combinaisons à remplir.',
     players: '1 à 6 joueurs',
     art: ['⚄', '⚄', '⚄', '⚀', '⚅'],
-    tint: ['#7a5a1f', '#3d2a0b'],
     ready: true,
   },
   {
@@ -70,12 +66,12 @@ const GAMES: Game[] = [
     tagline: 'Deux équipes, un atout, et la belote-rebelote pour les chanceux.',
     players: '4 joueurs',
     art: ['Jh', '9h', 'Ah', 'Kh', 'Qh'],
-    tint: ['#5a2f7a', '#250f3d'],
     ready: true,
   },
 ];
 
 const GAP = 14;
+const CARD_HEIGHT = 420;
 
 interface Props {
   canResume: boolean;
@@ -184,7 +180,7 @@ export function GamesScreen({ canResume, onPlay, onResume }: Props) {
                   onPress={() => (i === index ? game.ready && onPlay(game.id) : goTo(i))}
                   style={[styles.card, shadow]}
                 >
-                  <LinearGradient colors={game.tint} style={StyleSheet.absoluteFill} />
+                  <GameDecor id={game.id} width={cardWidth} height={CARD_HEIGHT} />
                   <View style={styles.artBox}>
                     <Art game={game} />
                   </View>
@@ -240,7 +236,7 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.8 },
   carouselWrap: { marginTop: 24 },
   card: {
-    height: 420,
+    height: CARD_HEIGHT,
     borderRadius: 24,
     padding: 20,
     overflow: 'hidden',
