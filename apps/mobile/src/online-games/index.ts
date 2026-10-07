@@ -1,5 +1,5 @@
 import type { OnlineGameId } from '@appli-poker/engine';
-import { BeloteOnlineBoard } from '../screens/BeloteScreen';
+import { BeloteOnlineBoard, BeloteOnlineOptions } from '../screens/BeloteScreen';
 import { BlackjackOnlineBoard, BlackjackOnlineOptions } from '../screens/BlackjackScreen';
 import { PresidentOnlineBoard, PresidentOnlineOptions } from '../screens/PresidentScreen';
 import { YamsOnlineBoard } from '../screens/YamsScreen';
@@ -33,8 +33,9 @@ export const ONLINE_UI: Record<OnlineGameId, OnlineGameUi> = {
   belote: {
     title: 'Belote',
     emoji: '♠️',
-    players: '4 joueurs en deux équipes, les robots complètent',
+    players: '1 à 4 joueurs, en deux équipes, les robots complètent',
     Board: BeloteOnlineBoard,
-    defaultOptions: {},
+    Options: BeloteOnlineOptions,
+    defaultOptions: { target: 1000 },
   },
 };

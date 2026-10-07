@@ -150,3 +150,23 @@ test('Président: robots complete the table to 4 and each person only sees their
   assert.ok(mine.players[1].hand.every((c) => c === '??'));
   assert.ok((snapshot.public.view as View).players.every((p) => p.hand.every((c) => c === '??')));
 });
+
+test('belote: robots complete the table to four and only my own hand reaches me', () => {
+  const { bots, snapshot } = startGame(
+    room({ game: 'belote', options: { target: 501 } }),
+    [player('a', 0)],
+    'a',
+    newId,
+    rng,
+    NOW,
+  );
+  assert.equal(bots.length, 3);
+  assert.equal(snapshot.public.seats.length, 4);
+  const mine = snapshot.privates.a as { hands: string[][]; target: number };
+  assert.equal(mine.target, 501);
+  assert.equal(mine.hands[0].length, 5);
+  assert.deepEqual(mine.hands.slice(1), [[], [], []]);
+  const pub = snapshot.public.view as { hands: string[][]; stock?: unknown };
+  assert.ok(pub.hands.every((h) => h.length === 0));
+  assert.equal(pub.stock, undefined);
+});
