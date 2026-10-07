@@ -1,7 +1,7 @@
 import type { OnlineGameId } from '@appli-poker/engine';
 import { BeloteOnlineBoard } from '../screens/BeloteScreen';
 import { BlackjackOnlineBoard, BlackjackOnlineOptions } from '../screens/BlackjackScreen';
-import { PresidentOnlineBoard } from '../screens/PresidentScreen';
+import { PresidentOnlineBoard, PresidentOnlineOptions } from '../screens/PresidentScreen';
 import { YamsOnlineBoard } from '../screens/YamsScreen';
 import type { OnlineGameUi } from './types';
 
@@ -18,9 +18,10 @@ export const ONLINE_UI: Record<OnlineGameId, OnlineGameUi> = {
   president: {
     title: 'Président',
     emoji: '👑',
-    players: '3 à 6 joueurs, les robots complètent jusqu’à 4',
+    players: '3 à 8 joueurs, les robots complètent jusqu’à 4',
     Board: PresidentOnlineBoard,
-    defaultOptions: {},
+    Options: PresidentOnlineOptions,
+    defaultOptions: { rounds: 5 },
   },
   yams: {
     title: 'Yams',

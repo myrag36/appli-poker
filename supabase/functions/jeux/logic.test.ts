@@ -132,3 +132,21 @@ test('blackjack: everyone bets at once, robots first on timeout, the shoe stays 
     assert.equal((view as { players: { stack: number }[] }).players[0].stack, 500);
   }
 });
+test('Président: robots complete the table to 4 and each person only sees their own hand', () => {
+  const { bots, snapshot } = startGame(
+    room({ game: 'president', options: { rounds: 3 } }),
+    [player('a', 0), player('b', 1)],
+    'a',
+    newId,
+    rng,
+    NOW,
+  );
+  assert.equal(bots.length, 2);
+  assert.equal(snapshot.public.seats.length, 4);
+  assert.deepEqual(Object.keys(snapshot.privates).sort(), ['a', 'b']);
+  type View = { players: { hand: string[] }[] };
+  const mine = snapshot.privates.a as View;
+  assert.ok(mine.players[0].hand.every((c) => c !== '??'));
+  assert.ok(mine.players[1].hand.every((c) => c === '??'));
+  assert.ok((snapshot.public.view as View).players.every((p) => p.hand.every((c) => c === '??')));
+});

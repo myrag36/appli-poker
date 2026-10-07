@@ -8,7 +8,10 @@ import {
   type PresidentPlay,
   type PresidentState,
   type PresidentTitle,
+  type PresidentView,
   type Rng,
+  PRESIDENT_DEFAULT_ROUNDS,
+  PRESIDENT_ROUND_CHOICES,
   PRESIDENT_TITLE_NAMES,
   botName,
   defaultAvatar,
@@ -31,6 +34,8 @@ import { Appear } from '../components/Motion';
 import { Panel } from '../components/Panel';
 import { PlayingCard } from '../components/PlayingCard';
 import { TopBar } from '../components/TopBar';
+import { TurnTimer } from '../components/TurnTimer';
+import type { OnlineBoardProps, OnlineOptionsProps } from '../online-games/types';
 import { sounds } from '../feedback';
 import { deviceRng } from '../rng';
 import { colors, gradients, shadow, theme } from '../theme';
@@ -696,11 +701,17 @@ function RoundRecap({
   avatars,
   onNext,
   onStop,
+  note,
+  disabled,
 }: {
   state: PresidentState;
   avatars: Avatar[];
   onNext: () => void;
-  onStop: () => void;
+  /** Absent online: the game ends after the rounds chosen for the table. */
+  onStop?: () => void;
+  /** A line under the buttons (online: the next round starts on its own). */
+  note?: string;
+  disabled?: boolean;
 }) {
   const n = state.players.length;
   const mine = state.exchanges.filter((e) => e.from === ME || e.to === ME);
@@ -749,13 +760,16 @@ function RoundRecap({
                 : 'Prochaine manche : échange des cartes puis le Trouduc commence.'}
           </Text>
           <View style={styles.actions}>
+            {onStop && (
+              <View style={styles.flex}>
+                <Button compact variant="secondary" label="Arrêter" onPress={onStop} />
+              </View>
+            )}
             <View style={styles.flex}>
-              <Button compact variant="secondary" label="Arrêter" onPress={onStop} />
-            </View>
-            <View style={styles.flex}>
-              <Button compact label="Manche suivante" onPress={onNext} />
+              <Button compact label="Manche suivante" onPress={onNext} disabled={disabled} />
             </View>
           </View>
+          {note && <Text style={styles.exHint}>{note}</Text>}
         </Panel>
       </Appear>
     </View>
@@ -769,15 +783,21 @@ function FinalRanking({
   avatars,
   onReplay,
   onQuit,
+  quitLabel = 'Retour',
+  spectator,
 }: {
   state: PresidentState;
   avatars: Avatar[];
-  onReplay: () => void;
+  /** Absent online: a new game starts from a new table. */
+  onReplay?: () => void;
   onQuit: () => void;
+  quitLabel?: string;
+  /** Watching an online table: nobody is "me". */
+  spectator?: boolean;
 }) {
   const standings = presidentStandings(state);
   const rounds = state.phase === 'roundOver' ? state.round : state.round - 1;
-  const myPlace = standings.find((s) => s.index === ME)!.place;
+  const myPlace = spectator ? 0 : standings.find((s) => s.index === ME)!.place;
   return (
     <ScrollView contentContainerStyle={styles.setup}>
       <Appear>
@@ -790,11 +810,11 @@ function FinalRanking({
       <Panel title="Classement">
         {standings.map((s, k) => (
           <Appear key={s.index} delay={k * 80} from={10}>
-            <View style={[styles.finalRow, s.index === ME && styles.recapMe]}>
+            <View style={[styles.finalRow, s.index === ME && !spectator && styles.recapMe]}>
               <Text style={styles.finalPlace}>{MEDALS[s.place - 1] ?? `${s.place}ᵉ`}</Text>
               <AvatarBadge avatar={avatars[s.index]} size={30} />
               <Text style={[styles.finalName, s.place === 1 && styles.finalNameFirst]} numberOfLines={1}>
-                {who(state, s.index)}
+                {spectator ? state.players[s.index].name : who(state, s.index)}
               </Text>
               <Text style={styles.finalScore}>
                 {s.score} pt{s.score > 1 ? 's' : ''}
@@ -804,9 +824,253 @@ function FinalRanking({
         ))}
       </Panel>
       <View style={styles.spacer} />
-      <Button label="Rejouer" onPress={onReplay} />
-      <Button label="Retour" variant="secondary" onPress={onQuit} />
+      {onReplay && <Button label="Rejouer" onPress={onReplay} />}
+      <Button label={quitLabel} variant="secondary" onPress={onQuit} />
     </ScrollView>
+  );
+}
+
+/* ---------------------------------------------------------------- online */
+
+/** Turns the table so that seat `by` sits at index ME (the bottom), as the local screen draws it. */
+function rotateView(v: PresidentView, by: number): PresidentState {
+  const n = v.players.length;
+  if (by <= 0) return v;
+  const r = (i: number) => (i < 0 ? i : (i - by + n) % n);
+  const turn = <T,>(a: T[]) => a.map((_, i) => a[(i + by) % n]);
+  const play = (p: PresidentPlay) => ({ ...p, player: r(p.player) });
+  return {
+    ...v,
+    players: turn(v.players),
+    titles: turn(v.titles),
+    toAct: r(v.toAct),
+    trick: v.trick.map(play),
+    lastTrick: v.lastTrick && { winner: r(v.lastTrick.winner), plays: v.lastTrick.plays.map(play) },
+    finished: v.finished.map(r),
+    pendingGives: v.pendingGives.map((g) => ({ ...g, from: r(g.from), to: r(g.to) })),
+    exchanges: v.exchanges.map((e) => ({ ...e, from: r(e.from), to: r(e.to) })),
+  };
+}
+
+/** The same table as the local game, each player on their own phone. */
+export function PresidentOnlineBoard({
+  view,
+  mySeat,
+  seats,
+  actors,
+  deadline,
+  now,
+  betweenRounds,
+  over,
+  busy,
+  error,
+  onMove,
+  onLeave,
+}: OnlineBoardProps<PresidentView>) {
+  const spectator = mySeat < 0;
+  const by = Math.max(0, mySeat);
+  const state = useMemo(() => rotateView(view, by), [view, by]);
+  const avatars = useMemo(() => seats.map((_, i) => seats[(i + by) % seats.length].avatar), [seats, by]);
+  const [selected, setSelected] = useState<Card[]>([]);
+  /** Round whose exchange recap I have closed. */
+  const [exchangeSeen, setExchangeSeen] = useState(1);
+
+  const me = state.players[ME];
+  const myTurn = !spectator && state.toAct === ME && actors.includes(seats[mySeat]?.id);
+  const iGave = !spectator && state.exchanges.some((e) => e.from === ME || e.to === ME);
+  const showExchange = state.phase === 'playing' && state.round > 1 && iGave && exchangeSeen < state.round;
+  const legal = useMemo(
+    () => (myTurn && state.phase === 'playing' ? presidentLegalPlays(state, ME) : []),
+    [state, myTurn],
+  );
+  const pending = state.phase === 'exchange' ? state.pendingGives[0] : undefined;
+
+  // Picked cards that left my hand, or a turn that went by, clear the selection.
+  useEffect(() => {
+    setSelected((sel) => (myTurn ? sel.filter((c) => me.hand.includes(c)) : []));
+  }, [state, myTurn]);
+
+  // Sounds follow what happens at the table, whoever played.
+  const prev = useRef(state);
+  useEffect(() => {
+    const before = prev.current;
+    prev.current = state;
+    if (before === state) return;
+    if (state.phase === 'roundOver' && before.phase !== 'roundOver') {
+      if (!spectator && state.titles[ME] === 'president') sounds.win();
+      else sounds.chips();
+      return;
+    }
+    if (state.played.length > before.played.length) sounds.card();
+    else if (state.players.some((p, i) => p.passed && !before.players[i]?.passed)) sounds.fold();
+    if (myTurn && before.toAct !== ME) sounds.myTurn();
+  }, [state]);
+
+  if (over) {
+    return (
+      <FinalRanking
+        state={state}
+        avatars={avatars}
+        onQuit={onLeave}
+        quitLabel="Quitter la table"
+        spectator={spectator}
+      />
+    );
+  }
+
+  function enabled(card: Card): boolean {
+    if (busy) return false;
+    if (pending && myTurn) return selected.includes(card) || selected.length < pending.count;
+    if (!myTurn || state.phase !== 'playing') return false;
+    return legal.some((p) => p.includes(card));
+  }
+
+  function tap(card: Card) {
+    if (selected.includes(card)) return setSelected(selected.filter((c) => c !== card));
+    if (pending) return setSelected([...selected, card]);
+    const withIt = [...selected, card];
+    if (legal.some((p) => withIt.every((c) => p.includes(c)))) setSelected(withIt);
+    else setSelected([card]);
+  }
+
+  const canPlay = myTurn && !busy && selected.length > 0 && presidentCanPlay(state, ME, selected);
+  const toBeat = presidentToBeat(state);
+  const received = new Set(state.exchanges.filter((e) => e.to === ME).flatMap((e) => e.cards));
+  const actor = state.toAct >= 0 ? state.players[state.toAct] : undefined;
+  const actorSeat = view.toAct >= 0 ? seats[view.toAct] : undefined;
+  const actorName = actor ? `${actorSeat?.bot ? '🤖 ' : ''}${actor.name}` : '';
+
+  let prompt: string;
+  if (state.phase === 'roundOver') prompt = 'Manche terminée';
+  else if (pending && myTurn)
+    prompt = `Choisis ${pending.count} carte${pending.count > 1 ? 's' : ''} à rendre à ${state.players[pending.to].name}`;
+  else if (pending) prompt = `${actorName} choisit les cartes à rendre…`;
+  else if (myTurn && !toBeat)
+    prompt =
+      state.round === 1 && state.played.length === 0
+        ? 'À toi ! Ouvre avec le 3 de trèfle'
+        : 'À toi de mener : joue ce que tu veux';
+  else if (myTurn) {
+    const last = state.trick[state.trick.length - 1];
+    prompt = legal.length ? `À toi ! Bats ${describe(last.cards)} ou passe` : 'Tu ne peux pas suivre : passe';
+  } else if (spectator) prompt = `Tu regardes la partie · ${actorName} joue`;
+  else if (me.hand.length === 0) prompt = 'Tu as fini, regarde les autres…';
+  else prompt = `${actorName} réfléchit…`;
+
+  const secondsLeft = deadline ? Math.max(0, Math.ceil((deadline - now) / 1000)) : 0;
+  const showTimer = deadline !== null && !betweenRounds && actorSeat !== undefined && !actorSeat.bot;
+
+  return (
+    <GameLayout
+      top={
+        <>
+          <TopBar onBack={onLeave} backLabel="← Quitter">
+            <Text style={styles.topInfo}>
+              Manche {state.round}/{view.rounds}
+            </Text>
+            {!spectator && (
+              <View style={styles.scorePill}>
+                <Text style={styles.scoreText}>
+                  ⭐ {me.score} pt{me.score > 1 ? 's' : ''}
+                </Text>
+              </View>
+            )}
+          </TopBar>
+          {showTimer && (
+            <TurnTimer deadline={deadline!} now={now} name={myTurn ? 'Toi' : actor!.name} seconds={60} />
+          )}
+        </>
+      }
+      table={({ width, height }) => (
+        <TableView state={state} avatars={avatars} width={width} height={height}>
+          {betweenRounds && state.phase === 'roundOver' && (
+            <RoundRecap
+              state={state}
+              avatars={avatars}
+              onNext={() => onMove({ type: 'next' })}
+              disabled={busy || spectator}
+              note={`La manche suivante commence toute seule${secondsLeft > 0 ? ` dans ${secondsLeft} s` : '…'}`}
+            />
+          )}
+          {showExchange && <ExchangeRecap state={state} onClose={() => setExchangeSeen(state.round)} />}
+        </TableView>
+      )}
+      bottom={
+        state.phase === 'roundOver' ? null : (
+          <View style={styles.bottom}>
+            <Text style={[styles.prompt, myTurn && styles.promptMine]} numberOfLines={1}>
+              {prompt}
+            </Text>
+            {!spectator && (
+              <Hand
+                cards={me.hand}
+                selected={selected}
+                received={received}
+                enabled={enabled}
+                onTap={tap}
+                active={myTurn && !showExchange}
+              />
+            )}
+            {error && <Text style={styles.error}>{error}</Text>}
+            {spectator ? null : pending && myTurn ? (
+              <Button
+                compact
+                label={`Donner ${selected.length}/${pending.count}`}
+                disabled={busy || selected.length !== pending.count}
+                onPress={() => onMove({ type: 'give', cards: selected })}
+              />
+            ) : (
+              <View style={styles.actions}>
+                <View style={styles.flex}>
+                  <Button
+                    compact
+                    variant="secondary"
+                    label="Passer"
+                    disabled={!myTurn || busy || !presidentCanPass(state, ME) || showExchange}
+                    onPress={() => onMove({ type: 'pass' })}
+                  />
+                </View>
+                <View style={styles.flex}>
+                  <Button
+                    compact
+                    label={
+                      selected.length
+                        ? `Jouer ${selected.length} carte${selected.length > 1 ? 's' : ''}`
+                        : 'Jouer'
+                    }
+                    disabled={!canPlay || showExchange}
+                    onPress={() => onMove({ type: 'play', cards: selected })}
+                  />
+                </View>
+              </View>
+            )}
+          </View>
+        )
+      }
+    />
+  );
+}
+
+/** How many rounds the online game lasts, chosen when creating the table. */
+export function PresidentOnlineOptions({ value, onChange }: OnlineOptionsProps) {
+  const rounds = typeof value.rounds === 'number' ? value.rounds : PRESIDENT_DEFAULT_ROUNDS;
+  return (
+    <View style={styles.options}>
+      <Text style={styles.optionsLabel}>Nombre de manches</Text>
+      <View style={styles.counts}>
+        {PRESIDENT_ROUND_CHOICES.map((n) => (
+          <Pressable
+            key={n}
+            accessibilityRole="button"
+            accessibilityState={{ selected: n === rounds }}
+            onPress={() => onChange({ ...value, rounds: n })}
+            style={[styles.count, n === rounds && styles.countOn]}
+          >
+            <Text style={[styles.countText, n === rounds && styles.countTextOn]}>{n}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
   );
 }
 
@@ -850,6 +1114,8 @@ const styles = StyleSheet.create({
   countText: { color: colors.text, fontSize: 18, fontWeight: '800' },
   countTextOn: { color: colors.onGold },
   hint: { color: colors.muted, marginTop: 8, fontSize: 13 },
+  options: { gap: 6, marginBottom: 10 },
+  optionsLabel: { color: colors.muted, fontSize: 14, fontWeight: '700' },
   rule: { color: colors.text, fontSize: 14, lineHeight: 20 },
   spacer: { height: 22 },
 
@@ -1042,6 +1308,3 @@ const styles = StyleSheet.create({
   finalNameFirst: { color: colors.gold, fontWeight: '800' },
   finalScore: { color: colors.gold, fontSize: 15, fontWeight: '800' },
 });
-
-/** Online board: not ready yet. */
-export { ComingSoonBoard as PresidentOnlineBoard } from '../online-games/ComingSoon';
