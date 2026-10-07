@@ -1,6 +1,7 @@
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, shadow } from '../theme';
+import { CardBackFace, useCardBack } from './cardBacks';
 
 const SUIT_SYMBOLS: Record<string, string> = { s: '♠', h: '♥', d: '♦', c: '♣' };
 /** Chess pieces stand in for the portraits on court cards. */
@@ -24,26 +25,13 @@ export function PlayingCard({ card, hidden, width, small }: Props) {
   const h = Math.round(w * 1.4);
   const radius = Math.max(4, w * 0.1);
   const size = { width: w, height: h, borderRadius: radius };
+  const back = useCardBack();
 
   if (!card) return <View style={[styles.base, size, styles.slot]} />;
   if (hidden) {
     return (
-      <View style={[styles.base, size, styles.back, shadow]}>
-        <LinearGradient
-          colors={['#c21f35', '#8a0f22', '#5c0716']}
-          style={[styles.backInner, { borderRadius: radius - 2 }]}
-        >
-          <View style={styles.lattice}>
-            {Array.from({ length: 12 }, (_, i) => (
-              <Text key={i} style={[styles.latticeMark, { fontSize: w * 0.18 }]}>
-                ◆
-              </Text>
-            ))}
-          </View>
-          <View style={[styles.emblem, { width: w * 0.5, height: w * 0.5, borderRadius: w * 0.25 }]}>
-            <Text style={[styles.backMark, { fontSize: w * 0.28 }]}>♠</Text>
-          </View>
-        </LinearGradient>
+      <View style={styles.backSpot}>
+        <CardBackFace id={back} width={w} height={h} radius={radius} />
       </View>
     );
   }
@@ -94,35 +82,7 @@ const styles = StyleSheet.create({
   base: { marginHorizontal: 2, overflow: 'hidden' },
   face: { backgroundColor: colors.card, borderWidth: 1, borderColor: '#d9d0b8' },
   slot: { borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.18)', borderStyle: 'dashed' },
-  back: { backgroundColor: '#fdf8ec', padding: 3 },
-  backInner: {
-    flex: 1,
-    borderWidth: 1.5,
-    borderColor: '#e8c37a',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  lattice: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-around',
-    alignContent: 'space-around',
-  },
-  latticeMark: { color: 'rgba(232, 195, 122, 0.28)', width: '33%', textAlign: 'center' },
-  emblem: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: '#e8c37a',
-    backgroundColor: '#7a0c1b',
-  },
-  backMark: { color: '#f3d58c' },
+  backSpot: { marginHorizontal: 2 },
   corner: { position: 'absolute', top: 3, left: 4, alignItems: 'center' },
   rank: { fontWeight: '800', fontFamily: SERIF },
   center: { position: 'absolute' },
