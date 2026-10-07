@@ -215,3 +215,63 @@ export async function loadStats(): Promise<PlayerStats[]> {
   if (error) throw new Error('Impossible de charger les statistiques');
   return (data as PlayerStats[]).sort((a, b) => b.net - a.net);
 }
+
+export interface Tournament {
+  id: string;
+  code: string;
+  name: string;
+  host_id: string;
+  games: OnlineGameId[];
+  status: 'open' | 'playing' | 'finished';
+  /** Index in games of the game being played. */
+  round: number;
+  /** The table opened for this round, once the host created it. */
+  room_id: string | null;
+  room_code: string | null;
+}
+
+export interface TournamentPlayer {
+  user_id: string;
+  name: string;
+  avatar: string | null;
+  avatar_color: string | null;
+  points: number;
+  wins: number;
+}
+
+export interface SavedTournament {
+  id: string;
+  name: string;
+  code: string;
+}
+
+const TOURNAMENTS_KEY = 'appli-poker:tournaments';
+
+/** The tournaments I created or joined on this phone, newest first. */
+export async function loadSavedTournaments(): Promise<SavedTournament[]> {
+  try {
+    const raw = await AsyncStorage.getItem(TOURNAMENTS_KEY);
+    const list = raw ? JSON.parse(raw) : [];
+    return Array.isArray(list) ? (list as SavedTournament[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function saveTournament(t: SavedTournament) {
+  try {
+    const others = (await loadSavedTournaments()).filter((x) => x.id !== t.id);
+    await AsyncStorage.setItem(TOURNAMENTS_KEY, JSON.stringify([t, ...others].slice(0, 20)));
+  } catch {
+    // Remembering the tournament is a convenience only.
+  }
+}
+
+export async function forgetTournament(id: string) {
+  try {
+    const list = (await loadSavedTournaments()).filter((x) => x.id !== id);
+    await AsyncStorage.setItem(TOURNAMENTS_KEY, JSON.stringify(list));
+  } catch {
+    // Nothing to do if storage is blocked.
+  }
+}
