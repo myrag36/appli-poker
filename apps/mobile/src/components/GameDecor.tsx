@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-export type DecorId = 'poker' | 'blackjack' | 'president' | 'yams' | 'belote';
+export type DecorId = 'poker' | 'blackjack' | 'president' | 'yams' | 'belote' | 'puissance4';
 
 interface Size {
   w: number;
@@ -391,12 +391,66 @@ function Belote({ w, h }: Size) {
   );
 }
 
+function Puissance4({ w, h }: Size) {
+  // The blue board, slightly tilted and still empty: the tokens of the card art fall into it.
+  const cols = 7;
+  const rows = 5;
+  const cell = Math.round((w * 0.92) / cols);
+  return (
+    <>
+      <LinearGradient colors={['#3a7bd5', '#22489c', '#101f4d']} style={StyleSheet.absoluteFill} />
+      <Pattern w={w} h={h} step={38} symbols={['●']} color="rgba(255,255,255,0.05)" size={12} />
+      <View
+        style={{
+          position: 'absolute',
+          left: w / 2 - (cols * cell) / 2,
+          top: h * 0.05,
+          width: cols * cell,
+          height: rows * cell,
+          padding: 4,
+          flexDirection: 'row',
+          borderRadius: 14,
+          backgroundColor: '#1f5fd1',
+          borderWidth: 2,
+          borderColor: '#5d93ff',
+          transform: [{ rotate: '-6deg' }],
+          boxShadow: '0 8px 18px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.35)',
+        }}
+      >
+        {Array.from({ length: cols }, (_, c) => (
+          <View key={c} style={{ flex: 1 }}>
+            {Array.from({ length: rows }, (_, r) => {
+              const size = cell * 0.7;
+              return (
+                <View key={r} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                  <View
+                    style={{
+                      width: size,
+                      height: size,
+                      borderRadius: size / 2,
+                      backgroundColor: 'rgba(6,18,50,0.8)',
+                      boxShadow: 'inset 0 3px 5px rgba(0,0,0,0.6)',
+                    }}
+                  />
+                </View>
+              );
+            })}
+          </View>
+        ))}
+      </View>
+      {/* Soft light on the board, so the tokens in front stand out. */}
+      <Glow x={w / 2} y={h * 0.3} size={w * 0.4} color="rgba(255,255,255,0.08)" />
+    </>
+  );
+}
+
 const DECORS: Record<DecorId, (size: Size) => ReactNode> = {
   poker: Poker,
   blackjack: Blackjack,
   president: President,
   yams: Yams,
   belote: Belote,
+  puissance4: Puissance4,
 };
 
 /** The illustrated background of a game's card in the carousel. */
