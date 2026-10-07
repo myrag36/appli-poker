@@ -55,10 +55,57 @@ function tierFor(level: number): Tier {
   };
 }
 
+/** Titles bought in the shop have their own look, whatever their level. */
+const SHOP_TIERS: Record<string, Tier> = {
+  chanceux: {
+    fill: ['#b6f5a0', '#3fbf4f', '#1b7a2c'],
+    border: 'rgba(210, 255, 200, 0.85)',
+    text: '#ffffff',
+    icon: '🍀',
+    glow: '0 0 6px rgba(80, 220, 100, 0.55)',
+  },
+  flambeur: {
+    fill: ['#ffd36b', '#ff7a1a', '#d6200f'],
+    border: '#ffe0a0',
+    text: '#ffffff',
+    icon: '🔥',
+    glow: '0 0 8px rgba(255, 100, 0, 0.7)',
+  },
+  stratege: {
+    fill: ['#9cc9ff', '#3a7fe0', '#173f8f'],
+    border: 'rgba(210, 230, 255, 0.85)',
+    text: '#ffffff',
+    icon: '♟',
+    glow: '0 0 6px rgba(70, 140, 255, 0.55)',
+  },
+  nuit: {
+    fill: ['#3b4c9e', '#1a2160', '#090c2e'],
+    border: 'rgba(170, 185, 255, 0.7)',
+    text: '#fff6d6',
+    icon: '🌙',
+    glow: '0 0 8px rgba(110, 130, 255, 0.55)',
+  },
+  repenti: {
+    fill: ['#f3ecff', '#c9b6ff', '#9a82e8'],
+    border: '#ffffff',
+    text: '#3a2370',
+    icon: '😇',
+    glow: '0 0 8px rgba(220, 200, 255, 0.75)',
+  },
+  millionnaire: {
+    fill: ['#fff9d6', '#ffd700', '#e6a800', '#fff1a0', '#c98a00'],
+    border: '#fffbe6',
+    text: '#3a2400',
+    icon: '💰',
+    glow: '0 0 12px rgba(255, 215, 0, 0.95)',
+    shimmer: true,
+  },
+};
+
 /** A player's title in a pill; the rarer the title, the fancier the pill. */
 export function TitleBadge({ id, small }: { id: string; small?: boolean }) {
   const reward = findReward('title', id) ?? findReward('title', 'debutant')!;
-  const tier = tierFor(reward.level);
+  const tier = SHOP_TIERS[reward.id] ?? tierFor(reward.level);
   const font = small ? 10.5 : 13;
   return (
     <View
