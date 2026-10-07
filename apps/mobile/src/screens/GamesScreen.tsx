@@ -25,9 +25,10 @@ import { AvatarBadge } from '../components/AvatarPicker';
 import { useMyProgress } from '../online/progress';
 import { loadAvatar } from '../online/supabase';
 import { PlayingCard } from '../components/PlayingCard';
+import { UnoCard } from '../components/UnoCard';
 import { colors, gradients, shadow } from '../theme';
 
-export type GameId = 'poker' | 'blackjack' | 'president' | 'yams' | 'belote';
+export type GameId = 'poker' | 'blackjack' | 'president' | 'yams' | 'belote' | 'uno' | 'huit';
 
 interface Game {
   id: GameId;
@@ -80,6 +81,22 @@ const GAMES: Game[] = [
     art: ['Jh', '9h', 'Ah', 'Kh', 'Qh'],
     ready: true,
   },
+  {
+    id: 'uno',
+    title: 'Uno',
+    tagline: 'Couleur ou chiffre, +2, +4 et Joker : crie « Uno ! » avant de gagner.',
+    players: '2 à 6 joueurs',
+    art: ['bSa', 'y7a', 'wFa', 'rDa', 'g2a'],
+    ready: true,
+  },
+  {
+    id: 'huit',
+    title: '8 américain',
+    tagline: 'Le 8 change la couleur, le 2 fait piocher : vide ta main le premier.',
+    players: '2 à 6 joueurs',
+    art: ['2h', '8s', '8h', 'Jd'],
+    ready: true,
+  },
 ];
 
 const GAP = 14;
@@ -107,6 +124,23 @@ function Art({ game }: { game: Game }) {
     );
   }
   const mid = (game.art.length - 1) / 2;
+  if (game.id === 'uno') {
+    return (
+      <View style={styles.fan}>
+        {game.art.map((c, i) => (
+          <View
+            key={c}
+            style={[
+              styles.fanCard,
+              { transform: [{ rotate: `${(i - mid) * 13}deg` }, { translateY: Math.abs(i - mid) * 8 }] },
+            ]}
+          >
+            <UnoCard card={c} width={62} />
+          </View>
+        ))}
+      </View>
+    );
+  }
   return (
     <View style={styles.fan}>
       {game.art.map((c, i) => (

@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-export type DecorId = 'poker' | 'blackjack' | 'president' | 'yams' | 'belote';
+export type DecorId = 'poker' | 'blackjack' | 'president' | 'yams' | 'belote' | 'uno' | 'huit';
 
 interface Size {
   w: number;
@@ -391,12 +391,113 @@ function Belote({ w, h }: Size) {
   );
 }
 
+function Uno({ w, h }: Size) {
+  const rand = random(11);
+  const paints = ['#e0312f', '#f6b81c', '#2f9e44', '#1f6fd1'];
+  return (
+    <>
+      <LinearGradient colors={['#2a1f5c', '#1a1440', '#0c0a22']} style={StyleSheet.absoluteFill} />
+      {/* Four big tilted ovals in the card colors, coming in from the corners. */}
+      {[
+        [-w * 0.25, -h * 0.08],
+        [w * 0.62, -h * 0.12],
+        [-w * 0.3, h * 0.42],
+        [w * 0.66, h * 0.38],
+      ].map(([x, y], i) => (
+        <View
+          key={i}
+          style={{
+            position: 'absolute',
+            left: x,
+            top: y,
+            width: w * 0.62,
+            height: w * 0.62,
+            borderRadius: w,
+            backgroundColor: paints[i],
+            opacity: 0.85,
+            transform: [{ rotate: '-28deg' }, { scaleY: 1.45 }],
+            boxShadow: `0 0 40px ${paints[i]}`,
+          }}
+        />
+      ))}
+      <Glow x={w / 2} y={h * 0.3} size={w * 0.5} color="rgba(255,255,255,0.10)" />
+      {/* Confetti of card symbols. */}
+      {Array.from({ length: 16 }, (_, i) => (
+        <Text
+          key={i}
+          style={{
+            position: 'absolute',
+            left: rand() * (w - 20),
+            top: rand() * h * 0.55,
+            fontSize: 12 + rand() * 12,
+            fontWeight: '900',
+            fontStyle: 'italic',
+            color: `rgba(255,255,255,${0.25 + rand() * 0.35})`,
+            transform: [{ rotate: `${(rand() - 0.5) * 50}deg` }],
+          }}
+        >
+          {['+2', '⇄', '⊘', '+4', '7', '★'][i % 6]}
+        </Text>
+      ))}
+    </>
+  );
+}
+
+function Huit({ w, h }: Size) {
+  const rand = random(8);
+  const square = 18;
+  const cols = Math.ceil(w / square);
+  return (
+    <>
+      <LinearGradient colors={['#0f5560', '#0b3a44', '#062027']} style={StyleSheet.absoluteFill} />
+      {/* A diner's checkerboard strip along the top. */}
+      {Array.from({ length: cols * 2 }, (_, i) => {
+        const r = Math.floor(i / cols);
+        const c = i % cols;
+        return (r + c) % 2 ? null : (
+          <View
+            key={i}
+            style={{
+              position: 'absolute',
+              left: c * square,
+              top: r * square,
+              width: square,
+              height: square,
+              backgroundColor: 'rgba(255,255,255,0.16)',
+            }}
+          />
+        );
+      })}
+      {/* Stars, red, white and blue. */}
+      {Array.from({ length: 18 }, (_, i) => (
+        <Text
+          key={i}
+          style={{
+            position: 'absolute',
+            left: rand() * (w - 16),
+            top: square * 2 + 6 + rand() * h * 0.5,
+            fontSize: 8 + rand() * 12,
+            color: ['rgba(255,90,95,0.55)', 'rgba(255,255,255,0.45)', 'rgba(110,170,255,0.55)'][i % 3],
+          }}
+        >
+          ★
+        </Text>
+      ))}
+      {/* A pink neon 8 on the wall. */}
+      <View style={[styles.neonRing, { left: w / 2 - 70, top: h * 0.1 }]} />
+      <Text style={[styles.neonEight, { top: h * 0.1 - 6, width: w }]}>8</Text>
+    </>
+  );
+}
+
 const DECORS: Record<DecorId, (size: Size) => ReactNode> = {
   poker: Poker,
   blackjack: Blackjack,
   president: President,
   yams: Yams,
   belote: Belote,
+  uno: Uno,
+  huit: Huit,
 };
 
 /** The illustrated background of a game's card in the carousel. */
@@ -417,6 +518,27 @@ export function GameDecor({ id, width, height }: { id: DecorId; width: number; h
 
 const styles = StyleSheet.create({
   clip: { overflow: 'hidden' },
+  neonRing: {
+    position: 'absolute',
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    borderWidth: 3,
+    borderColor: 'rgba(255,120,200,0.8)',
+    boxShadow: '0 0 18px rgba(255,90,190,0.9), inset 0 0 18px rgba(255,90,190,0.6)',
+  },
+  neonEight: {
+    position: 'absolute',
+    left: 0,
+    textAlign: 'center',
+    fontSize: 130,
+    lineHeight: 150,
+    fontWeight: '200',
+    color: 'rgba(255,200,235,0.9)',
+    textShadowColor: 'rgba(255,60,180,1)',
+    textShadowRadius: 18,
+    textShadowOffset: { width: 0, height: 0 },
+  },
   tray: {
     position: 'absolute',
     top: -6,

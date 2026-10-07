@@ -35,6 +35,8 @@ const GAME_NAMES: Record<ProgressGame, string> = {
   president: '👑 Président',
   yams: '🎲 Yams',
   belote: '♠️ Belote',
+  uno: '🌈 Uno',
+  huit: '🎱 8 américain',
 };
 
 type Tab = keyof Equipped | 'avatar';

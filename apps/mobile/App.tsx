@@ -10,6 +10,7 @@ import { BlackjackScreen } from './src/screens/BlackjackScreen';
 import { PresidentScreen } from './src/screens/PresidentScreen';
 import { YamsScreen } from './src/screens/YamsScreen';
 import { BeloteScreen } from './src/screens/BeloteScreen';
+import { HuitScreen, UnoScreen } from './src/screens/UnoScreen';
 import { Backdrop } from './src/components/Backdrop';
 import { OnlineLobbyScreen } from './src/screens/OnlineLobbyScreen';
 import { OnlineRoomScreen } from './src/screens/OnlineRoomScreen';
@@ -21,10 +22,13 @@ import { ProgressToast } from './src/components/ProgressToast';
 import { type GameSettings, SetupScreen } from './src/screens/SetupScreen';
 import { colors } from './src/theme';
 
+/** Games that can also be played online, each player on their own phone. */
+type OnlineGame = Exclude<GameId, 'poker' | 'uno' | 'huit'>;
+
 type Screen =
   | { name: 'games' }
   | { name: 'game'; game: Exclude<GameId, 'poker'> }
-  | { name: 'game-online'; game: Exclude<GameId, 'poker'> }
+  | { name: 'game-online'; game: OnlineGame }
   | { name: 'home' }
   | { name: 'local-setup' }
   | { name: 'local-game'; settings: GameSettings }
@@ -55,7 +59,7 @@ export default function App() {
 
   const home = () => setScreen({ name: 'home' });
   const games = () => setScreen({ name: 'games' });
-  const online = (game: Exclude<GameId, 'poker'>) => () => setScreen({ name: 'game-online', game });
+  const online = (game: OnlineGame) => () => setScreen({ name: 'game-online', game });
 
   return (
     <SafeAreaProvider>
@@ -88,6 +92,8 @@ export default function App() {
         {screen.name === 'game' && screen.game === 'belote' && (
           <BeloteScreen onBack={games} onOnline={online('belote')} />
         )}
+        {screen.name === 'game' && screen.game === 'uno' && <UnoScreen onBack={games} />}
+        {screen.name === 'game' && screen.game === 'huit' && <HuitScreen onBack={games} />}
         {screen.name === 'game-online' && (
           <OnlineGameScreen
             key={screen.game}
