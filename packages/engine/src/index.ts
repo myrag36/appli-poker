@@ -9,3 +9,4 @@ export * from './blackjack.ts';
 export * from './president.ts';
 export * from './yams.ts';
 export * from './belote.ts';
+export * from './online.ts';

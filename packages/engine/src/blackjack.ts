@@ -258,14 +258,7 @@ export function bjApply(state: BjState, move: BjMove, rng: Rng): BjState {
   const s = clone(state);
   if (move.type === 'bet') {
     if (s.phase !== 'betting') throw new Error("Ce n'est pas le moment de miser");
-    const id = bjActor(s)!;
-    const p = s.players.find((x) => x.id === id)!;
-    const amount = move.amount;
-    if (!Number.isInteger(amount) || amount < bjMinBet(p.stack) || amount > p.stack)
-      throw new Error(`Mise entre ${bjMinBet(p.stack)} et ${p.stack}`);
-    s.bets[id] = amount;
-    if (bjActor(s) === null) deal(s, rng);
-    return s;
+    return placeBet(s, bjActor(s)!, move.amount, rng);
   }
 
   if (s.phase !== 'playing' || !s.turn) throw new Error("Ce n'est pas le moment de jouer");
@@ -305,6 +298,27 @@ export function bjApply(state: BjState, move: BjMove, rng: Rng): BjState {
     }
   }
   advance(s, rng);
+  return s;
+}
+
+/**
+ * A bet for a given player, in any order (online, everyone bets at the same time). The round is
+ * dealt once every player with chips has bet.
+ */
+export function bjPlaceBet(state: BjState, playerId: string, amount: number, rng: Rng): BjState {
+  if (state.phase !== 'betting') throw new Error("Ce n'est pas le moment de miser");
+  const p = state.players.find((x) => x.id === playerId);
+  if (!p || p.stack === 0) throw new Error("Ce joueur n'a plus de jetons");
+  if (state.bets[playerId] !== undefined) throw new Error('Ta mise est déjà posée');
+  return placeBet(clone(state), playerId, amount, rng);
+}
+
+function placeBet(s: BjState, id: string, amount: number, rng: Rng): BjState {
+  const p = s.players.find((x) => x.id === id)!;
+  if (!Number.isInteger(amount) || amount < bjMinBet(p.stack) || amount > p.stack)
+    throw new Error(`Mise entre ${bjMinBet(p.stack)} et ${p.stack}`);
+  s.bets[id] = amount;
+  if (bjActivePlayers(s).every((x) => s.bets[x.id] !== undefined)) deal(s, rng);
   return s;
 }
 
@@ -482,4 +496,37 @@ export function bjBotMove(state: BjState): BjMove {
   const hand = bjCurrentHand(state);
   if (!hand) throw new Error("Personne n'a à jouer");
   return { type: bjBasicStrategy(hand.cards, state.dealer[0], bjLegalActions(state)) };
+}
+
+// ---------------------------------------------------------------------------------------------
+// Online
+
+/**
+ * What a player at an online table sees: everything on the felt (every player's cards are face
+ * up at blackjack), but not the shoe, and the dealer's second card only once it is turned over.
+ */
+export interface BjTableView extends Omit<BjState, 'shoe'> {
+  /** Cards left in the shoe (its contents stay secret). */
+  shoeCount: number;
+  /** The dealer's cards, without the hole card while it is face down. */
+  dealer: Card[];
+  /** How many cards the dealer really has (2 while the hole card is face down). */
+  dealerCount: number;
+  /** Chips each player started with. */
+  startStack: number;
+}
+
+export function bjTableView(state: BjState, startStack: number): BjTableView {
+  const { shoe, ...rest } = state;
+  return {
+    ...rest,
+    players: state.players.map((p) => ({ ...p })),
+    bets: { ...state.bets },
+    seats: state.seats.map((s) => ({ ...s, hands: s.hands.map((h) => ({ ...h, cards: h.cards.slice() })) })),
+    turn: state.turn ? { ...state.turn } : null,
+    dealer: state.holeRevealed ? state.dealer.slice() : state.dealer.slice(0, 1),
+    dealerCount: state.dealer.length,
+    shoeCount: shoe.length,
+    startStack,
+  };
 }

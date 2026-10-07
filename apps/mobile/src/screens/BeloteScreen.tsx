@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -7,6 +7,8 @@ import {
   type BelotePlayedCard,
   type BeloteState,
   type BeloteSuit,
+  type BeloteView,
+  type Card,
   BELOTE_SUITS,
   BELOTE_SUIT_SYMBOLS,
   beloteApply,
@@ -21,13 +23,16 @@ import {
 } from '@appli-poker/engine';
 import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
+import { OnlineButton } from '../components/OnlineButton';
 import { GameLayout } from '../components/GameLayout';
 import { Pill } from '../components/LevelPicker';
 import { Appear, FloatUp } from '../components/Motion';
 import { Panel, PanelText } from '../components/Panel';
 import { PlayingCard } from '../components/PlayingCard';
 import { TopBar } from '../components/TopBar';
+import { TurnTimer } from '../components/TurnTimer';
 import { sounds } from '../feedback';
+import type { OnlineBoardProps, OnlineOptionsProps } from '../online-games/types';
 import { deviceRng } from '../rng';
 import { colors, gradients, seatColors, shadow } from '../theme';
 
@@ -46,10 +51,10 @@ interface Settings {
 
 const isRed = (s: string) => s === 'h' || s === 'd';
 
-export function BeloteScreen({ onBack }: { onBack: () => void }) {
+export function BeloteScreen({ onBack, onOnline }: { onBack: () => void; onOnline?: () => void }) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [round, setRound] = useState(0);
-  if (!settings) return <BeloteSetup onStart={setSettings} onBack={onBack} />;
+  if (!settings) return <BeloteSetup onStart={setSettings} onBack={onBack} onOnline={onOnline} />;
   return (
     <BeloteGame
       key={round}
@@ -63,7 +68,15 @@ export function BeloteScreen({ onBack }: { onBack: () => void }) {
 
 // ------------------------------------------------------------------ Setup
 
-function BeloteSetup({ onStart, onBack }: { onStart: (s: Settings) => void; onBack: () => void }) {
+function BeloteSetup({
+  onStart,
+  onBack,
+  onOnline,
+}: {
+  onStart: (s: Settings) => void;
+  onBack: () => void;
+  onOnline?: () => void;
+}) {
   const [name, setName] = useState('');
   const [avatar, setAvatar] = useState<Avatar>(defaultAvatar(0));
   const [picking, setPicking] = useState(false);
@@ -91,6 +104,7 @@ function BeloteSetup({ onStart, onBack }: { onStart: (s: Settings) => void; onBa
     <ScrollView contentContainerStyle={styles.setup} keyboardShouldPersistTaps="handled">
       <Text style={styles.title}>Belote</Text>
       <Text style={styles.subtitle}>Toi et ton partenaire robot contre deux robots.</Text>
+      {onOnline && <OnlineButton onPress={onOnline} />}
 
       <Text style={styles.section}>Nous</Text>
       <View style={styles.row}>
@@ -186,7 +200,6 @@ function BeloteGame({
   );
   /** A finished trick stays in the middle for a moment before play goes on. */
   const [holding, setHolding] = useState(false);
-  const { width: screenWidth } = useWindowDimensions();
   const names = settings.names;
 
   const bidding = game.phase === 'bidding1' || game.phase === 'bidding2';
@@ -238,43 +251,39 @@ function BeloteGame({
     prompt = game.phase === 'gameOver' ? 'Partie terminée' : 'Fin de la donne';
   } else if (robotTurn) {
     prompt = `🤖 ${names[game.toAct]} ${bidding ? 'réfléchit…' : 'joue…'}`;
-  } else if (game.phase === 'bidding1') {
-    prompt = `À toi : tu prends à ${BELOTE_SUIT_SYMBOLS[game.turnUp![1] as BeloteSuit]} ?`;
-  } else if (game.phase === 'bidding2') {
-    prompt = 'Second tour : choisis l’atout ou passe';
   } else {
-    prompt = playHint(game, legal);
+    prompt = myPrompt(game, game.hands[ME], legal);
   }
 
-  const turned = game.turnUp?.[1] as BeloteSuit | undefined;
-  const bidButtons =
-    myTurn && game.phase === 'bidding1' ? (
-      <View style={styles.bids}>
-        <Button
-          compact
-          label={`Prendre ${BELOTE_SUIT_SYMBOLS[turned!]}`}
-          onPress={() => apply(ME, { type: 'take' })}
-        />
-        <Button compact variant="secondary" label="Passer" onPress={() => apply(ME, { type: 'pass' })} />
+  const result = game.result;
+  const overlay = !result ? null : game.phase === 'gameOver' ? (
+    <FinalPanel game={game} me={ME} names={names}>
+      <View style={styles.finalButtons}>
+        <Button compact label="Rejouer" onPress={onReplay} />
+        <Button compact variant="secondary" label="Réglages" onPress={onSettings} />
       </View>
-    ) : myTurn && game.phase === 'bidding2' ? (
-      <View style={styles.bids}>
-        {BELOTE_SUITS.filter((s) => s !== turned).map((s) => (
-          <Button
-            key={s}
-            compact
-            label={`À ${BELOTE_SUIT_SYMBOLS[s]}`}
-            onPress={() => apply(ME, { type: 'choose', suit: s })}
-          />
-        ))}
-        <Button compact variant="secondary" label="Passer" onPress={() => apply(ME, { type: 'pass' })} />
+      <Button compact variant="secondary" label="Retour aux jeux" onPress={onBack} />
+    </FinalPanel>
+  ) : result.kind === 'redeal' ? (
+    <Appear>
+      <Panel compact title="Personne ne prend">
+        <PanelText>On redistribue, c’est au joueur suivant de donner.</PanelText>
+        <Button compact label="Redistribuer" onPress={onNext} />
+      </Panel>
+    </Appear>
+  ) : (
+    <Appear>
+      <DealSummary game={game} names={names} me={ME} />
+      <View style={styles.nextButton}>
+        <Button compact label="Donne suivante" onPress={onNext} />
       </View>
-    ) : null;
+    </Appear>
+  );
 
-  const hand = game.hands[ME];
-  const avail = Math.min(screenWidth, 520) - 20;
-  const cardW = Math.min(60, Math.floor(avail / 6.2));
-  const step = hand.length > 1 ? Math.min(cardW + 4, (avail - cardW - 4) / (hand.length - 1)) : 0;
+  function onNext() {
+    setHolding(false);
+    setGame((g) => (g.phase === 'dealOver' ? beloteNextDeal(g, deviceRng) : g));
+  }
 
   return (
     <GameLayout
@@ -288,17 +297,15 @@ function BeloteGame({
       table={({ width, height }) => (
         <BeloteTable
           game={game}
+          counts={game.hands.map((h) => h.length)}
           holding={holding}
           width={width}
           height={height}
-          settings={settings}
-          onNext={() => {
-            setHolding(false);
-            setGame((g) => (g.phase === 'dealOver' ? beloteNextDeal(g, deviceRng) : g));
-          }}
-          onReplay={onReplay}
-          onSettings={onSettings}
-          onBack={onBack}
+          names={names}
+          avatars={settings.avatars}
+          bottom={ME}
+          me={ME}
+          overlay={overlay}
         />
       )}
       bottom={
@@ -309,41 +316,129 @@ function BeloteGame({
                 {prompt}
               </Text>
             </View>
-            {bidButtons}
+            {myTurn && <BidButtons game={game} onMove={(m) => apply(ME, m)} />}
           </View>
-          <View style={[styles.hand, { height: Math.round(cardW * 1.4) + 10 }]}>
-            {hand.map((c, i) => {
-              const playable = myTurn && game.phase === 'playing' && legal.includes(c);
-              const dim = game.phase === 'playing' && game.toAct === ME && !holding && !playable;
-              return (
-                <Pressable
-                  key={c}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Jouer ${c}`}
-                  disabled={!playable}
-                  onPress={() => apply(ME, { type: 'play', card: c })}
-                  style={[
-                    styles.handCard,
-                    { marginLeft: i === 0 ? 0 : step - cardW - 4 },
-                    playable && styles.handCardUp,
-                    dim && styles.handCardDim,
-                  ]}
-                >
-                  <Appear from={30} delay={i * 40}>
-                    <PlayingCard card={c} width={cardW} />
-                  </Appear>
-                </Pressable>
-              );
-            })}
-          </View>
+          <BeloteHand
+            hand={game.hands[ME]}
+            legal={myTurn ? legal : []}
+            myPlay={game.phase === 'playing' && game.toAct === ME && !holding}
+            onPlay={(card) => apply(ME, { type: 'play', card })}
+          />
         </>
       }
     />
   );
 }
 
-function playHint(game: BeloteState, legal: string[]): string {
-  const hand = game.hands[ME];
+/** What to tell me when it is my turn. */
+function myPrompt(game: Omit<BeloteState, 'hands' | 'stock'>, hand: Card[], legal: Card[]): string {
+  if (game.phase === 'bidding1')
+    return `À toi : tu prends à ${BELOTE_SUIT_SYMBOLS[game.turnUp![1] as BeloteSuit]} ?`;
+  if (game.phase === 'bidding2') return 'Second tour : choisis l’atout ou passe';
+  return playHint(game, hand, legal);
+}
+
+/** Take or pass in the first round, a suit or pass in the second; nothing while cards are played. */
+function BidButtons({
+  game,
+  disabled,
+  onMove,
+}: {
+  game: Omit<BeloteState, 'hands' | 'stock'>;
+  disabled?: boolean;
+  onMove: (move: BeloteMove) => void;
+}) {
+  const turned = game.turnUp?.[1] as BeloteSuit | undefined;
+  if (game.phase === 'bidding1')
+    return (
+      <View style={styles.bids}>
+        <Button
+          compact
+          disabled={disabled}
+          label={`Prendre ${BELOTE_SUIT_SYMBOLS[turned!]}`}
+          onPress={() => onMove({ type: 'take' })}
+        />
+        <Button
+          compact
+          disabled={disabled}
+          variant="secondary"
+          label="Passer"
+          onPress={() => onMove({ type: 'pass' })}
+        />
+      </View>
+    );
+  if (game.phase === 'bidding2')
+    return (
+      <View style={styles.bids}>
+        {BELOTE_SUITS.filter((s) => s !== turned).map((s) => (
+          <Button
+            key={s}
+            compact
+            disabled={disabled}
+            label={`À ${BELOTE_SUIT_SYMBOLS[s]}`}
+            onPress={() => onMove({ type: 'choose', suit: s })}
+          />
+        ))}
+        <Button
+          compact
+          disabled={disabled}
+          variant="secondary"
+          label="Passer"
+          onPress={() => onMove({ type: 'pass' })}
+        />
+      </View>
+    );
+  return null;
+}
+
+/** My cards, fanned at the bottom: the playable ones rise, the others dim when it is my turn. */
+function BeloteHand({
+  hand,
+  legal,
+  myPlay,
+  onPlay,
+}: {
+  hand: Card[];
+  /** Cards I may play right now (empty when I may not play). */
+  legal: Card[];
+  /** It is my turn to play a card (to dim the others). */
+  myPlay: boolean;
+  onPlay: (card: Card) => void;
+}) {
+  const { width: screenWidth } = useWindowDimensions();
+  const avail = Math.min(screenWidth, 520) - 20;
+  const cardW = Math.min(60, Math.floor(avail / 6.2));
+  const step = hand.length > 1 ? Math.min(cardW + 4, (avail - cardW - 4) / (hand.length - 1)) : 0;
+  return (
+    <View style={[styles.hand, { height: Math.round(cardW * 1.4) + 10 }]}>
+      {hand.map((c, i) => {
+        const playable = legal.includes(c);
+        const dim = myPlay && !playable;
+        return (
+          <Pressable
+            key={c}
+            accessibilityRole="button"
+            accessibilityLabel={`Jouer ${c}`}
+            disabled={!playable}
+            onPress={() => onPlay(c)}
+            style={[
+              styles.handCard,
+              { marginLeft: i === 0 ? 0 : step - cardW - 4 },
+              playable && styles.handCardUp,
+              dim && styles.handCardDim,
+            ]}
+          >
+            <Appear from={30} delay={i * 40}>
+              <PlayingCard card={c} width={cardW} />
+            </Appear>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+function playHint(game: Omit<BeloteState, 'hands' | 'stock'>, hand: Card[], legal: Card[]): string {
   if (game.trick.length === 0) return 'À toi d’entamer';
   const led = game.trick[0].card[1] as BeloteSuit;
   const trump = game.trump!;
@@ -392,26 +487,41 @@ function bidText(bid: 'pass' | 'take' | BeloteSuit): string {
   return `À ${BELOTE_SUIT_SYMBOLS[bid]} !`;
 }
 
+/** The deal as the table shows it: hands are given as counts, so a player's own view is enough. */
+type TableGame = Omit<BeloteState, 'hands' | 'stock'>;
+
+/** Team names from my side of the table; a spectator sees the players' names instead. */
+function teamName(team: number, me: number, names: string[]): string {
+  if (me < 0) return `${names[team]} & ${names[team + 2]}`;
+  return team === beloteTeamOf(me) ? 'Nous' : 'Eux';
+}
+
 function BeloteTable({
   game,
+  counts,
   holding,
   width,
   height,
-  settings,
-  onNext,
-  onReplay,
-  onSettings,
-  onBack,
+  names,
+  avatars,
+  bottom,
+  me,
+  overlay,
 }: {
-  game: BeloteState;
+  game: TableGame;
+  /** How many cards each seat holds. */
+  counts: number[];
   holding: boolean;
   width: number;
   height: number;
-  settings: Settings;
-  onNext: () => void;
-  onReplay: () => void;
-  onSettings: () => void;
-  onBack: () => void;
+  names: string[];
+  avatars: Avatar[];
+  /** The seat drawn at the bottom (South of the screen). */
+  bottom: number;
+  /** My seat, or -1 when I am only watching. */
+  me: number;
+  /** Shown over the table once the deal is over. */
+  overlay: ReactNode;
 }) {
   const w = Math.min(width, 480);
   const h = Math.min(height, Math.round(w * 1.5));
@@ -419,18 +529,19 @@ function BeloteTable({
   const cy = h / 2 + 6;
   const cw = Math.max(40, Math.min(58, Math.floor(Math.min(w, h) * 0.15)));
   const ch = Math.round(cw * 1.4);
-  const names = settings.names;
   const bidding = game.phase === 'bidding1' || game.phase === 'bidding2';
   const round = game.phase === 'bidding1' ? 1 : 2;
+  /** Place of a seat on screen: 0 bottom, 1 left, 2 top, 3 right. */
+  const place = (seat: number) => (seat - bottom + 4) % 4;
 
-  // Where each seat sits: South bottom, West left, North top, East right.
+  // Where each place sits: bottom, left, top, right.
   const seatPos = [
     { x: cx, y: h - 22 },
     { x: 38, y: cy - 10 },
     { x: cx, y: 42 },
     { x: w - 38, y: cy - 10 },
   ];
-  // Where each seat's card lands in the trick cross.
+  // Where each place's card lands in the trick cross.
   const slot = [
     { x: cx - cw / 2, y: cy + 2, from: 30 },
     { x: cx - cw * 1.55, y: cy - ch / 2 - 6, from: 0 },
@@ -445,8 +556,10 @@ function BeloteTable({
       : game.trick.length > 0 && game.trump
         ? game.trick[beloteTrickWinnerIndex(game.trick, game.trump)].player
         : null;
-  const result = game.result;
   const showResult = (game.phase === 'dealOver' || game.phase === 'gameOver') && !holding;
+  const ourTeam = beloteTeamOf(bottom);
+  const myTeamTricks = game.tricksWon[ourTeam];
+  const theirTricks = game.tricksWon[1 - ourTeam];
 
   return (
     <View style={{ width: w, height: h }}>
@@ -465,7 +578,7 @@ function BeloteTable({
           <Text style={styles.trumpLabel}>Atout</Text>
           <SuitChip suit={game.trump} size={30} />
           <Text style={styles.trumpTaker} numberOfLines={1}>
-            {game.taker === ME ? 'pris par toi' : `pris par ${names[game.taker]}`}
+            {game.taker === me ? 'pris par toi' : `pris par ${names[game.taker]}`}
           </Text>
         </Appear>
       )}
@@ -473,20 +586,21 @@ function BeloteTable({
         <Text style={styles.dealText}>Donne {game.dealNumber}</Text>
         {game.phase === 'playing' && (
           <Text style={styles.dealText}>
-            Plis {game.tricksWon[0]}–{game.tricksWon[1]}
+            Plis {myTeamTricks}–{theirTricks}
           </Text>
         )}
       </View>
 
       {/* Players around the table. */}
-      {[1, 2, 3, 0].map((seat) => {
-        const pos = seatPos[seat];
+      {[1, 2, 3, 0].map((p) => {
+        const seat = (p + bottom) % 4;
+        const pos = seatPos[p];
         const turn = game.toAct === seat && !holding;
         const bid = bidding
           ? [...game.bids].reverse().find((b) => b.player === seat && b.round === round)
           : undefined;
-        const count = game.hands[seat].length;
-        const side = seat === 1 || seat === 3;
+        const count = counts[seat];
+        const side = p === 1 || p === 3;
         const backW = side ? 20 : 24;
         return (
           <View
@@ -494,28 +608,32 @@ function BeloteTable({
             pointerEvents="none"
             style={[
               styles.seat,
-              { width: side ? 76 : 110, left: pos.x - (side ? 38 : 55), top: pos.y - (seat === 0 ? 14 : 30) },
+              { width: side ? 76 : 110, left: pos.x - (side ? 38 : 55), top: pos.y - (p === 0 ? 14 : 30) },
             ]}
           >
-            {seat !== 0 && (
+            {p !== 0 && (
               <View style={[styles.avatarRing, turn && styles.avatarTurn]}>
-                <AvatarBadge avatar={settings.avatars[seat]} size={side ? 36 : 34} />
+                <AvatarBadge avatar={avatars[seat]} size={side ? 36 : 34} />
                 {game.dealer === seat && <Text style={styles.dealerChip}>D</Text>}
               </View>
             )}
             <View
-              style={[styles.plate, turn && styles.plateTurn, beloteTeamOf(seat) === 0 && styles.plateUs]}
+              style={[
+                styles.plate,
+                turn && styles.plateTurn,
+                beloteTeamOf(seat) === ourTeam && styles.plateUs,
+              ]}
             >
               <Text style={styles.plateName} numberOfLines={1}>
                 {names[seat]}
               </Text>
-              {seat === 0 && game.dealer === 0 && <Text style={styles.dealerInline}>D</Text>}
+              {p === 0 && game.dealer === seat && <Text style={styles.dealerInline}>D</Text>}
             </View>
-            {seat !== 0 && count > 0 && (
+            {p !== 0 && count > 0 && (
               <View style={styles.backs}>
-                {game.hands[seat].map((c, i) => (
-                  <View key={c} style={{ marginLeft: i === 0 ? 0 : side ? -17 : -18 }}>
-                    <PlayingCard card={c} hidden width={backW} />
+                {Array.from({ length: count }, (_, i) => (
+                  <View key={i} style={{ marginLeft: i === 0 ? 0 : side ? -17 : -18 }}>
+                    <PlayingCard card="As" hidden width={backW} />
                   </View>
                 ))}
               </View>
@@ -550,58 +668,45 @@ function BeloteTable({
       )}
 
       {/* The trick, as a cross. */}
-      {shownTrick.map(({ player, card }) => (
-        <Appear
-          key={`${game.dealNumber}-${card}`}
-          from={slot[player].from}
-          style={[
-            styles.trickCard,
-            { left: slot[player].x, top: slot[player].y, zIndex: player === 0 ? 3 : player === 2 ? 1 : 2 },
-            winnerSeat === player && holding && styles.trickWinner,
-          ]}
-        >
-          <PlayingCard card={card} width={cw} />
-        </Appear>
-      ))}
+      {shownTrick.map(({ player, card }) => {
+        const p = place(player);
+        return (
+          <Appear
+            key={`${game.dealNumber}-${card}`}
+            from={slot[p].from}
+            style={[
+              styles.trickCard,
+              { left: slot[p].x, top: slot[p].y, zIndex: p === 0 ? 3 : p === 2 ? 1 : 2 },
+              winnerSeat === player && holding && styles.trickWinner,
+            ]}
+          >
+            <PlayingCard card={card} width={cw} />
+          </Appear>
+        );
+      })}
 
-      {showResult && result && (
-        <View style={styles.overlay}>
-          {game.phase === 'gameOver' ? (
-            <FinalPanel game={game} onReplay={onReplay} onSettings={onSettings} onBack={onBack} />
-          ) : result.kind === 'redeal' ? (
-            <Appear>
-              <Panel compact title="Personne ne prend">
-                <PanelText>On redistribue, c’est au joueur suivant de donner.</PanelText>
-                <Button compact label="Redistribuer" onPress={onNext} />
-              </Panel>
-            </Appear>
-          ) : (
-            <Appear>
-              <DealSummary game={game} names={names} />
-              <View style={styles.nextButton}>
-                <Button compact label="Donne suivante" onPress={onNext} />
-              </View>
-            </Appear>
-          )}
-        </View>
-      )}
+      {showResult && game.result && overlay && <View style={styles.overlay}>{overlay}</View>}
     </View>
   );
 }
 
-function DealSummary({ game, names }: { game: BeloteState; names: string[] }) {
+function DealSummary({ game, names, me }: { game: TableGame; names: string[]; me: number }) {
   const r = game.result;
   if (!r || r.kind !== 'played') return null;
-  const us = r.takerTeam === 0;
+  const myTeam = me >= 0 ? beloteTeamOf(me) : 0;
+  const other = 1 - myTeam;
+  const us = r.takerTeam === myTeam;
   let title: string;
-  if (r.capot !== null) title = r.capot === 0 ? 'Capot ! 🎉' : 'Capot pour eux…';
+  if (me < 0) {
+    title = r.capot !== null ? 'Capot !' : r.made ? 'Contrat réussi' : 'Dedans !';
+  } else if (r.capot !== null) title = r.capot === myTeam ? 'Capot ! 🎉' : 'Capot pour eux…';
   else if (!r.made) title = us ? 'Dedans… 😬' : 'Ils sont dedans ! 🎉';
   else title = us ? 'Contrat réussi ✅' : 'Contrat réussi pour eux';
   return (
     <View style={styles.summary}>
       <Text style={styles.summaryTitle}>{title}</Text>
       <View style={styles.summaryTaker}>
-        <Text style={styles.summaryText}>{r.taker === ME ? 'Tu as pris' : `${names[r.taker]} a pris`} à</Text>
+        <Text style={styles.summaryText}>{r.taker === me ? 'Tu as pris' : `${names[r.taker]} a pris`} à</Text>
         <SuitChip suit={r.trump} size={20} />
       </View>
       <View style={styles.summaryTable}>
@@ -611,9 +716,11 @@ function DealSummary({ game, names }: { game: BeloteState; names: string[] }) {
           <Text style={[styles.cell, styles.cellHead]}>Belote</Text>
           <Text style={[styles.cell, styles.cellHead]}>Marqué</Text>
         </View>
-        {[0, 1].map((team) => (
+        {[myTeam, other].map((team) => (
           <View key={team} style={styles.summaryRow}>
-            <Text style={[styles.cell, styles.cellName]}>{TEAM_NAMES[team]}</Text>
+            <Text style={[styles.cell, styles.cellName]} numberOfLines={1}>
+              {teamName(team, me, names)}
+            </Text>
             <Text style={styles.cell}>{r.cardPoints[team]}</Text>
             <Text style={styles.cell}>{r.belote[team] ? '+20' : '–'}</Text>
             <Text style={[styles.cell, styles.cellScore]}>+{r.dealPoints[team]}</Text>
@@ -626,7 +733,8 @@ function DealSummary({ game, names }: { game: BeloteState; names: string[] }) {
         </Text>
       )}
       <Text style={styles.summaryTotal}>
-        Nous {game.scores[0]} · Eux {game.scores[1]}
+        {teamName(myTeam, me, names)} {game.scores[myTeam]} · {teamName(other, me, names)}{' '}
+        {game.scores[other]}
       </Text>
     </View>
   );
@@ -634,51 +742,59 @@ function DealSummary({ game, names }: { game: BeloteState; names: string[] }) {
 
 function FinalPanel({
   game,
-  onReplay,
-  onSettings,
-  onBack,
+  me,
+  names,
+  children,
 }: {
-  game: BeloteState;
-  onReplay: () => void;
-  onSettings: () => void;
-  onBack: () => void;
+  game: TableGame;
+  me: number;
+  names: string[];
+  /** The buttons under the result. */
+  children: ReactNode;
 }) {
-  const won = game.winner === 0;
+  const myTeam = me >= 0 ? beloteTeamOf(me) : 0;
+  const other = 1 - myTeam;
+  const won = game.winner === myTeam;
+  const title =
+    me < 0
+      ? `${teamName(game.winner ?? 0, me, names)} gagnent la partie !`
+      : won
+        ? 'Vous gagnez la partie !'
+        : 'Eux gagnent la partie';
   return (
     <Appear>
       <View style={styles.summary}>
-        <Text style={styles.trophy}>{won ? '🏆' : '😢'}</Text>
-        <Text style={styles.finalTitle}>{won ? 'Vous gagnez la partie !' : 'Eux gagnent la partie'}</Text>
+        <Text style={styles.trophy}>{won || me < 0 ? '🏆' : '😢'}</Text>
+        <Text style={styles.finalTitle}>{title}</Text>
         <View style={styles.finalScores}>
-          <View style={[styles.finalTeam, won && styles.finalTeamWin]}>
-            <Text style={styles.finalTeamName}>Nous</Text>
-            <Text style={styles.finalTeamScore}>{game.scores[0]}</Text>
-          </View>
-          <View style={[styles.finalTeam, !won && styles.finalTeamWin]}>
-            <Text style={styles.finalTeamName}>Eux</Text>
-            <Text style={styles.finalTeamScore}>{game.scores[1]}</Text>
-          </View>
+          {[myTeam, other].map((team) => (
+            <View key={team} style={[styles.finalTeam, game.winner === team && styles.finalTeamWin]}>
+              <Text style={styles.finalTeamName} numberOfLines={1}>
+                {teamName(team, me, names)}
+              </Text>
+              <Text style={styles.finalTeamScore}>{game.scores[team]}</Text>
+            </View>
+          ))}
         </View>
         <Text style={styles.summaryText}>
           En {game.dealNumber} donnes · objectif {game.target}
         </Text>
-        <DealSummaryLine game={game} />
-        <View style={styles.finalButtons}>
-          <Button compact label="Rejouer" onPress={onReplay} />
-          <Button compact variant="secondary" label="Réglages" onPress={onSettings} />
-        </View>
-        <Button compact variant="secondary" label="Retour aux jeux" onPress={onBack} />
+        <DealSummaryLine game={game} me={me} names={names} />
+        {children}
       </View>
     </Appear>
   );
 }
 
-function DealSummaryLine({ game }: { game: BeloteState }) {
+function DealSummaryLine({ game, me, names }: { game: TableGame; me: number; names: string[] }) {
   const r = game.result;
   if (!r || r.kind !== 'played') return null;
+  const myTeam = me >= 0 ? beloteTeamOf(me) : 0;
+  const other = 1 - myTeam;
   return (
     <Text style={styles.summaryNote}>
-      Dernière donne : Nous +{r.dealPoints[0]}, Eux +{r.dealPoints[1]}
+      Dernière donne : {teamName(myTeam, me, names)} +{r.dealPoints[myTeam]}, {teamName(other, me, names)} +
+      {r.dealPoints[other]}
       {r.capot !== null ? ' (capot)' : !r.made ? ' (dedans)' : ''}
     </Text>
   );
@@ -953,4 +1069,179 @@ const styles = StyleSheet.create({
   finalTeamName: { color: colors.muted, fontSize: 13, fontWeight: '700' },
   finalTeamScore: { color: colors.text, fontSize: 26, fontWeight: '900' },
   finalButtons: { flexDirection: 'row', gap: 6 },
+  errorLine: { color: colors.gold, textAlign: 'center', fontSize: 13 },
 });
+
+// ------------------------------------------------------------------ Online
+
+/** Length of the game, chosen when creating an online table. */
+export function BeloteOnlineOptions({ value, onChange }: OnlineOptionsProps) {
+  const target = value.target === 501 ? 501 : 1000;
+  return (
+    <View>
+      <Text style={styles.section}>Partie en</Text>
+      <View style={styles.pills}>
+        <Pill
+          label="501 points"
+          active={target === 501}
+          onPress={() => onChange({ ...value, target: 501 })}
+        />
+        <Pill
+          label="1000 points"
+          active={target === 1000}
+          onPress={() => onChange({ ...value, target: 1000 })}
+        />
+      </View>
+      <Text style={styles.hint}>
+        {target === 501 ? 'Une partie rapide, environ 5 donnes.' : 'La partie classique, environ 10 donnes.'}
+      </Text>
+    </View>
+  );
+}
+
+/** The same table, each player on their own phone: I always sit at the bottom. */
+export function BeloteOnlineBoard({
+  view: game,
+  mySeat,
+  seats,
+  actors,
+  deadline,
+  now,
+  busy,
+  error,
+  onMove,
+  onLeave,
+}: OnlineBoardProps<BeloteView>) {
+  const names = seats.map((s) => s.name);
+  const avatars = seats.map((s) => s.avatar);
+  const me = mySeat;
+  const bottom = me >= 0 ? me : 0;
+  const myTeam = beloteTeamOf(bottom);
+  const bidding = game.phase === 'bidding1' || game.phase === 'bidding2';
+  const active = bidding || game.phase === 'playing';
+  const myTurn = active && me >= 0 && game.toAct === me && actors.includes(seats[me].id);
+  const actor = active ? seats[game.toAct] : undefined;
+
+  /** A finished trick stays in the middle for a moment, until the next card is played. */
+  const [holding, setHolding] = useState(false);
+  const shownHold = holding && game.trick.length === 0;
+  useEffect(() => {
+    if (!holding) return;
+    const id = setTimeout(() => setHolding(false), TRICK_PAUSE);
+    return () => clearTimeout(id);
+  }, [holding]);
+
+  // Sounds and the trick pause follow what happens at the table, whoever played.
+  const last = useRef(game);
+  useEffect(() => {
+    const before = last.current;
+    last.current = game;
+    if (before === game) return;
+    const cardsLeft = (v: BeloteView) => v.handCounts.reduce((a, b) => a + b, 0);
+    const played = before.phase === 'playing' && cardsLeft(game) < cardsLeft(before);
+    if (played) sounds.card();
+    if (played && game.trick.length === 0 && game.lastTrick) setHolding(true);
+    if (game.phase === 'gameOver' && before.phase !== 'gameOver' && game.winner === myTeam) sounds.win();
+    if (myTurn && !(before.toAct === me && before.phase === game.phase)) sounds.myTurn();
+  }, [game]);
+
+  const legal =
+    myTurn && game.phase === 'playing' ? beloteLegalCards(game.hands[me], game.trick, game.trump!, me) : [];
+
+  let prompt: string;
+  if (shownHold && game.lastTrick) {
+    const w = game.lastTrick.winner;
+    prompt = w === me ? 'Tu remportes le pli !' : `Pli pour ${names[w]}`;
+  } else if (game.phase === 'dealOver' || game.phase === 'gameOver') {
+    prompt = game.phase === 'gameOver' ? 'Partie terminée' : 'Fin de la donne';
+  } else if (myTurn) {
+    prompt = myPrompt(game, game.hands[me], legal);
+  } else if (actor) {
+    prompt = `${actor.bot ? '🤖 ' : ''}${actor.name} ${bidding ? 'réfléchit…' : 'joue…'}`;
+  } else {
+    prompt = '';
+  }
+
+  const nextIn = deadline ? Math.max(0, Math.ceil((deadline - now) / 1000)) : null;
+  const nextHint = (
+    <Text style={styles.summaryNote}>
+      {nextIn ? `La suite commence toute seule dans ${nextIn} s.` : 'La suite commence toute seule.'}
+    </Text>
+  );
+  const result = game.result;
+  const overlay = !result ? null : game.phase === 'gameOver' ? (
+    <FinalPanel game={game} me={me} names={names}>
+      <Button compact label="Quitter la table" onPress={onLeave} />
+    </FinalPanel>
+  ) : result.kind === 'redeal' ? (
+    <Appear>
+      <Panel compact title="Personne ne prend">
+        <PanelText>On redistribue, c’est au joueur suivant de donner.</PanelText>
+        {me >= 0 && (
+          <Button compact label="Redistribuer" disabled={busy} onPress={() => onMove({ type: 'next' })} />
+        )}
+        {nextHint}
+      </Panel>
+    </Appear>
+  ) : (
+    <Appear>
+      <DealSummary game={game} names={names} me={me} />
+      <View style={styles.nextButton}>
+        {me >= 0 && (
+          <Button compact label="Donne suivante" disabled={busy} onPress={() => onMove({ type: 'next' })} />
+        )}
+        {nextHint}
+      </View>
+    </Appear>
+  );
+
+  return (
+    <GameLayout
+      top={
+        <>
+          <TopBar onBack={onLeave} backLabel="← Quitter">
+            <ScorePill label={teamName(myTeam, me, names)} value={game.scores[myTeam]} mine />
+            <ScorePill label={teamName(1 - myTeam, me, names)} value={game.scores[1 - myTeam]} />
+            <Text style={styles.target}>/ {game.target}</Text>
+          </TopBar>
+          {deadline && actor && !actor.bot && (
+            <TurnTimer deadline={deadline} now={now} name={myTurn ? 'Toi' : actor.name} seconds={60} />
+          )}
+        </>
+      }
+      table={({ width, height }) => (
+        <BeloteTable
+          game={game}
+          counts={game.handCounts}
+          holding={shownHold}
+          width={width}
+          height={height}
+          names={names}
+          avatars={avatars}
+          bottom={bottom}
+          me={me}
+          overlay={overlay}
+        />
+      )}
+      bottom={
+        <>
+          <View style={styles.controls}>
+            <View style={[styles.prompt, myTurn && styles.promptMine]}>
+              <Text style={[styles.promptText, myTurn && styles.promptTextMine]} numberOfLines={1}>
+                {prompt}
+              </Text>
+            </View>
+            {error && <Text style={styles.errorLine}>{error}</Text>}
+            {myTurn && <BidButtons game={game} disabled={busy} onMove={onMove} />}
+          </View>
+          <BeloteHand
+            hand={me >= 0 ? game.hands[me] : []}
+            legal={busy ? [] : legal}
+            myPlay={myTurn && game.phase === 'playing'}
+            onPlay={(card) => onMove({ type: 'play', card })}
+          />
+        </>
+      }
+    />
+  );
+}

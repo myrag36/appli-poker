@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -7,6 +7,7 @@ import {
   type BjHand,
   type BjResult,
   type BjState,
+  type BjTableView,
   type Card,
   BJ_MAX_SEATS,
   bjActor,
@@ -27,12 +28,15 @@ import {
 } from '@appli-poker/engine';
 import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
+import { OnlineButton } from '../components/OnlineButton';
 import { ChipStack } from '../components/Chip';
 import { GameLayout } from '../components/GameLayout';
 import { Appear } from '../components/Motion';
 import { Panel } from '../components/Panel';
 import { PlayingCard } from '../components/PlayingCard';
 import { TopBar } from '../components/TopBar';
+import { TurnTimer } from '../components/TurnTimer';
+import type { OnlineBoardProps, OnlineOptionsProps } from '../online-games/types';
 import { sounds } from '../feedback';
 import { deviceRng } from '../rng';
 import { colors, gradients, shadow, theme } from '../theme';
@@ -79,7 +83,7 @@ function newGame(settings: Settings): BjState {
 const signed = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0');
 
 /** Blackjack against the bank, on one phone passed from player to player. */
-export function BlackjackScreen({ onBack }: { onBack: () => void }) {
+export function BlackjackScreen({ onBack, onOnline }: { onBack: () => void; onOnline?: () => void }) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [game, setGame] = useState<BjState | null>(null);
   const [stopped, setStopped] = useState(false);
@@ -89,6 +93,7 @@ export function BlackjackScreen({ onBack }: { onBack: () => void }) {
       <BlackjackSetup
         initial={settings}
         onBack={onBack}
+        onOnline={onOnline}
         onStart={(s) => {
           setSettings(s);
           setGame(newGame(s));
@@ -101,14 +106,19 @@ export function BlackjackScreen({ onBack }: { onBack: () => void }) {
     return (
       <RankingView
         game={game}
-        settings={settings}
-        onReplay={() => {
-          setGame(newGame(settings));
-          setStopped(false);
-        }}
-        onSetup={() => setGame(null)}
-        onBack={onBack}
-      />
+        startStack={settings.stack}
+        avatars={Object.fromEntries(settings.avatars.map((a, i) => [`p${i}`, a]))}
+      >
+        <Button
+          label="Rejouer"
+          onPress={() => {
+            setGame(newGame(settings));
+            setStopped(false);
+          }}
+        />
+        <Button label="Changer les joueurs" variant="secondary" onPress={() => setGame(null)} />
+        <Button label="Retour aux jeux" variant="secondary" onPress={onBack} />
+      </RankingView>
     );
   }
   return <BlackjackGame game={game} setGame={setGame} settings={settings} onStop={() => setStopped(true)} />;
@@ -121,10 +131,12 @@ function BlackjackSetup({
   initial,
   onStart,
   onBack,
+  onOnline,
 }: {
   initial: Settings | null;
   onStart: (s: Settings) => void;
   onBack: () => void;
+  onOnline?: () => void;
 }) {
   const [names, setNames] = useState(initial?.names ?? ['', 'Robby']);
   const [bots, setBots] = useState(initial?.bots ?? [false, true]);
@@ -161,6 +173,7 @@ function BlackjackSetup({
         </View>
         <Text style={setup.title}>Blackjack</Text>
         <Text style={setup.subtitle}>Tous contre la banque, sur ce téléphone</Text>
+        {onOnline && <OnlineButton onPress={onOnline} />}
       </View>
 
       <Pressable accessibilityRole="button" onPress={() => setHelp(!help)} style={setup.helpToggle}>
@@ -356,23 +369,8 @@ function BlackjackGame({
   const [lastBets, setLastBets] = useState<Record<string, number>>({});
   const [error, setError] = useState<string | null>(null);
 
-  // The dealer's cards are turned over one by one once the players are done.
-  const [reveal, setReveal] = useState(1);
   const settled = game.phase === 'settled';
-  useEffect(() => {
-    if (!settled) {
-      setReveal(1);
-      return;
-    }
-    setReveal(2);
-    let n = 2;
-    const id = setInterval(() => {
-      n++;
-      setReveal(n);
-      if (n >= game.dealer.length) clearInterval(id);
-    }, DEALER_STEP);
-    return () => clearInterval(id);
-  }, [settled, game.round]);
+  const reveal = useDealerReveal(game);
   const revealDone = settled && reveal >= game.dealer.length;
 
   // Sounds: a card for every new card, chips for bets, a fanfare when a human wins.
@@ -434,47 +432,13 @@ function BlackjackGame({
       />
     );
   } else if (game.phase === 'playing' && actor && !botTurn) {
-    const hand = bjCurrentHand(game)!;
-    const seat = game.seats[game.turn!.seat];
-    const legal = bjLegalActions(game);
     bottom = (
-      <View style={[ui.panel, ui.turnPanel]}>
-        <View style={ui.turnHeader}>
-          <Text style={ui.turnTitle} numberOfLines={1}>
-            {solo ? 'À toi de jouer' : `À ${actor.name} de jouer`}
-          </Text>
-          {seat.hands.length > 1 && (
-            <Text style={ui.turnSub}>
-              Main {game.turn!.hand + 1}/{seat.hands.length}
-            </Text>
-          )}
-        </View>
-        <View style={ui.turnHand}>
-          <View style={ui.bigCards}>
-            {hand.cards.map((c, i) => (
-              <Appear key={`${i}-${c}`} from={-12}>
-                <PlayingCard card={c} width={44} />
-              </Appear>
-            ))}
-          </View>
-          <TotalBadge cards={hand.cards} large />
-          <ChipStack amount={hand.bet} />
-        </View>
-        <View style={ui.actions}>
-          {(['hit', 'stand', 'double', 'split'] as BjAction[]).map((a) => (
-            <View key={a} style={ui.action}>
-              <Button
-                compact
-                label={ACTION_LABELS[a]}
-                variant={a === 'hit' ? 'primary' : 'secondary'}
-                disabled={!legal.includes(a)}
-                onPress={() => apply({ type: a })}
-              />
-            </View>
-          ))}
-        </View>
-        {error && <Text style={ui.error}>{error}</Text>}
-      </View>
+      <PlayPanel
+        game={game}
+        title={solo ? 'À toi de jouer' : `À ${actor.name} de jouer`}
+        error={error}
+        onAction={(a) => apply({ type: a })}
+      />
     );
   } else if (actor && botTurn) {
     bottom = (
@@ -569,16 +533,99 @@ function BlackjackGame({
   );
 }
 
+/** The hand being played, with the four actions. */
+function PlayPanel({
+  game,
+  title,
+  error,
+  disabled,
+  onAction,
+}: {
+  game: BjState;
+  title: string;
+  error?: string | null;
+  disabled?: boolean;
+  onAction: (a: BjAction) => void;
+}) {
+  const hand = bjCurrentHand(game)!;
+  const seat = game.seats[game.turn!.seat];
+  const legal = bjLegalActions(game);
+  return (
+    <View style={[ui.panel, ui.turnPanel]}>
+      <View style={ui.turnHeader}>
+        <Text style={ui.turnTitle} numberOfLines={1}>
+          {title}
+        </Text>
+        {seat.hands.length > 1 && (
+          <Text style={ui.turnSub}>
+            Main {game.turn!.hand + 1}/{seat.hands.length}
+          </Text>
+        )}
+      </View>
+      <View style={ui.turnHand}>
+        <View style={ui.bigCards}>
+          {hand.cards.map((c, i) => (
+            <Appear key={`${i}-${c}`} from={-12}>
+              <PlayingCard card={c} width={44} />
+            </Appear>
+          ))}
+        </View>
+        <TotalBadge cards={hand.cards} large />
+        <ChipStack amount={hand.bet} />
+      </View>
+      <View style={ui.actions}>
+        {(['hit', 'stand', 'double', 'split'] as BjAction[]).map((a) => (
+          <View key={a} style={ui.action}>
+            <Button
+              compact
+              label={ACTION_LABELS[a]}
+              variant={a === 'hit' ? 'primary' : 'secondary'}
+              disabled={disabled || !legal.includes(a)}
+              onPress={() => onAction(a)}
+            />
+          </View>
+        ))}
+      </View>
+      {error && <Text style={ui.error}>{error}</Text>}
+    </View>
+  );
+}
+
+/** The dealer's cards are turned over one by one once the players are done: how many are face up. */
+function useDealerReveal(game: BjState): number {
+  const [reveal, setReveal] = useState(1);
+  const settled = game.phase === 'settled';
+  useEffect(() => {
+    if (!settled) {
+      setReveal(1);
+      return;
+    }
+    setReveal(2);
+    let n = 2;
+    const id = setInterval(() => {
+      n++;
+      setReveal(n);
+      if (n >= game.dealer.length) clearInterval(id);
+    }, DEALER_STEP);
+    return () => clearInterval(id);
+  }, [settled, game.round]);
+  return reveal;
+}
+
 function BetPanel({
   title,
   stack,
   initial,
   onBet,
+  disabled,
+  error,
 }: {
   title: string;
   stack: number;
   initial: number;
   onBet: (amount: number) => void;
+  disabled?: boolean;
+  error?: string | null;
 }) {
   const min = bjMinBet(stack);
   const [bet, setBet] = useState(Math.max(min, Math.min(stack, initial)));
@@ -620,9 +667,10 @@ function BetPanel({
       <Button
         compact
         label={bet >= min ? `Miser ${bet}` : `Mise minimum : ${min}`}
-        disabled={bet < min}
+        disabled={disabled || bet < min}
         onPress={() => onBet(bet)}
       />
+      {error && <Text style={ui.error}>{error}</Text>}
     </View>
   );
 }
@@ -664,6 +712,8 @@ function TotalBadge({
 // Table
 
 const POD_HEIGHT = 150;
+/** Any card: drawn face down for the dealer's hole card, which online views leave out. */
+const FACE_DOWN: Card = 'As';
 
 function BlackjackTable({
   game,
@@ -673,6 +723,7 @@ function BlackjackTable({
   reveal,
   showResults,
   meId,
+  actorIds,
 }: {
   game: BjState;
   width: number;
@@ -682,6 +733,8 @@ function BlackjackTable({
   reveal: number;
   showResults: boolean;
   meId: string | null;
+  /** Who is to act (online, several players bet at once); by default the engine's single actor. */
+  actorIds?: string[];
 }) {
   const w = Math.min(width, 460);
   const h = Math.min(height, Math.round(w * 1.35));
@@ -703,7 +756,7 @@ function BlackjackTable({
   const rows = Math.ceil(n / 2);
   const tileW = Math.floor((w - 36 - 6) / 2);
   const tileH = Math.min(96, Math.floor((h - listTop - 22 - (rows - 1) * 6) / rows));
-  const actorId = bjActor(game);
+  const actors = actorIds ?? [bjActor(game)];
   const turn = game.turn;
   const dealerShown = game.dealer.slice(0, Math.max(1, reveal));
   // A long dealer hand gets smaller cards so it stays on the table.
@@ -759,7 +812,7 @@ function BlackjackTable({
               ))}
               {dealerHidden && (
                 <Appear key={`${game.round}-hole`} from={-10} delay={240}>
-                  <PlayingCard card={game.dealer[1]} hidden width={dealerW} />
+                  <PlayingCard card={game.dealer[1] ?? FACE_DOWN} hidden width={dealerW} />
                 </Appear>
               )}
             </>
@@ -789,6 +842,7 @@ function BlackjackTable({
               height={tileH}
               showResults={showResults}
               me={p.id === meId}
+              active={actors.includes(p.id)}
             />
           ))}
         </View>
@@ -800,7 +854,7 @@ function BlackjackTable({
           const seatIndex = game.seats.findIndex((s) => s.playerId === p.id);
           const seat = seatIndex >= 0 ? game.seats[seatIndex] : null;
           const out = p.stack === 0 && !seat;
-          const active = actorId === p.id;
+          const active = actors.includes(p.id);
           const pending = game.phase === 'betting' ? game.bets[p.id] : undefined;
           return (
             <View
@@ -903,6 +957,7 @@ function SeatTile({
   height,
   showResults,
   me,
+  active,
 }: {
   game: BjState;
   playerId: string;
@@ -911,12 +966,12 @@ function SeatTile({
   height: number;
   showResults: boolean;
   me: boolean;
+  active: boolean;
 }) {
   const p = game.players.find((x) => x.id === playerId)!;
   const seatIndex = game.seats.findIndex((s) => s.playerId === playerId);
   const seat = seatIndex >= 0 ? game.seats[seatIndex] : null;
   const out = p.stack === 0 && !seat;
-  const active = bjActor(game) === playerId;
   const pending = game.phase === 'betting' ? game.bets[playerId] : undefined;
   const cw = Math.max(18, Math.min(28, Math.floor((height - 34) / 1.4)));
   const split = (seat?.hands.length ?? 0) > 1;
@@ -1258,6 +1313,7 @@ const ui = StyleSheet.create({
   netUp: { color: colors.gold },
   netDown: { color: colors.danger },
   overText: { color: colors.text, textAlign: 'center', fontSize: 14 },
+  waitText: { color: colors.muted, textAlign: 'center', fontSize: 13 },
   round: { color: colors.muted, fontSize: 13, fontWeight: '700' },
   shoe: {
     paddingHorizontal: 8,
@@ -1275,19 +1331,17 @@ const MEDALS = ['🥇', '🥈', '🥉'];
 
 function RankingView({
   game,
-  settings,
-  onReplay,
-  onSetup,
-  onBack,
+  startStack,
+  avatars,
+  children,
 }: {
   game: BjState;
-  settings: Settings;
-  onReplay: () => void;
-  onSetup: () => void;
-  onBack: () => void;
+  startStack: number;
+  avatars: Record<string, Avatar>;
+  /** The buttons under the ranking. */
+  children: ReactNode;
 }) {
   const rows = bjRanking(game);
-  const avatars = Object.fromEntries(settings.avatars.map((a, i) => [`p${i}`, a]));
   return (
     <ScrollView contentContainerStyle={rank.container}>
       <Text style={rank.title}>Classement</Text>
@@ -1297,7 +1351,7 @@ function RankingView({
       </Text>
       <View style={rank.list}>
         {rows.map((r, i) => {
-          const diff = r.chips - settings.stack;
+          const diff = r.chips - startStack;
           return (
             <Appear key={r.id} delay={i * 90} from={14}>
               <View style={[rank.row, r.place === 1 && rank.first]}>
@@ -1318,9 +1372,7 @@ function RankingView({
         })}
       </View>
       <View style={rank.spacer} />
-      <Button label="Rejouer" onPress={onReplay} />
-      <Button label="Changer les joueurs" variant="secondary" onPress={onSetup} />
-      <Button label="Retour aux jeux" variant="secondary" onPress={onBack} />
+      {children}
     </ScrollView>
   );
 }
@@ -1351,3 +1403,236 @@ const rank = StyleSheet.create({
   down: { color: colors.danger },
   spacer: { height: 24 },
 });
+
+// ---------------------------------------------------------------------------------------------
+// Online
+
+/** Starting chips, chosen when the table is created. */
+export function BlackjackOnlineOptions({ value, onChange }: OnlineOptionsProps) {
+  const stack = typeof value.stack === 'number' ? value.stack : 1000;
+  return (
+    <View>
+      <Text style={setup.section}>Jetons de départ</Text>
+      <View style={setup.row}>
+        {STACKS.map((v) => (
+          <Pressable
+            key={v}
+            accessibilityRole="button"
+            accessibilityState={{ selected: v === stack }}
+            onPress={() => onChange({ ...value, stack: v })}
+            style={[setup.choice, v === stack && setup.choiceOn]}
+          >
+            <Text style={[setup.choiceText, v === stack && setup.choiceTextOn]}>{v}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+/** A table played online: each player on their own phone, everyone against the dealer. */
+export function BlackjackOnlineBoard({
+  view,
+  mySeat,
+  seats,
+  actors,
+  deadline,
+  now,
+  betweenRounds,
+  over,
+  busy,
+  error,
+  onMove,
+  onLeave,
+}: OnlineBoardProps<BjTableView>) {
+  // The engine's helpers only need what is on the felt: the shoe stays on the server.
+  const game: BjState = { ...view, shoe: [] };
+  const avatars = Object.fromEntries(seats.map((s) => [s.id, s.avatar]));
+  const me = mySeat >= 0 ? (game.players[mySeat] ?? null) : null;
+  const myTurn = !!me && actors.includes(me.id);
+  const settled = game.phase === 'settled';
+  const reveal = useDealerReveal(game);
+  const revealDone = settled && reveal >= game.dealer.length;
+  const [lastBet, setLastBet] = useState(50);
+  const [ranking, setRanking] = useState(false);
+  const name = (id: string) => seats.find((s) => s.id === id)?.name ?? '';
+  const waitingFor = actors.filter((id) => id !== me?.id).map(name);
+  const humanWait = actors.length > 0 && actors.every((id) => !seats.find((s) => s.id === id)?.bot);
+
+  // Sounds follow what happens at the table, whoever played.
+  const cardCount =
+    game.dealer.length + game.seats.reduce((n, s) => n + s.hands.reduce((m, h) => m + h.cards.length, 0), 0);
+  const chipCount =
+    Object.keys(game.bets).length +
+    game.seats.reduce((n, s) => n + s.hands.reduce((m, h) => m + h.bet, 0), 0);
+  const prevCards = useRef(cardCount);
+  const prevChips = useRef(chipCount);
+  useEffect(() => {
+    if (cardCount > prevCards.current) sounds.card();
+    prevCards.current = cardCount;
+  }, [cardCount]);
+  useEffect(() => {
+    if (chipCount > prevChips.current && game.phase !== 'settled') sounds.chips();
+    prevChips.current = chipCount;
+  }, [chipCount]);
+  useEffect(() => {
+    if (revealDone && me && bjRoundNet(game, me.id) > 0) sounds.win();
+  }, [revealDone]);
+  useEffect(() => {
+    if (myTurn) sounds.myTurn();
+  }, [myTurn, game.phase]);
+
+  if (over && ranking) {
+    return (
+      <RankingView game={game} startStack={view.startStack} avatars={avatars}>
+        <Button label="Quitter la table" onPress={onLeave} />
+      </RankingView>
+    );
+  }
+
+  let bottom;
+  if (game.phase === 'betting') {
+    const myBet = me ? game.bets[me.id] : undefined;
+    bottom =
+      myTurn && me ? (
+        <BetPanel
+          key={game.round}
+          title="À toi de miser"
+          stack={me.stack}
+          initial={lastBet}
+          disabled={busy}
+          error={error}
+          onBet={(amount) => {
+            setLastBet(amount);
+            onMove({ type: 'bet', amount });
+          }}
+        />
+      ) : (
+        <View style={[ui.panel, ui.botPanel]}>
+          <Text style={ui.botText}>
+            {myBet !== undefined
+              ? `Mise posée : ${myBet}`
+              : me && me.stack === 0
+                ? 'Plus de jetons : tu regardes la table.'
+                : 'Les joueurs misent…'}
+          </Text>
+          {waitingFor.length > 0 && <Text style={ui.waitText}>On attend {waitingFor.join(', ')}…</Text>}
+        </View>
+      );
+  } else if (game.phase === 'playing' && game.turn) {
+    const actorId = game.seats[game.turn.seat].playerId;
+    const actor = game.players.find((p) => p.id === actorId)!;
+    bottom =
+      myTurn && me?.id === actorId ? (
+        <PlayPanel
+          game={game}
+          title="À toi de jouer"
+          error={error}
+          disabled={busy}
+          onAction={(a) => onMove({ type: a })}
+        />
+      ) : (
+        <View style={[ui.panel, ui.botPanel]}>
+          <Text style={ui.botText}>{actor.bot ? `🤖 ${actor.name} réfléchit…` : `${actor.name} joue…`}</Text>
+        </View>
+      );
+  } else if (settled && !revealDone) {
+    bottom = (
+      <View style={[ui.panel, ui.botPanel]}>
+        <Text style={ui.botText}>
+          {game.dealerBlackjack ? 'Le croupier a un blackjack !' : 'Le croupier joue…'}
+        </Text>
+      </View>
+    );
+  } else if (settled) {
+    const dealerTotal = bjHandValue(game.dealer).total;
+    const left = deadline ? Math.max(0, Math.ceil((deadline - now) / 1000)) : null;
+    bottom = (
+      <View style={[ui.panel, ui.resultPanel]}>
+        <Text style={ui.turnTitle}>
+          {game.dealerBlackjack
+            ? 'Blackjack du croupier'
+            : dealerTotal > 21
+              ? `Le croupier saute (${dealerTotal}) !`
+              : `Le croupier fait ${dealerTotal}`}
+        </Text>
+        <View style={ui.nets}>
+          {game.seats.map((s) => {
+            const net = bjRoundNet(game, s.playerId);
+            return (
+              <View key={s.playerId} style={ui.netChip}>
+                <Text style={ui.netName} numberOfLines={1}>
+                  {s.playerId === me?.id ? 'Toi' : name(s.playerId)}
+                </Text>
+                <Text style={[ui.netValue, net > 0 ? ui.netUp : net < 0 ? ui.netDown : null]}>
+                  {signed(net)}
+                </Text>
+              </View>
+            );
+          })}
+        </View>
+        {over ? (
+          <>
+            <Text style={ui.overText}>Plus aucun joueur n’a de jetons : la banque gagne !</Text>
+            <Button compact label="Voir le classement" onPress={() => setRanking(true)} />
+          </>
+        ) : betweenRounds ? (
+          <>
+            {mySeat >= 0 && (
+              <Button
+                compact
+                label="Donne suivante"
+                disabled={busy}
+                onPress={() => onMove({ type: 'next' })}
+              />
+            )}
+            <Text style={ui.waitText}>
+              {left !== null && left > 0
+                ? `La donne suivante commence toute seule dans ${left} s.`
+                : 'La donne suivante commence bientôt.'}
+            </Text>
+          </>
+        ) : null}
+        {error && <Text style={ui.error}>{error}</Text>}
+      </View>
+    );
+  }
+
+  const timerName = myTurn
+    ? 'Toi'
+    : actors
+        .map((id) => name(id))
+        .slice(0, 2)
+        .join(', ') + (actors.length > 2 ? '…' : '');
+
+  return (
+    <GameLayout
+      top={
+        <>
+          <TopBar onBack={onLeave} backLabel="← Quitter">
+            <Text style={ui.round}>Manche {game.round}</Text>
+            <View style={ui.shoe}>
+              <Text style={ui.shoeText}>🂠 {view.shoeCount}</Text>
+            </View>
+          </TopBar>
+          {deadline && humanWait && !betweenRounds && !over && (
+            <TurnTimer deadline={deadline} now={now} name={timerName} seconds={60} />
+          )}
+        </>
+      }
+      table={({ width, height }) => (
+        <BlackjackTable
+          game={game}
+          width={width}
+          height={height}
+          avatars={avatars}
+          reveal={settled ? reveal : 1}
+          showResults={revealDone}
+          meId={me?.id ?? null}
+          actorIds={actors}
+        />
+      )}
+      bottom={bottom}
+    />
+  );
+}

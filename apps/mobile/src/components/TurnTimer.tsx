@@ -4,9 +4,20 @@ import { colors } from '../theme';
 const TURN_SECONDS = 45;
 
 /** Seconds left for the player to act, with a bar that shrinks and turns red at the end. */
-export function TurnTimer({ deadline, now, name }: { deadline: number; now: number; name: string }) {
+export function TurnTimer({
+  deadline,
+  now,
+  name,
+  seconds = TURN_SECONDS,
+}: {
+  deadline: number;
+  now: number;
+  name: string;
+  /** Length of a full turn, for the bar. */
+  seconds?: number;
+}) {
   const left = Math.max(0, Math.ceil((deadline - now) / 1000));
-  const ratio = Math.min(1, left / TURN_SECONDS);
+  const ratio = Math.min(1, left / seconds);
   const urgent = left <= 10;
   return (
     <View style={styles.box}>

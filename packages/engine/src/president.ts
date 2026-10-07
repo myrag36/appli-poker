@@ -421,3 +421,38 @@ export function presidentBotMove(state: PresidentState, index: number, rng: Rng 
   if (broken) return pick(broken);
   return { type: 'pass' };
 }
+
+/* ------------------------------------------------------------------ online */
+
+/** Numbers of rounds offered when creating an online table. */
+export const PRESIDENT_ROUND_CHOICES = [3, 5, 7, 10];
+export const PRESIDENT_DEFAULT_ROUNDS = 5;
+
+/** Stands for a card the viewer cannot see (another player's hand, a private exchange). */
+export const PRESIDENT_HIDDEN: Card = '??';
+
+/**
+ * What one seat sees of an online game: the same shape as the game itself, except that the
+ * cards it may not see are replaced by `PRESIDENT_HIDDEN` (so hand sizes stay right).
+ */
+export type PresidentView = PresidentState & {
+  /** Rounds in the game; it ends after this one. */
+  rounds: number;
+};
+
+const hide = (cards: Card[]) => cards.map(() => PRESIDENT_HIDDEN);
+
+/** Removes from a game what `seat` could not see at a real table (null: a spectator). */
+export function presidentRedact(state: PresidentState, seat: number | null, rounds: number): PresidentView {
+  return {
+    ...state,
+    rounds,
+    players: state.players.map((p, i) => (i === seat ? p : { ...p, hand: hide(p.hand) })),
+    // The pile is face down once a trick is over; only its size matters.
+    played: hide(state.played),
+    // Only the two players of an exchange know which cards changed hands.
+    exchanges: state.exchanges.map((e) =>
+      e.from === seat || e.to === seat ? e : { ...e, cards: hide(e.cards) },
+    ),
+  };
+}
