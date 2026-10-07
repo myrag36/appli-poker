@@ -24,6 +24,8 @@ import {
 import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
 import { OnlineButton } from '../components/OnlineButton';
+import { RulesButton } from '../components/Rules';
+import { BELOTE_RULES } from '../rules';
 import { GameLayout } from '../components/GameLayout';
 import { Pill } from '../components/LevelPicker';
 import { Appear, FloatUp } from '../components/Motion';
@@ -81,7 +83,6 @@ function BeloteSetup({
   const [avatar, setAvatar] = useState<Avatar>(defaultAvatar(0));
   const [picking, setPicking] = useState(false);
   const [target, setTarget] = useState(1000);
-  const [help, setHelp] = useState(false);
 
   const me = name.trim() || 'Toi';
   const north = botName([me]);
@@ -105,6 +106,7 @@ function BeloteSetup({
       <Text style={styles.title}>Belote</Text>
       <Text style={styles.subtitle}>Toi et ton partenaire robot contre deux robots.</Text>
       {onOnline && <OnlineButton onPress={onOnline} />}
+      <RulesButton rules={BELOTE_RULES} />
 
       <Text style={styles.section}>Nous</Text>
       <View style={styles.row}>
@@ -140,15 +142,6 @@ function BeloteSetup({
         {target === 501 ? 'Une partie rapide, environ 5 donnes.' : 'La partie classique, environ 10 donnes.'}
       </Text>
 
-      <View style={styles.helpButton}>
-        <Button
-          label={help ? 'Masquer les règles' : 'Comment jouer ?'}
-          variant="secondary"
-          onPress={() => setHelp(!help)}
-        />
-      </View>
-      {help && <BeloteRules />}
-
       <View style={styles.spacer} />
       <Button
         label="Lancer la partie"
@@ -156,29 +149,6 @@ function BeloteSetup({
       />
       <Button label="Retour" variant="secondary" onPress={onBack} />
     </ScrollView>
-  );
-}
-
-function BeloteRules() {
-  const lines = [
-    '32 cartes, 5 chacun puis on retourne une carte.',
-    '1er tour : « Prendre » à la couleur retournée, ou passer. 2e tour : choisir une autre couleur, ou passer.',
-    'Le preneur ramasse la retourne ; tout le monde finit avec 8 cartes.',
-    'Il faut fournir la couleur. Sinon, couper (et surcouper si on peut), sauf si ton partenaire est maître.',
-    'À l’atout : Valet 20, 9 14, As 11, 10 10, Roi 4, Dame 3.',
-    'Ailleurs : As 11, 10 10, Roi 4, Dame 3, Valet 2.',
-    'Dernier pli : +10. Roi + Dame d’atout : belote-rebelote, +20.',
-    'Le preneur doit faire plus que la défense, sinon il est « dedans » : 162 pour les autres.',
-    'Tous les plis : capot, 252 points !',
-  ];
-  return (
-    <Panel compact title="Comment jouer ?">
-      {lines.map((l) => (
-        <Text key={l} style={styles.ruleLine}>
-          • {l}
-        </Text>
-      ))}
-    </Panel>
   );
 }
 
@@ -826,8 +796,6 @@ const styles = StyleSheet.create({
   botTag: { color: colors.gold, fontSize: 12, fontWeight: '800', textTransform: 'uppercase' },
   pills: { flexDirection: 'row', gap: 6 },
   hint: { color: colors.muted, marginTop: 8, fontSize: 13 },
-  helpButton: { marginTop: 18 },
-  ruleLine: { color: colors.text, fontSize: 13, lineHeight: 19 },
   spacer: { height: 20 },
 
   // Top bar
