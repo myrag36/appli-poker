@@ -26,6 +26,7 @@ import {
 } from '@appli-poker/engine';
 import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
+import { reportLocalGame } from '../online/progress';
 import { OnlineButton } from '../components/OnlineButton';
 import { RulesButton } from '../components/Rules';
 import { YAMS_RULES } from '../rules';
@@ -658,6 +659,14 @@ function YamsResults({
 }) {
   const ranking = yamsRanking(game);
   const winners = ranking.filter((r) => r.place === 1);
+  // On this phone (not online), the game gives experience; a win counts if a person won.
+  useEffect(() => {
+    if (onReplay)
+      reportLocalGame(
+        'yams',
+        winners.some((w) => !game.players[Number(w.id.slice(1))].bot),
+      );
+  }, []);
   const best = winners[0].total;
   const n = game.players.length;
   const cols = game.players.map((p, i) => ({ p, i }));

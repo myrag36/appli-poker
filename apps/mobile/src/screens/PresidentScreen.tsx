@@ -28,6 +28,7 @@ import {
 } from '@appli-poker/engine';
 import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
+import { reportLocalGame } from '../online/progress';
 import { OnlineButton } from '../components/OnlineButton';
 import { RulesButton } from '../components/Rules';
 import { PRESIDENT_RULES } from '../rules';
@@ -318,6 +319,16 @@ function Game({
     return <FinalRanking state={state} avatars={avatars} onReplay={onReplay} onQuit={onQuit} />;
   }
 
+  function stop() {
+    setStopped(true);
+    // Experience once at least one round is over; a win if I lead the points.
+    if (state.round > 1 || state.phase === 'roundOver')
+      reportLocalGame(
+        'president',
+        presidentStandings(state).some((r) => r.index === ME && r.place === 1),
+      );
+  }
+
   return (
     <GameLayout
       top={
@@ -333,7 +344,7 @@ function Game({
       table={({ width, height }) => (
         <TableView state={state} avatars={avatars} width={width} height={height}>
           {state.phase === 'roundOver' && (
-            <RoundRecap state={state} avatars={avatars} onNext={nextRound} onStop={() => setStopped(true)} />
+            <RoundRecap state={state} avatars={avatars} onNext={nextRound} onStop={stop} />
           )}
           {showExchange && <ExchangeRecap state={state} onClose={() => setExchangeSeen(state.round)} />}
         </TableView>

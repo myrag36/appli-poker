@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { type Action, type Avatar, cleanAvatar, defaultAvatar } from '@appli-poker/engine';
+import {
+  type Action,
+  type Avatar,
+  MAX_LEVEL,
+  avatarEmojisFor,
+  cleanAvatar,
+  defaultAvatar,
+} from '@appli-poker/engine';
 import { ActionPanel } from '../components/ActionPanel';
 import { AvatarBadge } from '../components/AvatarPicker';
 import { ChatPanel } from '../components/ChatPanel';
@@ -18,6 +25,7 @@ import { TopBar } from '../components/TopBar';
 import { TurnTimer } from '../components/TurnTimer';
 import { callServer, loadAvatar, loadLastRoom, saveLastRoom, supabase } from '../online/supabase';
 import { REACTIONS, useRoom } from '../online/useRoom';
+import { useProgressOf } from '../online/progress';
 import { sounds, useHandSounds } from '../feedback';
 import { Appear } from '../components/Motion';
 import { colors } from '../theme';
@@ -79,6 +87,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
     if (lastOtherMessage) sounds.reaction();
   }, [lastOtherMessage]);
   useHandSounds(room?.public_state ?? null, userId);
+  const progressOf = useProgressOf(players.filter((p) => !p.is_bot).map((p) => p.user_id));
   const lastReaction = Object.values(reactions).reduce((m, r) => Math.max(m, r.key), 0);
   useEffect(() => {
     if (lastReaction) sounds.reaction();
@@ -163,7 +172,11 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
   const avatars: Record<string, Avatar> = Object.fromEntries(
     players.map((p) => [
       p.user_id,
-      cleanAvatar({ emoji: p.avatar, color: p.avatar_color }, defaultAvatar(p.seat)),
+      {
+        ...cleanAvatar({ emoji: p.avatar, color: p.avatar_color }, defaultAvatar(p.seat), UNLOCKABLE),
+        frame: progressOf[p.user_id]?.frame,
+        level: p.is_bot ? undefined : (progressOf[p.user_id]?.level ?? 1),
+      },
     ]),
   );
 
@@ -218,7 +231,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
       type: 'join',
       name,
       code: room!.code,
-      avatar: cleanAvatar(avatar ?? defaultAvatar(players.length), defaultAvatar(players.length)),
+      avatar: cleanAvatar(avatar ?? defaultAvatar(players.length), defaultAvatar(players.length), UNLOCKABLE),
     });
   }
 
@@ -499,6 +512,9 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
     />
   );
 }
+
+/** Every emoji levels can unlock: the server checks each player's own level. */
+const UNLOCKABLE = avatarEmojisFor(MAX_LEVEL);
 
 const styles = StyleSheet.create({
   container: { padding: 16, paddingTop: 56 },
