@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { AppState, Platform } from 'react-native';
-import type { Action, Avatar, Variant } from '@appli-poker/engine';
+import type { Action, Avatar, OnlineGameId, Variant } from '@appli-poker/engine';
 import { SUPABASE_KEY, SUPABASE_URL } from './config';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
@@ -52,10 +52,26 @@ type Request =
   | { type: 'addBot'; roomId: string }
   | { type: 'watch'; name: string; code: string };
 
-/** Calls the game server and turns its error replies into readable messages. */
-export async function callServer<T>(body: Request): Promise<T> {
+/** Calls the poker server and turns its error replies into readable messages. */
+export function callServer<T>(body: Request): Promise<T> {
+  return invoke<T>('poker', body);
+}
+
+type GamesRequest =
+  | { type: 'create'; game: OnlineGameId; name: string; avatar: Avatar; options: Record<string, unknown> }
+  | { type: 'join'; game: OnlineGameId; name: string; code: string; avatar: Avatar }
+  | { type: 'addBot' | 'start' | 'tick'; roomId: string }
+  | { type: 'remove'; roomId: string; userId: string }
+  | { type: 'move'; roomId: string; move: unknown };
+
+/** Calls the server of the other games (Blackjack, Président, Yams, Belote). */
+export function callGames<T>(body: GamesRequest): Promise<T> {
+  return invoke<T>('jeux', body);
+}
+
+async function invoke<T>(fn: string, body: unknown): Promise<T> {
   await ensureSignedIn();
-  const { data, error } = await supabase.functions.invoke('poker', { body });
+  const { data, error } = await supabase.functions.invoke(fn, { body: body as Record<string, unknown> });
   if (error) {
     if (error instanceof FunctionsHttpError) {
       const payload = await error.context.json().catch(() => null);
@@ -85,6 +101,27 @@ export async function saveLastRoom(room: SavedRoom | null) {
 export async function loadLastRoom(): Promise<SavedRoom | null> {
   try {
     const raw = await AsyncStorage.getItem(LAST_ROOM_KEY);
+    return raw ? (JSON.parse(raw) as SavedRoom) : null;
+  } catch {
+    return null;
+  }
+}
+
+const lastGameKey = (game: OnlineGameId) => `appli-poker:last-${game}-room`;
+
+/** The online table of a game I was last at, to get back to it. */
+export async function saveLastGameRoom(game: OnlineGameId, room: SavedRoom | null) {
+  try {
+    if (room) await AsyncStorage.setItem(lastGameKey(game), JSON.stringify(room));
+    else await AsyncStorage.removeItem(lastGameKey(game));
+  } catch {
+    // Remembering the room is a convenience only.
+  }
+}
+
+export async function loadLastGameRoom(game: OnlineGameId): Promise<SavedRoom | null> {
+  try {
+    const raw = await AsyncStorage.getItem(lastGameKey(game));
     return raw ? (JSON.parse(raw) as SavedRoom) : null;
   } catch {
     return null;

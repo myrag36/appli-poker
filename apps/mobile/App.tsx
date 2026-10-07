@@ -13,6 +13,7 @@ import { BeloteScreen } from './src/screens/BeloteScreen';
 import { Backdrop } from './src/components/Backdrop';
 import { OnlineLobbyScreen } from './src/screens/OnlineLobbyScreen';
 import { OnlineRoomScreen } from './src/screens/OnlineRoomScreen';
+import { OnlineGameScreen } from './src/screens/OnlineGameScreen';
 import { StatsScreen } from './src/screens/StatsScreen';
 import { type GameSettings, SetupScreen } from './src/screens/SetupScreen';
 import { colors } from './src/theme';
@@ -20,6 +21,7 @@ import { colors } from './src/theme';
 type Screen =
   | { name: 'games' }
   | { name: 'game'; game: Exclude<GameId, 'poker'> }
+  | { name: 'game-online'; game: Exclude<GameId, 'poker'> }
   | { name: 'home' }
   | { name: 'local-setup' }
   | { name: 'local-game'; settings: GameSettings }
@@ -46,6 +48,7 @@ export default function App() {
 
   const home = () => setScreen({ name: 'home' });
   const games = () => setScreen({ name: 'games' });
+  const online = (game: Exclude<GameId, 'poker'>) => () => setScreen({ name: 'game-online', game });
 
   return (
     <SafeAreaProvider>
@@ -58,10 +61,26 @@ export default function App() {
             onResume={() => lastRoom && openRoom(lastRoom.roomId)}
           />
         )}
-        {screen.name === 'game' && screen.game === 'blackjack' && <BlackjackScreen onBack={games} />}
-        {screen.name === 'game' && screen.game === 'president' && <PresidentScreen onBack={games} />}
-        {screen.name === 'game' && screen.game === 'yams' && <YamsScreen onBack={games} />}
-        {screen.name === 'game' && screen.game === 'belote' && <BeloteScreen onBack={games} />}
+        {screen.name === 'game' && screen.game === 'blackjack' && (
+          <BlackjackScreen onBack={games} onOnline={online('blackjack')} />
+        )}
+        {screen.name === 'game' && screen.game === 'president' && (
+          <PresidentScreen onBack={games} onOnline={online('president')} />
+        )}
+        {screen.name === 'game' && screen.game === 'yams' && (
+          <YamsScreen onBack={games} onOnline={online('yams')} />
+        )}
+        {screen.name === 'game' && screen.game === 'belote' && (
+          <BeloteScreen onBack={games} onOnline={online('belote')} />
+        )}
+        {screen.name === 'game-online' && (
+          <OnlineGameScreen
+            key={screen.game}
+            game={screen.game}
+            initialName={lastRoom?.name ?? ''}
+            onBack={() => setScreen({ name: 'game', game: screen.game })}
+          />
+        )}
         {screen.name === 'home' && (
           <HomeScreen
             onBack={games}

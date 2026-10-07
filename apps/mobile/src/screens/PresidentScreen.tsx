@@ -25,6 +25,7 @@ import {
 } from '@appli-poker/engine';
 import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
+import { OnlineButton } from '../components/OnlineButton';
 import { GameLayout } from '../components/GameLayout';
 import { Appear } from '../components/Motion';
 import { Panel } from '../components/Panel';
@@ -94,10 +95,10 @@ interface Settings {
   robots: number;
 }
 
-export function PresidentScreen({ onBack }: { onBack: () => void }) {
+export function PresidentScreen({ onBack, onOnline }: { onBack: () => void; onOnline?: () => void }) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [gameKey, setGameKey] = useState(0);
-  if (!settings) return <Setup onStart={setSettings} onBack={onBack} />;
+  if (!settings) return <Setup onStart={setSettings} onBack={onBack} onOnline={onOnline} />;
   return (
     <Game
       key={gameKey}
@@ -110,7 +111,15 @@ export function PresidentScreen({ onBack }: { onBack: () => void }) {
 
 /* ---------------------------------------------------------------- setup */
 
-function Setup({ onStart, onBack }: { onStart: (s: Settings) => void; onBack: () => void }) {
+function Setup({
+  onStart,
+  onBack,
+  onOnline,
+}: {
+  onStart: (s: Settings) => void;
+  onBack: () => void;
+  onOnline?: () => void;
+}) {
   const [name, setName] = useState('');
   const [avatar, setAvatar] = useState<Avatar>(defaultAvatar(0));
   const [picking, setPicking] = useState(false);
@@ -131,6 +140,7 @@ function Setup({ onStart, onBack }: { onStart: (s: Settings) => void; onBack: ()
       </View>
       <Text style={styles.title}>Président</Text>
       <Text style={styles.subtitle}>Vide ta main le premier pour devenir Président !</Text>
+      {onOnline && <OnlineButton onPress={onOnline} />}
 
       <Text style={styles.section}>Ton nom</Text>
       <View style={styles.row}>
@@ -1032,3 +1042,6 @@ const styles = StyleSheet.create({
   finalNameFirst: { color: colors.gold, fontWeight: '800' },
   finalScore: { color: colors.gold, fontSize: 15, fontWeight: '800' },
 });
+
+/** Online board: not ready yet. */
+export { ComingSoonBoard as PresidentOnlineBoard } from '../online-games/ComingSoon';

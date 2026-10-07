@@ -27,6 +27,7 @@ import {
 } from '@appli-poker/engine';
 import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
+import { OnlineButton } from '../components/OnlineButton';
 import { ChipStack } from '../components/Chip';
 import { GameLayout } from '../components/GameLayout';
 import { Appear } from '../components/Motion';
@@ -79,7 +80,7 @@ function newGame(settings: Settings): BjState {
 const signed = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : '0');
 
 /** Blackjack against the bank, on one phone passed from player to player. */
-export function BlackjackScreen({ onBack }: { onBack: () => void }) {
+export function BlackjackScreen({ onBack, onOnline }: { onBack: () => void; onOnline?: () => void }) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [game, setGame] = useState<BjState | null>(null);
   const [stopped, setStopped] = useState(false);
@@ -89,6 +90,7 @@ export function BlackjackScreen({ onBack }: { onBack: () => void }) {
       <BlackjackSetup
         initial={settings}
         onBack={onBack}
+        onOnline={onOnline}
         onStart={(s) => {
           setSettings(s);
           setGame(newGame(s));
@@ -121,10 +123,12 @@ function BlackjackSetup({
   initial,
   onStart,
   onBack,
+  onOnline,
 }: {
   initial: Settings | null;
   onStart: (s: Settings) => void;
   onBack: () => void;
+  onOnline?: () => void;
 }) {
   const [names, setNames] = useState(initial?.names ?? ['', 'Robby']);
   const [bots, setBots] = useState(initial?.bots ?? [false, true]);
@@ -161,6 +165,7 @@ function BlackjackSetup({
         </View>
         <Text style={setup.title}>Blackjack</Text>
         <Text style={setup.subtitle}>Tous contre la banque, sur ce téléphone</Text>
+        {onOnline && <OnlineButton onPress={onOnline} />}
       </View>
 
       <Pressable accessibilityRole="button" onPress={() => setHelp(!help)} style={setup.helpToggle}>
@@ -1351,3 +1356,6 @@ const rank = StyleSheet.create({
   down: { color: colors.danger },
   spacer: { height: 24 },
 });
+
+/** Online board: not ready yet. */
+export { ComingSoonBoard as BlackjackOnlineBoard } from '../online-games/ComingSoon';

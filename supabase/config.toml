@@ -6,3 +6,7 @@ enable_anonymous_sign_ins = true
 [functions.poker]
 # The function checks the caller itself with auth.getUser().
 verify_jwt = false
+
+[functions.jeux]
+# Same for the server of the other games.
+verify_jwt = false

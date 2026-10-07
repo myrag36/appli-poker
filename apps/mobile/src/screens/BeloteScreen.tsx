@@ -21,6 +21,7 @@ import {
 } from '@appli-poker/engine';
 import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
+import { OnlineButton } from '../components/OnlineButton';
 import { GameLayout } from '../components/GameLayout';
 import { Pill } from '../components/LevelPicker';
 import { Appear, FloatUp } from '../components/Motion';
@@ -46,10 +47,10 @@ interface Settings {
 
 const isRed = (s: string) => s === 'h' || s === 'd';
 
-export function BeloteScreen({ onBack }: { onBack: () => void }) {
+export function BeloteScreen({ onBack, onOnline }: { onBack: () => void; onOnline?: () => void }) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [round, setRound] = useState(0);
-  if (!settings) return <BeloteSetup onStart={setSettings} onBack={onBack} />;
+  if (!settings) return <BeloteSetup onStart={setSettings} onBack={onBack} onOnline={onOnline} />;
   return (
     <BeloteGame
       key={round}
@@ -63,7 +64,15 @@ export function BeloteScreen({ onBack }: { onBack: () => void }) {
 
 // ------------------------------------------------------------------ Setup
 
-function BeloteSetup({ onStart, onBack }: { onStart: (s: Settings) => void; onBack: () => void }) {
+function BeloteSetup({
+  onStart,
+  onBack,
+  onOnline,
+}: {
+  onStart: (s: Settings) => void;
+  onBack: () => void;
+  onOnline?: () => void;
+}) {
   const [name, setName] = useState('');
   const [avatar, setAvatar] = useState<Avatar>(defaultAvatar(0));
   const [picking, setPicking] = useState(false);
@@ -91,6 +100,7 @@ function BeloteSetup({ onStart, onBack }: { onStart: (s: Settings) => void; onBa
     <ScrollView contentContainerStyle={styles.setup} keyboardShouldPersistTaps="handled">
       <Text style={styles.title}>Belote</Text>
       <Text style={styles.subtitle}>Toi et ton partenaire robot contre deux robots.</Text>
+      {onOnline && <OnlineButton onPress={onOnline} />}
 
       <Text style={styles.section}>Nous</Text>
       <View style={styles.row}>
@@ -954,3 +964,6 @@ const styles = StyleSheet.create({
   finalTeamScore: { color: colors.text, fontSize: 26, fontWeight: '900' },
   finalButtons: { flexDirection: 'row', gap: 6 },
 });
+
+/** Online board: not ready yet. */
+export { ComingSoonBoard as BeloteOnlineBoard } from '../online-games/ComingSoon';
