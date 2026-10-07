@@ -110,3 +110,23 @@ test('robots fill the table when a game needs more players', () => {
   assert.equal(bots.length, 0);
   assert.equal(snapshot.public.seats.length, 1);
 });
+
+test('belote: robots complete the table to four and only my own hand reaches me', () => {
+  const { bots, snapshot } = startGame(
+    room({ game: 'belote', options: { target: 501 } }),
+    [player('a', 0)],
+    'a',
+    newId,
+    rng,
+    NOW,
+  );
+  assert.equal(bots.length, 3);
+  assert.equal(snapshot.public.seats.length, 4);
+  const mine = snapshot.privates.a as { hands: string[][]; target: number };
+  assert.equal(mine.target, 501);
+  assert.equal(mine.hands[0].length, 5);
+  assert.deepEqual(mine.hands.slice(1), [[], [], []]);
+  const pub = snapshot.public.view as { hands: string[][]; stock?: unknown };
+  assert.ok(pub.hands.every((h) => h.length === 0));
+  assert.equal(pub.stock, undefined);
+});

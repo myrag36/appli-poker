@@ -498,3 +498,29 @@ function chooseCard(state: BeloteState): Card {
   }
   return cheapest(legal);
 }
+
+// ---------------------------------------------------------------- Online view
+
+/** What one player sees of a deal: their own hand, how many cards the others hold, never the stock. */
+export interface BeloteView extends Omit<BeloteState, 'hands' | 'stock'> {
+  /** The viewer's own hand at their seat; the other seats (all of them for a spectator) are empty. */
+  hands: Card[][];
+  /** How many cards each seat holds. */
+  handCounts: number[];
+  /** Cards still to deal. */
+  stockCount: number;
+}
+
+/** Removes what `seat` could not see at a real table (null: a spectator, who sees no hand at all). */
+export function beloteView(state: BeloteState, seat: number | null): BeloteView {
+  const { hands, stock, ...rest } = state;
+  // Who holds king and queen of trump stays secret until one of them is played.
+  const holderKnown = state.belotePlayed > 0 || (seat !== null && state.beloteHolder === seat);
+  return {
+    ...rest,
+    hands: hands.map((h, i) => (i === seat ? h.slice() : [])),
+    handCounts: hands.map((h) => h.length),
+    stockCount: stock.length,
+    beloteHolder: holderKnown ? state.beloteHolder : null,
+  };
+}
