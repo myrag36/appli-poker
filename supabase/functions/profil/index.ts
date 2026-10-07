@@ -1,12 +1,14 @@
 // Profile server: records games played on one phone, changes what a player wears, sells
 // shop items and pays finished quests.
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { XP_DAILY, parisDay } from '../_shared/engine/index.ts';
-import { GameError } from '../poker/logic.ts';
-import { levelChests } from '../_shared/xp.ts';
+import { XP_DAILY, cleanAvatar, defaultAvatar, parisDay } from '../_shared/engine/index.ts';
+import { GameError, cleanName, makeRoomCode } from '../poker/logic.ts';
+import { levelChests, unlockedEmojis } from '../_shared/xp.ts';
 import {
   chestContents,
   cleanFeat,
+  cleanFriendCode,
+  podiumChest,
   equip,
   finishedQuest,
   localGame,
@@ -105,6 +107,75 @@ async function feat(userId: string, body: Record<string, unknown>) {
   return { ok: true };
 }
 
+/** My friend code (made on first use), after saving the name and avatar friends will see. */
+async function me(userId: string, body: Record<string, unknown>) {
+  if (body.name) {
+    const avatar = cleanAvatar(body.avatar, defaultAvatar(0), await unlockedEmojis(admin, userId));
+    const { error } = await admin.from('profiles').upsert({
+      user_id: userId,
+      name: cleanName(body.name),
+      avatar: avatar.emoji,
+      avatar_color: avatar.color,
+      updated_at: new Date().toISOString(),
+    });
+    if (error) throw error;
+  }
+  await admin.from('player_progress').upsert({ user_id: userId }, { onConflict: 'user_id', ignoreDuplicates: true });
+  const { data, error } = await admin.from('player_progress').select('friend_code').eq('user_id', userId).single();
+  if (error) throw error;
+  if (data.friend_code) return { code: data.friend_code };
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const code = makeRoomCode();
+    const { error: taken } = await admin
+      .from('player_progress')
+      .update({ friend_code: code })
+      .eq('user_id', userId)
+      .is('friend_code', null);
+    if (taken?.code === '23505') continue;
+    if (taken) throw taken;
+    const { data: again } = await admin.from('player_progress').select('friend_code').eq('user_id', userId).single();
+    return { code: again?.friend_code ?? code };
+  }
+  throw new GameError('Impossible de créer ton code ami, réessaie');
+}
+
+async function addFriend(userId: string, body: Record<string, unknown>) {
+  const code = cleanFriendCode(body.code);
+  const { data: friend, error } = await admin
+    .from('player_progress')
+    .select('user_id')
+    .eq('friend_code', code)
+    .maybeSingle();
+  if (error) throw error;
+  if (!friend) throw new GameError('Aucun joueur avec ce code');
+  if (friend.user_id === userId) throw new GameError('C’est ton propre code !');
+  const { error: insertError } = await admin.from('friendships').upsert([
+    { user_id: userId, friend_id: friend.user_id },
+    { user_id: friend.user_id, friend_id: userId },
+  ]);
+  if (insertError) throw insertError;
+  return { ok: true };
+}
+
+async function removeFriend(userId: string, body: Record<string, unknown>) {
+  const other = String(body.userId ?? '');
+  if (!/^[0-9a-f-]{36}$/i.test(other)) throw new GameError('Joueur inconnu');
+  const { error } = await admin
+    .from('friendships')
+    .delete()
+    .or(`and(user_id.eq.${userId},friend_id.eq.${other}),and(user_id.eq.${other},friend_id.eq.${userId})`);
+  if (error) throw error;
+  return { ok: true };
+}
+
+async function podium(userId: string) {
+  const { data, error } = await admin.rpc('last_week_board', { p_user: userId });
+  if (error) throw error;
+  const kind = podiumChest(userId, data ?? []);
+  if (!kind) throw new GameError('Pas de podium pour toi la semaine dernière');
+  return await rpc('claim_podium', { p_user: userId, p_kind: kind });
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
 
@@ -130,6 +201,14 @@ Deno.serve(async (req) => {
         return json(await achieve(user.id, body));
       case 'feat':
         return json(await feat(user.id, body));
+      case 'me':
+        return json(await me(user.id, body));
+      case 'addFriend':
+        return json(await addFriend(user.id, body));
+      case 'removeFriend':
+        return json(await removeFriend(user.id, body));
+      case 'podium':
+        return json(await podium(user.id));
       default:
         return json({ error: 'Requête inconnue' }, 400);
     }

@@ -8,6 +8,9 @@ import {
   TURN_MS,
   checkJoin,
   cleanOptions,
+  cleanTournamentGames,
+  cleanTournamentName,
+  tournamentResults,
   newGameBot,
   playGameMove,
   playGameTimeout,
@@ -188,4 +191,21 @@ test('experience: a little each round, more at the end, and the winners get the 
   assert.equal(awards[0].userId, 'a');
   assert.ok(awards[0].finished);
   assert.equal(awards[0].amount, awards[0].finished!.won ? 50 : 20);
+});
+
+test('tournaments: valid games only, and results once a table ends', () => {
+  assert.deepEqual(cleanTournamentGames(['yams', 'morpion', 'belote']), ['yams', 'belote']);
+  assert.throws(() => cleanTournamentGames([]), /1 à 8/);
+  assert.equal(cleanTournamentName('  '), 'Tournoi entre amis');
+  const { snapshot } = startGame(room(), [player('a', 0), player('r', 1, true)], 'a', newId, rng, NOW);
+  let s = snapshot;
+  let results = tournamentResults(s.secret, s);
+  assert.equal(results, null);
+  for (let i = 0; i < 2000 && !s.public.over; i++) {
+    const next = playGameTimeout(s.secret, rng, s.secret.deadline!);
+    results = tournamentResults(s.secret, next);
+    s = next;
+  }
+  assert.equal(results?.length, 1);
+  assert.equal(results![0].userId, 'a');
 });

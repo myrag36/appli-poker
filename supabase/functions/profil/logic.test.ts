@@ -5,6 +5,8 @@ import { GameError } from '../poker/logic.ts';
 import {
   chestContents,
   cleanFeat,
+  cleanFriendCode,
+  podiumChest,
   equip,
   finishedQuest,
   localGame,
@@ -73,4 +75,24 @@ test('seasonal items are only for sale during their month', () => {
   assert.deepEqual(shopItem('frame', 'halloween', 10), { key: 'frame:halloween', price: 600 });
   assert.throws(() => shopItem('frame', 'halloween', 11), /plus en vente/);
   assert.deepEqual(shopItem('emote', '🐔', 3), { key: 'emote:🐔', price: 150 });
+});
+
+test('friend codes are 6 letters or digits', () => {
+  assert.equal(cleanFriendCode(' k7p-q2m '), 'K7PQ2M');
+  assert.throws(() => cleanFriendCode('abc'), /6 caractères/);
+});
+
+test('last week podium among friends', () => {
+  const board = [
+    { user_id: 'a', xp: 500 },
+    { user_id: 'b', xp: 300 },
+    { user_id: 'c', xp: 200 },
+    { user_id: 'd', xp: 100 },
+    { user_id: 'e', xp: 0 },
+  ];
+  assert.equal(podiumChest('a', board), 'grand');
+  assert.equal(podiumChest('c', board), 'normal');
+  assert.equal(podiumChest('d', board), null);
+  assert.equal(podiumChest('e', board), null);
+  assert.equal(podiumChest('a', [{ user_id: 'a', xp: 900 }]), null);
 });
