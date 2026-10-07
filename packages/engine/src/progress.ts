@@ -40,7 +40,7 @@ export function levelProgress(xp: number): { level: number; into: number; needed
   return { level, into, needed, ratio: into / needed };
 }
 
-export type RewardKind = 'frame' | 'title' | 'avatar' | 'cardBack' | 'banner';
+export type RewardKind = 'frame' | 'title' | 'avatar' | 'cardBack' | 'banner' | 'emote';
 
 export interface Reward {
   /** Stable id, stored in the database. For avatars it is the emoji itself. */
@@ -50,6 +50,8 @@ export interface Reward {
   name: string;
   /** Shop items cost coins instead of unlocking with a level. */
   price?: number;
+  /** Seasonal shop items are only for sale during their month (1-12). */
+  season?: number;
 }
 
 export const REWARD_KIND_NAMES: Record<RewardKind, string> = {
@@ -58,15 +60,17 @@ export const REWARD_KIND_NAMES: Record<RewardKind, string> = {
   avatar: 'Avatars',
   cardBack: 'Dos de cartes',
   banner: 'Bannières',
+  emote: 'Emotes',
 };
 
 const r = (kind: RewardKind, id: string, level: number, name: string): Reward => ({ id, kind, level, name });
-const shop = (kind: RewardKind, id: string, price: number, name: string): Reward => ({
+const shop = (kind: RewardKind, id: string, price: number, name: string, season?: number): Reward => ({
   id,
   kind,
   level: 1,
   name,
   price,
+  ...(season ? { season } : {}),
 });
 
 /** Everything that can be unlocked, in level order within each kind. Level 1 items are free. */
@@ -164,6 +168,56 @@ export const REWARDS: Reward[] = [
   shop('banner', 'city', 450, 'Ville la nuit'),
   shop('banner', 'vegas', 700, 'Las Vegas'),
   shop('banner', 'dragon', 1000, 'Repaire du dragon'),
+
+  // Emotes to throw at the table.
+  shop('emote', '🐔', 150, 'Poule mouillée'),
+  shop('emote', '🤑', 150, 'Jackpot'),
+  shop('emote', '🥶', 150, 'Glacé'),
+  shop('emote', '🤡', 150, 'Clown'),
+  shop('emote', '😈', 200, 'Diabolique'),
+  shop('emote', '🫡', 200, 'Respect'),
+  shop('emote', '🥱', 200, 'Ennui'),
+  shop('emote', '🎉', 250, 'Fête'),
+  shop('emote', '👑', 300, 'Le roi'),
+  shop('emote', '💸', 300, 'Ruiné'),
+
+  // The season of each month: three items for sale only that month.
+  shop('frame', 'givre', 600, 'Givre', 1),
+  shop('banner', 'blizzard', 500, 'Blizzard', 1),
+  shop('title', 'yeti', 300, 'Yéti', 1),
+  shop('frame', 'carnaval', 600, 'Carnaval', 2),
+  shop('banner', 'carnaval', 500, 'Carnaval', 2),
+  shop('title', 'masque', 300, 'Masqué', 2),
+  shop('frame', 'printemps', 600, 'Printemps', 3),
+  shop('banner', 'prairie', 500, 'Prairie', 3),
+  shop('title', 'jardinier', 300, 'Main verte', 3),
+  shop('frame', 'poisson', 600, 'Poisson d’avril', 4),
+  shop('banner', 'recif', 500, 'Récif', 4),
+  shop('title', 'farceur', 300, 'Farceur', 4),
+  shop('frame', 'fleurs', 600, 'Couronne de fleurs', 5),
+  shop('banner', 'jardin', 500, 'Jardin fleuri', 5),
+  shop('title', 'fleurbleue', 300, 'Fleur bleue', 5),
+  shop('frame', 'musique', 600, 'Vinyle', 6),
+  shop('banner', 'concert', 500, 'Concert', 6),
+  shop('title', 'rockstar', 300, 'Rock star', 6),
+  shop('frame', 'plage', 600, 'Bouée', 7),
+  shop('banner', 'plage', 500, 'Plage', 7),
+  shop('title', 'vacancier', 300, 'Vacancier', 7),
+  shop('frame', 'filante', 600, 'Étoile filante', 8),
+  shop('banner', 'nuitdete', 500, 'Nuit d’été', 8),
+  shop('title', 'reveur', 300, 'Rêveur', 8),
+  shop('frame', 'ecolier', 600, 'Crayons', 9),
+  shop('banner', 'tableau', 500, 'Tableau noir', 9),
+  shop('title', 'premier', 300, 'Premier de la classe', 9),
+  shop('frame', 'halloween', 600, 'Citrouille', 10),
+  shop('banner', 'halloween', 500, 'Nuit d’Halloween', 10),
+  shop('title', 'fantome', 300, 'Fantôme', 10),
+  shop('frame', 'automne', 600, 'Feuilles d’automne', 11),
+  shop('banner', 'automne', 500, 'Forêt d’automne', 11),
+  shop('title', 'chataigne', 300, 'Châtaigne', 11),
+  shop('frame', 'noel', 600, 'Guirlande', 12),
+  shop('banner', 'noel', 500, 'Nuit de Noël', 12),
+  shop('title', 'lutin', 300, 'Lutin', 12),
 ];
 
 /** How a bought item is stored in a player's collection, since ids repeat across kinds. */
@@ -171,8 +225,23 @@ export function ownedKey(kind: RewardKind, id: string): string {
   return `${kind}:${id}`;
 }
 
-/** Items for sale. */
+/** Items for sale (seasonal ones only during their month, see `forSale`). */
 export const SHOP_ITEMS: Reward[] = REWARDS.filter((x) => x.price !== undefined);
+
+/** Whether a shop item can be bought in a month (1-12). */
+export function forSale(item: Reward, month: number): boolean {
+  return item.price !== undefined && (item.season === undefined || item.season === month);
+}
+
+/** Reactions everyone has, and those bought in the shop. */
+export const FREE_EMOTES = ['👍', '😂', '🔥', '😱', '😭', '👏'];
+export const ALL_EMOTES = [...FREE_EMOTES, ...REWARDS.filter((x) => x.kind === 'emote').map((x) => x.id)];
+export function emotesFor(owned: readonly string[]): string[] {
+  return [
+    ...FREE_EMOTES,
+    ...REWARDS.filter((x) => x.kind === 'emote' && owned.includes(ownedKey('emote', x.id))).map((x) => x.id),
+  ];
+}
 
 /** What a player has chosen to show. Each slot holds a reward id of that kind. */
 export interface Equipped {

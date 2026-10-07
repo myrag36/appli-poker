@@ -8,6 +8,8 @@ import {
   type GameCounters,
   achievementProgress,
   findAchievement,
+  forSale,
+  monthOf,
   rollChest,
   COINS_WIN,
   DEFAULT_EQUIPPED,
@@ -58,9 +60,10 @@ export function localGame(
 }
 
 /** The shop item asked for, with its price; the database checks the coins. */
-export function shopItem(kind: unknown, id: unknown): { key: string; price: number } {
+export function shopItem(kind: unknown, id: unknown, month = monthOf()): { key: string; price: number } {
   const item = SHOP_ITEMS.find((x) => x.kind === kind && x.id === id);
   if (!item || item.price === undefined) throw new GameError('Article introuvable');
+  if (!forSale(item, month)) throw new GameError('Cet article de saison n’est plus en vente');
   return { key: ownedKey(item.kind as RewardKind, item.id), price: item.price };
 }
 
@@ -74,10 +77,15 @@ export function finishedQuest(day: string, questId: unknown, statsDay: unknown, 
 }
 
 /** Draws what a chest holds; the item is a shop item the player does not own yet. */
-export function chestContents(kind: unknown, owned: unknown, rnd: () => number): { coins: number; item: string | null } {
+export function chestContents(
+  kind: unknown,
+  owned: unknown,
+  rnd: () => number,
+  month = monthOf(),
+): { coins: number; item: string | null } {
   const roll = rollChest(kind === 'grand' ? 'grand' : ('normal' as ChestKind), rnd);
   const mine = cleanOwned(owned);
-  const missing = SHOP_ITEMS.map((x) => ownedKey(x.kind as RewardKind, x.id)).filter((k) => !mine.includes(k));
+  const missing = SHOP_ITEMS.filter((x) => forSale(x, month)).map((x) => ownedKey(x.kind as RewardKind, x.id)).filter((k) => !mine.includes(k));
   const item = roll.item && missing.length > 0 ? missing[Math.floor(rnd() * missing.length)] : null;
   return { coins: roll.coins, item };
 }

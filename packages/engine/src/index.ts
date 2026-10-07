@@ -13,3 +13,4 @@ export * from './online.ts';
 export * from './progress.ts';
 export * from './quests.ts';
 export * from './achievements.ts';
+export * from './seasons.ts';
