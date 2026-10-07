@@ -301,6 +301,7 @@ const styles = StyleSheet.create({
   addRow: { flexDirection: 'row', gap: 8, marginTop: 14 },
   input: {
     flex: 1,
+    minWidth: 0,
     backgroundColor: 'rgba(0,0,0,0.25)',
     borderWidth: 1,
     borderColor: colors.glassBorder,
