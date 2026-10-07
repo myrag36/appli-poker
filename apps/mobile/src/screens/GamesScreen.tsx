@@ -28,16 +28,17 @@ import { achievementsReady } from '../components/Achievements';
 import { useMyProgress } from '../online/progress';
 import { loadAvatar } from '../online/supabase';
 import { PlayingCard } from '../components/PlayingCard';
+import { Token } from '../components/Token';
 import { colors, gradients, shadow } from '../theme';
 
-export type GameId = 'poker' | 'blackjack' | 'president' | 'yams' | 'belote';
+export type GameId = 'poker' | 'blackjack' | 'president' | 'yams' | 'belote' | 'puissance4';
 
 interface Game {
   id: GameId;
   title: string;
   tagline: string;
   players: string;
-  /** Cards fanned on the game's card, or dice faces for dice games. */
+  /** Cards fanned on the game's card, dice faces for dice games, or 'r'/'y' tokens for Puissance 4. */
   art: string[];
   ready: boolean;
 }
@@ -83,6 +84,14 @@ const GAMES: Game[] = [
     art: ['Jh', '9h', 'Ah', 'Kh', 'Qh'],
     ready: true,
   },
+  {
+    id: 'puissance4',
+    title: 'Puissance 4',
+    tagline: 'Fais tomber tes jetons et aligne-en quatre avant l’autre.',
+    players: '2 joueurs ou contre le robot',
+    art: ['r', 'y', 'r', 'y', 'r'],
+    ready: true,
+  },
 ];
 
 const GAP = 14;
@@ -100,6 +109,20 @@ interface Props {
 }
 
 function Art({ game }: { game: Game }) {
+  if (game.id === 'puissance4') {
+    return (
+      <View style={styles.tokens}>
+        {game.art.map((t, i) => (
+          <Token
+            key={i}
+            player={t === 'r' ? 0 : 1}
+            size={46}
+            style={{ transform: [{ translateY: (i % 2 ? 10 : -8) + Math.abs(i - 2) * 3 }] }}
+          />
+        ))}
+      </View>
+    );
+  }
   if (game.id === 'yams') {
     return (
       <View style={styles.dice}>
@@ -440,6 +463,7 @@ const styles = StyleSheet.create({
   fan: { flexDirection: 'row', justifyContent: 'center', height: 110 },
   fanCard: { marginHorizontal: -9 },
   dice: { flexDirection: 'row', gap: 4 },
+  tokens: { flexDirection: 'row', gap: 3 },
   die: {
     width: 44,
     height: 44,

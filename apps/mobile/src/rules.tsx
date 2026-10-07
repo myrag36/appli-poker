@@ -1,7 +1,9 @@
 // The illustrated rules of every game, shown by <RulesButton />.
+import { View } from 'react-native';
 import { Die } from './components/Die';
 import { PlayingCard } from './components/PlayingCard';
 import { type GameRules, RuleExample } from './components/Rules';
+import { Token } from './components/Token';
 
 const Cards = ({ cards, label, width = 34 }: { cards: string[]; label?: string; width?: number }) => (
   <RuleExample label={label}>
@@ -16,6 +18,38 @@ const Dice = ({ values, label }: { values: number[]; label?: string }) => (
     {values.map((v, i) => (
       <Die key={i} value={v} size={30} />
     ))}
+  </RuleExample>
+);
+
+/**
+ * A small Puissance 4 board, drawn from rows of text (top row first): '.' empty, 'r' red, 'y' yellow;
+ * capitals are the winning tokens, circled in white.
+ */
+const MiniBoard = ({ rows, label }: { rows: string[]; label?: string }) => (
+  <RuleExample label={label}>
+    <View style={{ padding: 3, borderRadius: 6, backgroundColor: '#1f5fd1', gap: 2 }}>
+      {rows.map((row, r) => (
+        <View key={r} style={{ flexDirection: 'row', gap: 2 }}>
+          {row.split('').map((ch, c) =>
+            ch === '.' ? (
+              <View key={c} style={{ width: 16, height: 16, borderRadius: 8, backgroundColor: '#0b1d4a' }} />
+            ) : (
+              <View
+                key={c}
+                style={{
+                  borderRadius: 9,
+                  borderWidth: 1.5,
+                  borderColor: ch === ch.toUpperCase() ? '#ffffff' : 'transparent',
+                  margin: -1.5,
+                }}
+              >
+                <Token player={ch.toLowerCase() === 'r' ? 0 : 1} size={16} />
+              </View>
+            ),
+          )}
+        </View>
+      ))}
+    </View>
   </RuleExample>
 );
 
@@ -212,4 +246,41 @@ export const BELOTE_RULES: GameRules = {
     },
   ],
   tip: 'Tous les plis pour ton équipe ? C’est un capot : 252 points !',
+};
+
+export const PUISSANCE4_RULES: GameRules = {
+  game: 'puissance4',
+  title: 'Puissance 4',
+  goal: 'Aligne 4 jetons de ta couleur avant ton adversaire.',
+  steps: [
+    {
+      icon: '⬇️',
+      title: 'Fais tomber un jeton',
+      text: 'À ton tour, touche une colonne : ton jeton tombe tout en bas, sur la première case libre. Rouge et jaune jouent chacun leur tour.',
+      visual: <MiniBoard rows={['.......', '.......', '...y...', '..rr...']} label="Les jetons s’empilent" />,
+    },
+    {
+      icon: '🏆',
+      title: 'Aligne-en quatre',
+      text: 'Le premier qui aligne 4 jetons gagne la manche : en ligne, en colonne ou en diagonale.',
+      visual: (
+        <>
+          <MiniBoard rows={['.......', '.......', '.......', 'RRRRyy.']} label="En ligne" />
+          <MiniBoard rows={['...Y...', '...Y...', '..rY...', '.rrYr..']} label="En colonne" />
+          <MiniBoard rows={['....R..', '...Ry..', '..Ryy..', '.Ryyr..']} label="En diagonale" />
+        </>
+      ),
+    },
+    {
+      icon: '🛡️',
+      title: 'Bloque l’adversaire',
+      text: 'Trois jetons alignés avec une case libre au bout ? Pose ton jeton dessus avant qu’il ne gagne.',
+    },
+    {
+      icon: '🤝',
+      title: 'Match nul et manches',
+      text: 'Si la grille est pleine sans alignement, la manche est nulle. On joue autant de manches qu’on veut, celui qui commence change à chaque fois.',
+    },
+  ],
+  tip: 'Joue au centre : la colonne du milieu fait partie du plus grand nombre d’alignements.',
 };
