@@ -15,13 +15,14 @@ import {
   XP_PLAY,
   XP_WIN,
   cleanAvatar,
+  isUnlocked,
   defaultAvatar,
   levelProgress,
   nextReward,
 } from '@appli-poker/engine';
 import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Banner } from '../components/Banner';
-import { CardBackPreview } from '../components/cardBacks';
+import { RewardPreview } from '../components/RewardPreview';
 import { TitleBadge } from '../components/TitleBadge';
 import { TopBar } from '../components/TopBar';
 import { equipReward, useMyProgress } from '../online/progress';
@@ -40,7 +41,7 @@ type Tab = keyof Equipped | 'avatar';
 const TABS: Tab[] = ['frame', 'title', 'avatar', 'cardBack', 'banner'];
 
 /** My level, my rewards to wear, my name and avatar, and my games. */
-export function ProfileScreen({ onBack }: { onBack: () => void }) {
+export function ProfileScreen({ onBack, onShop }: { onBack: () => void; onShop: () => void }) {
   const progress = useMyProgress();
   const { width: screenW } = useWindowDimensions();
   const width = Math.min(screenW, 520);
@@ -67,11 +68,12 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
   const xp = progress?.xp ?? 0;
   const { level, into, needed, ratio } = levelProgress(xp);
   const equipped = progress?.equipped ?? DEFAULT_EQUIPPED;
+  const owned = progress?.owned ?? [];
   const coming = nextReward(level);
   const me: Avatar = { ...avatar, frame: equipped.frame, level };
 
   async function wear(slot: keyof Equipped, reward: Reward) {
-    if (reward.level > level) return;
+    if (!isUnlocked(reward.kind, reward.id, level, owned)) return;
     setError(null);
     try {
       await equipReward(slot, reward.id);
@@ -85,7 +87,10 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
     saveAvatar({ emoji: a.emoji, color: a.color });
   }
 
-  const items = REWARDS.filter((r) => r.kind === tab);
+  // Level rewards, and shop items only once bought.
+  const items = REWARDS.filter(
+    (r) => r.kind === tab && (r.price === undefined || isUnlocked(r.kind, r.id, level, owned)),
+  );
   return (
     <ScrollView contentContainerStyle={[styles.container, { width }]} keyboardShouldPersistTaps="handled">
       <TopBar onBack={onBack} backLabel="← Jeux">
@@ -105,6 +110,16 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
           </View>
         </Banner>
       </View>
+
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${progress?.coins ?? 0} pièces, aller à la boutique`}
+        onPress={onShop}
+        style={({ pressed }) => [styles.wallet, pressed && { opacity: 0.8 }]}
+      >
+        <Text style={styles.walletCoins}>🪙 {progress?.coins ?? 0}</Text>
+        <Text style={styles.walletGo}>Quêtes et boutique ›</Text>
+      </Pressable>
 
       <View style={styles.card}>
         <View style={styles.levelRow}>
@@ -162,12 +177,12 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
             placeholderTextColor={colors.muted}
           />
           <Text style={styles.label}>Ton avatar</Text>
-          <AvatarPicker value={avatar} onChange={changeAvatar} level={level} />
+          <AvatarPicker value={avatar} onChange={changeAvatar} level={level} owned={owned} />
         </View>
       ) : (
         <View style={styles.grid}>
           {items.map((reward) => {
-            const locked = reward.level > level;
+            const locked = !isUnlocked(reward.kind, reward.id, level, owned);
             const worn = equipped[tab] === reward.id;
             return (
               <Pressable
@@ -192,6 +207,9 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
           })}
         </View>
       )}
+      <Pressable accessibilityRole="button" onPress={onShop} hitSlop={8}>
+        <Text style={styles.more}>Encore plus de choix à la boutique ›</Text>
+      </Pressable>
       {error && <Text style={styles.error}>{error}</Text>}
 
       <Text style={styles.section}>Mes parties</Text>
@@ -213,21 +231,6 @@ export function ProfileScreen({ onBack }: { onBack: () => void }) {
   );
 }
 
-function RewardPreview({ reward, avatar }: { reward: Reward; avatar: Avatar }) {
-  switch (reward.kind) {
-    case 'frame':
-      return <AvatarBadge avatar={{ ...avatar, frame: reward.id }} size={52} />;
-    case 'title':
-      return <TitleBadge id={reward.id} small />;
-    case 'cardBack':
-      return <CardBackPreview id={reward.id} width={40} />;
-    case 'banner':
-      return <Banner id={reward.id} width={96} height={52} />;
-    default:
-      return <Text style={styles.emoji}>{reward.id}</Text>;
-  }
-}
-
 const styles = StyleSheet.create({
   container: { alignSelf: 'center', padding: 16, paddingTop: 12, paddingBottom: 40 },
   topTitle: { color: colors.text, fontSize: 17, fontWeight: '800' },
@@ -241,6 +244,21 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0,0,0,0.7)',
     textShadowRadius: 6,
   },
+  wallet: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,193,7,0.12)',
+    borderWidth: 1,
+    borderColor: colors.gold,
+  },
+  walletCoins: { color: colors.gold, fontSize: 20, fontWeight: '900' },
+  walletGo: { color: colors.text, fontSize: 15, fontWeight: '800' },
+  more: { color: colors.gold, fontSize: 14, fontWeight: '800', textAlign: 'center', marginTop: 12 },
   card: {
     marginTop: 14,
     padding: 14,
@@ -289,7 +307,6 @@ const styles = StyleSheet.create({
   tileName: { color: colors.text, fontSize: 13, fontWeight: '700' },
   tileState: { color: colors.muted, fontSize: 11, fontWeight: '700' },
   tileStateWorn: { color: colors.gold },
-  emoji: { fontSize: 34 },
   label: { color: colors.muted, fontSize: 13 },
   input: {
     backgroundColor: 'rgba(0,0,0,0.25)',

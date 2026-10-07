@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { AVATAR_COLORS, AVATAR_EMOJIS, REWARDS, type Avatar } from '@appli-poker/engine';
+import { AVATAR_COLORS, AVATAR_EMOJIS, REWARDS, type Avatar, ownedKey } from '@appli-poker/engine';
 import { colors, shadow } from '../theme';
 
 const native = Platform.OS !== 'web';
@@ -377,7 +377,8 @@ function LevelChip({ level, size }: { level: number; size: number }) {
   );
 }
 
-const LOCKED_AVATARS = REWARDS.filter((r) => r.kind === 'avatar');
+const LOCKED_AVATARS = REWARDS.filter((r) => r.kind === 'avatar' && r.price === undefined);
+const SHOP_AVATARS = REWARDS.filter((r) => r.kind === 'avatar' && r.price !== undefined);
 
 /**
  * Pick an emoji and a background color. With a `level`, the emojis unlocked by levels are shown too;
@@ -387,16 +388,23 @@ export function AvatarPicker({
   value,
   onChange,
   level,
+  owned,
 }: {
   value: Avatar;
   onChange: (a: Avatar) => void;
   /** Player level; emojis unlocked above it are shown locked. Treated as 1 when missing. */
   level?: number;
+  /** Items bought in the shop; bought emojis join the choices. */
+  owned?: readonly string[];
 }) {
   const lvl = level ?? 1;
   const choices = [
     ...AVATAR_EMOJIS.map((emoji) => ({ emoji, need: 1 })),
     ...LOCKED_AVATARS.map((r) => ({ emoji: r.id, need: r.level })),
+    ...SHOP_AVATARS.filter((r) => owned?.includes(ownedKey('avatar', r.id))).map((r) => ({
+      emoji: r.id,
+      need: 1,
+    })),
   ];
   return (
     <View style={styles.box}>

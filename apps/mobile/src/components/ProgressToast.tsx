@@ -39,7 +39,8 @@ export function ProgressToast() {
         >
           <LinearGradient colors={gradients.gold} style={[styles.toast, shadow]}>
             <Text style={styles.toastText}>
-              +{shown.gained} XP{shown.levelUp ? ` · Niveau ${shown.level} !` : ''}
+              +{shown.gained} XP{shown.coins > 0 ? ` · +${shown.coins} 🪙` : ''}
+              {shown.levelUp ? ` · Niveau ${shown.level} !` : ''}
             </Text>
           </LinearGradient>
         </Animated.View>

@@ -1,12 +1,16 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import {
   DEFAULT_EQUIPPED,
+  type DayStats,
   type Equipped,
   type GameCounters,
   type ProgressGame,
   type Reward,
+  type RewardKind,
   cleanEquipped,
+  cleanOwned,
   levelFromXp,
+  parisDay,
   rewardsAtLevel,
 } from '@appli-poker/engine';
 import { setCardBack } from '../components/cardBacks';
@@ -17,12 +21,19 @@ export interface MyProgress {
   level: number;
   equipped: Equipped;
   games: GameCounters;
+  coins: number;
+  /** Bought items, as "kind:id". */
+  owned: string[];
+  /** What I did today, for the quests, and the quests already paid today. */
+  today: DayStats;
+  claimed: string[];
 }
 
 /** Something to celebrate: experience just earned, maybe with a new level and its rewards. */
 export interface ProgressEvent {
   key: number;
   gained: number;
+  coins: number;
   level: number;
   levelUp: boolean;
   rewards: Reward[];
@@ -39,21 +50,41 @@ const subscribe = (l: () => void) => {
   return () => listeners.delete(l);
 };
 
-function apply(row: { xp: number; equipped: unknown; games: unknown } | null) {
+interface Row {
+  xp: number;
+  equipped: unknown;
+  games: unknown;
+  coins?: number;
+  owned?: unknown;
+  stats_day?: string | null;
+  day_stats?: unknown;
+  quests_claimed?: unknown;
+}
+const COLUMNS = 'xp, equipped, games, coins, owned, stats_day, day_stats, quests_claimed';
+
+function apply(row: Row | null) {
   const xp = row?.xp ?? 0;
   const level = levelFromXp(xp);
+  const owned = cleanOwned(row?.owned);
+  const isToday = row?.stats_day === parisDay();
   const next: MyProgress = {
     xp,
     level,
-    equipped: cleanEquipped(row?.equipped ?? DEFAULT_EQUIPPED, level),
+    equipped: cleanEquipped(row?.equipped ?? DEFAULT_EQUIPPED, level, owned),
     games: (row?.games ?? {}) as GameCounters,
+    coins: row?.coins ?? 0,
+    owned,
+    today: isToday ? ((row?.day_stats ?? {}) as DayStats) : {},
+    claimed: isToday ? cleanOwned(row?.quests_claimed) : [],
   };
-  // Experience earned since the last look: celebrate it (not on the first load).
+  // Experience earned since the last look: celebrate it (not on the first load). Coins
+  // from a quest are shown where they are taken, so only those won while playing count.
   if (mine && xp > mine.xp) {
     const levelUp = level > mine.level;
     const rewards: Reward[] = [];
     for (let l = mine.level + 1; l <= level; l++) rewards.push(...rewardsAtLevel(l));
-    event = { key: Date.now(), gained: xp - mine.xp, level, levelUp, rewards };
+    const coins = Math.max(0, next.coins - mine.coins);
+    event = { key: Date.now(), gained: xp - mine.xp, coins, level, levelUp, rewards };
   }
   mine = next;
   setCardBack(next.equipped.cardBack);
@@ -66,7 +97,7 @@ export async function refreshProgress() {
     userId ??= await ensureSignedIn();
     const { data, error } = await supabase
       .from('player_progress')
-      .select('xp, equipped, games')
+      .select(COLUMNS)
       .eq('user_id', userId)
       .maybeSingle();
     if (!error) apply(data);
@@ -86,7 +117,7 @@ function start() {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'player_progress', filter: `user_id=eq.${userId}` },
-        ({ new: row }) => apply(row as { xp: number; equipped: unknown; games: unknown }),
+        ({ new: row }) => apply(row as Row),
       )
       .subscribe();
   });
@@ -106,7 +137,11 @@ export function useProgressEvent(): ProgressEvent | null {
 
 /** Puts on an unlocked reward. */
 export async function equipReward(slot: keyof Equipped, id: string) {
-  if (mine) apply({ xp: mine.xp, equipped: { ...mine.equipped, [slot]: id }, games: mine.games });
+  if (mine) {
+    mine = { ...mine, equipped: { ...mine.equipped, [slot]: id } };
+    setCardBack(mine.equipped.cardBack);
+    emit();
+  }
   try {
     await callProfile({ type: 'equip', slot, id });
   } finally {
@@ -121,6 +156,24 @@ export async function reportLocalGame(game: ProgressGame, won: boolean) {
     await refreshProgress();
   } catch {
     // No connection: this game simply gives no experience.
+  }
+}
+
+/** Buys a shop item with my coins. Throws the server's message when it can't. */
+export async function buyItem(kind: RewardKind, id: string) {
+  try {
+    await callProfile({ type: 'buy', kind, id });
+  } finally {
+    await refreshProgress();
+  }
+}
+
+/** Takes the coins of a finished quest. */
+export async function claimQuest(quest: string) {
+  try {
+    await callProfile({ type: 'claim', quest });
+  } finally {
+    await refreshProgress();
   }
 }
 
@@ -139,14 +192,14 @@ export function useProgressOf(ids: string[]): Record<string, OtherProgress> {
     let live = true;
     supabase
       .from('player_progress')
-      .select('user_id, xp, equipped')
+      .select('user_id, xp, equipped, owned')
       .in('user_id', key.split(','))
       .then(({ data }) => {
         if (!live || !data) return;
         const next: Record<string, OtherProgress> = {};
-        for (const row of data as { user_id: string; xp: number; equipped: unknown }[]) {
+        for (const row of data as { user_id: string; xp: number; equipped: unknown; owned: unknown }[]) {
           const level = levelFromXp(row.xp);
-          const e = cleanEquipped(row.equipped, level);
+          const e = cleanEquipped(row.equipped, level, cleanOwned(row.owned));
           next[row.user_id] = { level, frame: e.frame, title: e.title };
         }
         setMap(next);

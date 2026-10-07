@@ -71,9 +71,11 @@ export function callGames<T>(body: GamesRequest): Promise<T> {
 
 type ProfileRequest =
   | { type: 'equip'; slot: string; id: string }
-  | { type: 'local'; game: string; won: boolean };
+  | { type: 'local'; game: string; won: boolean }
+  | { type: 'buy'; kind: string; id: string }
+  | { type: 'claim'; quest: string };
 
-/** Calls the profile server (experience of games on one phone, rewards worn). */
+/** Calls the profile server (games on one phone, rewards worn, shop and quests). */
 export function callProfile<T>(body: ProfileRequest): Promise<T> {
   return invoke<T>('profil', body);
 }
