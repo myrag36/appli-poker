@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GameDecor } from '../components/GameDecor';
 import { ThemeChooser } from '../components/ThemeChooser';
+import { InstallBanner } from '../components/InstallBanner';
 import { AvatarBadge } from '../components/AvatarPicker';
 import { achievementsReady } from '../components/Achievements';
 import { useMyProgress } from '../online/progress';
@@ -242,6 +243,8 @@ export function GamesScreen({ canResume, onPlay, onResume, onProfile, onShop }: 
       <View style={{ width: cardWidth }}>
         <ThemeChooser />
       </View>
+
+      <InstallBanner />
     </View>
   );
 }

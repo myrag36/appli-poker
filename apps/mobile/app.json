@@ -20,9 +20,11 @@
     },
     "web": {
       "favicon": "./assets/favicon.png",
-      "name": "Appli Poker",
+      "name": "Jeux entre amis",
       "themeColor": "#0f5132",
-      "backgroundColor": "#0f5132"
+      "backgroundColor": "#0f5132",
+      "shortName": "Jeux amis",
+      "lang": "fr"
     },
     "backgroundColor": "#0f5132",
     "experiments": {
