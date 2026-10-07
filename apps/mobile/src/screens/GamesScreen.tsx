@@ -44,7 +44,7 @@ const GAMES: Game[] = [
     players: '1 à 7 joueurs',
     art: ['Ah', 'Js'],
     tint: ['#8a2a2a', '#3d0f0f'],
-    ready: false,
+    ready: true,
   },
   {
     id: 'president',
@@ -53,7 +53,7 @@ const GAMES: Game[] = [
     players: '3 à 8 joueurs',
     art: ['2c', '2d', '2h', '2s'],
     tint: ['#2f4f8a', '#10203d'],
-    ready: false,
+    ready: true,
   },
   {
     id: 'yams',
@@ -62,7 +62,7 @@ const GAMES: Game[] = [
     players: '1 à 6 joueurs',
     art: ['⚄', '⚄', '⚄', '⚀', '⚅'],
     tint: ['#7a5a1f', '#3d2a0b'],
-    ready: false,
+    ready: true,
   },
   {
     id: 'belote',
@@ -71,7 +71,7 @@ const GAMES: Game[] = [
     players: '4 joueurs',
     art: ['Jh', '9h', 'Ah', 'Kh', 'Qh'],
     tint: ['#5a2f7a', '#250f3d'],
-    ready: false,
+    ready: true,
   },
 ];
 
@@ -180,7 +180,7 @@ export function GamesScreen({ canResume, onPlay, onResume }: Props) {
               <Animated.View key={game.id} style={{ width: cardWidth, transform: [{ scale }], opacity }}>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={game.ready ? `Jouer au ${game.title}` : `${game.title}, bientôt`}
+                  accessibilityLabel={game.ready ? `Jouer : ${game.title}` : `${game.title}, bientôt`}
                   onPress={() => (i === index ? game.ready && onPlay(game.id) : goTo(i))}
                   style={[styles.card, shadow]}
                 >

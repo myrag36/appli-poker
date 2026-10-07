@@ -5,3 +5,7 @@ export * from './tournament.ts';
 export * from './avatars.ts';
 export * from './stats.ts';
 export * from './bot.ts';
+export * from './blackjack.ts';
+export * from './president.ts';
+export * from './yams.ts';
+export * from './belote.ts';
