@@ -5,6 +5,7 @@ import { Button } from './Button';
 import { Appear } from './Motion';
 import { PlayingCard } from './PlayingCard';
 import { colors } from '../theme';
+import { t } from '../i18n';
 
 interface Props {
   hand: HandView;
@@ -49,7 +50,7 @@ export function ActionPanel({ hand, playerId, title, hole, error, busy, onAction
             {legal.fold && (
               <Button
                 compact
-                label="Coucher"
+                label={t('Coucher')}
                 variant="danger"
                 disabled={busy}
                 onPress={() => play({ type: 'fold' })}
@@ -58,7 +59,7 @@ export function ActionPanel({ hand, playerId, title, hole, error, busy, onAction
             {legal.check && (
               <Button
                 compact
-                label="Checker"
+                label={t('Checker')}
                 variant="secondary"
                 disabled={busy}
                 onPress={() => play({ type: 'check' })}
@@ -67,7 +68,7 @@ export function ActionPanel({ hand, playerId, title, hole, error, busy, onAction
             {legal.call > 0 && (
               <Button
                 compact
-                label={`Suivre ${legal.call}`}
+                label={t('Suivre {n}', { n: legal.call })}
                 variant="secondary"
                 disabled={busy}
                 onPress={() => play({ type: 'call' })}
@@ -99,13 +100,13 @@ export function ActionPanel({ hand, playerId, title, hole, error, busy, onAction
           </View>
           <Button
             compact
-            label={hand.currentBet === 0 ? 'Miser' : 'Relancer'}
+            label={hand.currentBet === 0 ? t('Miser') : t('Relancer')}
             disabled={busy}
             onPress={() => play({ type: 'raise', to: raiseValue })}
           />
           <Button
             compact
-            label={potLimited ? 'Pot' : 'Tapis'}
+            label={potLimited ? t('Pot') : t('Tapis')}
             variant="danger"
             disabled={busy}
             onPress={() => play({ type: 'allin' })}

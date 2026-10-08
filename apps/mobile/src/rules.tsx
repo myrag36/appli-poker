@@ -69,7 +69,7 @@ const HAND_RANKS_EXAMPLES: { name: string; cards: string[] }[] = [
   { name: t('Quinte flush'), cards: ['9h', '8h', '7h', '6h', '5h'] },
   { name: t('Carré'), cards: ['Qc', 'Qd', 'Qh', 'Qs', '4d'] },
   { name: t('Full'), cards: ['Kh', 'Kd', 'Ks', '7c', '7h'] },
-  { name: t('Couleur'), cards: ['Ad', 'Jd', '8d', '5d', '2d'] },
+  { name: t('Couleur{main}', { main: '' }), cards: ['Ad', 'Jd', '8d', '5d', '2d'] },
   { name: t('Quinte'), cards: ['Tc', '9d', '8s', '7h', '6c'] },
   { name: t('Brelan'), cards: ['8s', '8h', '8d', 'Kc', '3s'] },
   { name: t('Double paire'), cards: ['Jh', 'Jc', '4s', '4d', 'Ah'] },

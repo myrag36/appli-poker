@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useMuted } from '../feedback';
 import { colors } from '../theme';
+import { t } from '../i18n';
 
 interface Props {
   onBack: () => void;
@@ -21,7 +22,7 @@ export function TopBar({ onBack, backLabel = '← Accueil', backHint, children }
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={muted ? 'Activer le son' : 'Couper le son'}
+          accessibilityLabel={muted ? t('Activer le son') : t('Couper le son')}
           onPress={() => setMuted(!muted)}
           hitSlop={8}
           style={styles.icon}

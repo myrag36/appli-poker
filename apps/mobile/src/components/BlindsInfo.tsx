@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
+import { t } from '../i18n';
 
 function clock(ms: number) {
   const s = Math.max(0, Math.ceil(ms / 1000));
@@ -25,10 +26,13 @@ export function BlindsInfo({
 
   let tail = '';
   if (nextLevelAt)
-    tail = nextLevelAt > now ? ` · hausse dans ${clock(nextLevelAt - now)}` : ' · hausse à la prochaine main';
+    tail =
+      nextLevelAt > now
+        ? ` · ${t('hausse dans {time}', { time: clock(nextLevelAt - now) })}`
+        : ` · ${t('hausse à la prochaine main')}`;
   return (
     <Text style={styles.text} numberOfLines={1}>
-      Blindes {smallBlind}/{bigBlind}
+      {t('Blindes {small}/{big}', { small: smallBlind, big: bigBlind })}
       {tail}
     </Text>
   );

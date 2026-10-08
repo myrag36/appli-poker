@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme';
+import { t } from '../i18n';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
@@ -8,10 +9,10 @@ export function Ranking({ entries }: { entries: { name: string; place: number }[
   const sorted = [...entries].sort((a, b) => a.place - b.place);
   return (
     <View style={styles.box}>
-      <Text style={styles.title}>Classement</Text>
+      <Text style={styles.title}>{t('Classement')}</Text>
       {sorted.map((e) => (
         <View key={e.name} style={[styles.row, e.place === 1 && styles.first]}>
-          <Text style={styles.place}>{MEDALS[e.place - 1] ?? `${e.place}e`}</Text>
+          <Text style={styles.place}>{MEDALS[e.place - 1] ?? t('{n}e', { n: e.place })}</Text>
           <Text style={[styles.name, e.place === 1 && styles.nameFirst]} numberOfLines={1}>
             {e.name}
           </Text>

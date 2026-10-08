@@ -13,7 +13,7 @@ const en: Record<string, string> = {
   'Quinte flush': 'Straight flush',
   Carré: 'Four of a kind',
   Full: 'Full house',
-  Couleur: 'Flush',
+  'Couleur{main}': 'Flush',
   Quinte: 'Straight',
   Brelan: 'Three of a kind',
   'Double paire': 'Two pair',

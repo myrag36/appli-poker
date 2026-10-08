@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme';
+import { t } from '../i18n';
 
 export const LEVEL_CHOICES = [5, 10, 15, 20, 30];
 
@@ -27,12 +28,12 @@ export function LevelPicker({
   return (
     <View style={styles.box}>
       <View style={styles.row}>
-        <Pill label="Partie normale" active={value === null} onPress={() => onChange(null)} />
-        <Pill label="🏆 Tournoi" active={value !== null} onPress={() => onChange(value ?? 10)} />
+        <Pill label={t('Partie normale')} active={value === null} onPress={() => onChange(null)} />
+        <Pill label={t('🏆 Tournoi')} active={value !== null} onPress={() => onChange(value ?? 10)} />
       </View>
       {value !== null && (
         <>
-          <Text style={styles.hint}>Les blindes augmentent toutes les :</Text>
+          <Text style={styles.hint}>{t('Les blindes augmentent toutes les :')}</Text>
           <View style={styles.row}>
             {LEVEL_CHOICES.map((m) => (
               <Pill key={m} label={`${m} min`} active={value === m} onPress={() => onChange(m)} />
