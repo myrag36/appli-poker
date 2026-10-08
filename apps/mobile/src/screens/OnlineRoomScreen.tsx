@@ -5,6 +5,7 @@ import {
   type Action,
   type Avatar,
   ALL_AVATAR_EMOJIS,
+  emotesFor,
   cleanAvatar,
   defaultAvatar,
 } from '@appli-poker/engine';
@@ -23,8 +24,8 @@ import { Table } from '../components/Table';
 import { TopBar } from '../components/TopBar';
 import { TurnTimer } from '../components/TurnTimer';
 import { callServer, loadAvatar, loadLastRoom, saveLastRoom, supabase } from '../online/supabase';
-import { REACTIONS, useRoom } from '../online/useRoom';
-import { useProgressOf } from '../online/progress';
+import { useRoom } from '../online/useRoom';
+import { useMyProgress, useProgressOf } from '../online/progress';
 import { sounds, useHandSounds } from '../feedback';
 import { Appear } from '../components/Motion';
 import { colors } from '../theme';
@@ -51,6 +52,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
     removed,
   } = useRoom(roomId, userId);
   const [trayOpen, setTrayOpen] = useState(false);
+  const myEmotes = emotesFor(useMyProgress()?.owned ?? []);
   const [chatOpen, setChatOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   /** Names of the people watching, so their chat messages are signed. */
@@ -370,7 +372,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
           </TopBar>
           {trayOpen && (
             <Appear from={-10} style={styles.tray}>
-              {REACTIONS.map((emoji) => (
+              {myEmotes.map((emoji) => (
                 <Pressable
                   key={emoji}
                   accessibilityRole="button"
@@ -565,6 +567,8 @@ const styles = StyleSheet.create({
     top: 40,
     right: 0,
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    maxWidth: 288,
     gap: 4,
     padding: 6,
     borderRadius: 24,

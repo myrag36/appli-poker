@@ -29,6 +29,7 @@ export interface GameRoomRow {
   options: Record<string, unknown>;
   status: 'lobby' | 'playing';
   version: number;
+  tournament_id?: string | null;
 }
 
 export interface GamePlayerRow {
@@ -228,4 +229,23 @@ export function progressAwards(before: GameSecret, after: GameSnapshot) {
     return people.map((p) => ({ userId: p.id, amount: XP_ROUND, finished: null }));
   }
   return [];
+}
+
+/** The games of a tournament: 1 to 8 online games, in the order they will be played. */
+export function cleanTournamentGames(raw: unknown): OnlineGameId[] {
+  const games = Array.isArray(raw) ? raw.filter((g): g is OnlineGameId => isOnlineGame(g)) : [];
+  if (games.length < 1 || games.length > 8) throw new GameError('Choisis de 1 à 8 parties');
+  return games;
+}
+
+export function cleanTournamentName(raw: unknown): string {
+  const name = String(raw ?? '').trim().slice(0, 30);
+  return name || 'Tournoi entre amis';
+}
+
+/** Who won and who played a tournament table that just ended, or null while it goes on. */
+export function tournamentResults(before: GameSecret, after: GameSnapshot): { userId: string; won: boolean }[] | null {
+  const finished = progressAwards(before, after).filter((a) => a.finished);
+  if (finished.length === 0) return null;
+  return finished.map((a) => ({ userId: a.userId, won: a.finished!.won }));
 }

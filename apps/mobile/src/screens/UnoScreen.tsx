@@ -1,0 +1,1461 @@
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import {
+  type Avatar,
+  type Card,
+  type Rng,
+  type UnoMove,
+  type UnoState,
+  type UnoVariant,
+  UNO_MAX_PLAYERS,
+  UNO_PENALTY,
+  UNO_TARGETS,
+  botName,
+  defaultAvatar,
+  unoApply,
+  unoBotCatches,
+  unoBotMove,
+  unoCanCatch,
+  unoCanDraw,
+  unoCanSay,
+  unoColorName,
+  unoColors,
+  unoHandPoints,
+  unoIsWild,
+  unoLegalCards,
+  unoNewGame,
+  unoNextRound,
+  unoStandings,
+  unoTop,
+} from '@appli-poker/engine';
+import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
+import { Button } from '../components/Button';
+import { reportLocalGame } from '../online/progress';
+import { RulesButton } from '../components/Rules';
+import { HUIT_RULES, UNO_RULES } from '../rules';
+import { GameLayout } from '../components/GameLayout';
+import { Appear } from '../components/Motion';
+import { Panel } from '../components/Panel';
+import { TopBar } from '../components/TopBar';
+import { GameCard, UNO_PAINT } from '../components/UnoCard';
+import { sounds } from '../feedback';
+import { deviceRng } from '../rng';
+import { colors, gradients, theme } from '../theme';
+
+/** How long a robot seems to think before playing, in ms. */
+const BOT_DELAY = 1000;
+/** A robot waits longer when someone forgot their announcement, so a person can catch them first. */
+const EXPOSED_DELAY = 2300;
+/** How fast a robot catches a person, or another robot, who forgot to announce. */
+const CATCH_HUMAN = 1100;
+const CATCH_ROBOT = 1700;
+const botRng: Rng = (max) => Math.floor(Math.random() * max);
+
+const SEAT_W = 66;
+const SEAT_H = 74;
+
+interface Texts {
+  title: string;
+  subtitle: string;
+  /** The announcement of the last card. */
+  call: string;
+  hero: Card[];
+}
+
+const TEXTS: Record<UnoVariant, Texts> = {
+  uno: {
+    title: 'Uno',
+    subtitle: 'Vide ta main le premier… et n’oublie pas de crier « Uno ! »',
+    call: 'Uno !',
+    hero: ['r7a', 'yRa', 'gDa', 'bSa', 'wFa'],
+  },
+  huit: {
+    title: '8 américain',
+    subtitle: 'Couleur ou valeur : le premier qui pose sa dernière carte gagne.',
+    call: 'Carte !',
+    hero: ['8s', '8h', '8d', '8c'],
+  },
+};
+
+const SUIT_SYMBOLS: Record<string, string> = { s: '♠', h: '♥', d: '♦', c: '♣' };
+const RANK_NAMES: Record<string, string> = { T: '10', J: 'Valet', Q: 'Dame', K: 'Roi', A: 'As' };
+const UNO_SYMBOL_NAMES: Record<string, string> = {
+  S: 'Passe',
+  R: 'Inverse',
+  D: '+2',
+  W: 'Joker',
+  F: '+4',
+};
+
+/** "un 7 rouge", "une Dame de cœur", "un Joker"… */
+function describe(variant: UnoVariant, card: Card): string {
+  if (variant === 'uno') {
+    const s = card[1];
+    if (card[0] === 'w') return `un ${UNO_SYMBOL_NAMES[s]}`;
+    return `un ${UNO_SYMBOL_NAMES[s] ?? s} ${unoColorName('uno', card[0])}`;
+  }
+  const r = card[0];
+  const name = RANK_NAMES[r] ?? r;
+  return `${r === 'Q' ? 'une' : 'un'} ${name} de ${unoColorName('huit', card[1])}`;
+}
+
+/** The color asked for, written on its own chip. */
+function colorLabel(variant: UnoVariant, color: string): string {
+  const name = unoColorName(variant, color);
+  return name[0].toUpperCase() + name.slice(1);
+}
+
+function colorPaint(variant: UnoVariant, color: string): string {
+  if (variant === 'uno') return UNO_PAINT[color];
+  return color === 'h' || color === 'd' ? '#c1121f' : '#1b1b1b';
+}
+
+interface Settings {
+  names: string[];
+  avatars: Avatar[];
+  bots: boolean[];
+  target: number;
+}
+
+export function UnoScreen({ onBack }: { onBack: () => void }) {
+  return <SheddingScreen variant="uno" onBack={onBack} />;
+}
+
+export function HuitScreen({ onBack }: { onBack: () => void }) {
+  return <SheddingScreen variant="huit" onBack={onBack} />;
+}
+
+function SheddingScreen({ variant, onBack }: { variant: UnoVariant; onBack: () => void }) {
+  const [settings, setSettings] = useState<Settings | null>(null);
+  /** The last players, so coming back to the setup keeps them. */
+  const [last, setLast] = useState<Settings | null>(null);
+  const [gameKey, setGameKey] = useState(0);
+  if (!settings)
+    return (
+      <Setup
+        variant={variant}
+        initial={last}
+        onBack={onBack}
+        onStart={(s) => {
+          setLast(s);
+          setSettings(s);
+        }}
+      />
+    );
+  return (
+    <Game
+      key={gameKey}
+      variant={variant}
+      settings={settings}
+      onQuit={() => setSettings(null)}
+      onReplay={() => setGameKey((k) => k + 1)}
+    />
+  );
+}
+
+/* ---------------------------------------------------------------- setup */
+
+function Setup({
+  variant,
+  initial,
+  onStart,
+  onBack,
+}: {
+  variant: UnoVariant;
+  initial: Settings | null;
+  onStart: (s: Settings) => void;
+  onBack: () => void;
+}) {
+  const t = TEXTS[variant];
+  const [names, setNames] = useState(initial?.names ?? ['', 'Robby', 'Bip']);
+  const [avatars, setAvatars] = useState<Avatar[]>(
+    initial?.avatars ?? [
+      defaultAvatar(0),
+      { emoji: '🤖', color: defaultAvatar(1).color },
+      { emoji: '🤖', color: defaultAvatar(2).color },
+    ],
+  );
+  const [bots, setBots] = useState(initial?.bots ?? [false, true, true]);
+  const [target, setTarget] = useState(initial?.target ?? UNO_TARGETS[variant][0]);
+  const [picking, setPicking] = useState<number | null>(null);
+
+  const cleaned = names.map((n, i) => n.trim() || (i === 0 && !bots[0] ? 'Toi' : `Joueur ${i + 1}`));
+  const duplicate = new Set(cleaned).size !== cleaned.length;
+  const humans = bots.filter((b) => !b).length;
+  const valid = !duplicate && humans > 0 && names.length >= 2;
+
+  function addPlayer(bot: boolean) {
+    setNames([...names, bot ? botName(cleaned) : '']);
+    setAvatars([
+      ...avatars,
+      bot ? { emoji: '🤖', color: defaultAvatar(names.length).color } : defaultAvatar(names.length),
+    ]);
+    setBots([...bots, bot]);
+  }
+
+  return (
+    <ScrollView contentContainerStyle={styles.setup} keyboardShouldPersistTaps="handled">
+      <View style={styles.hero}>
+        {t.hero.map((c, i) => {
+          const mid = (t.hero.length - 1) / 2;
+          return (
+            <View
+              key={c}
+              style={{
+                marginHorizontal: -6,
+                transform: [{ rotate: `${(i - mid) * 11}deg` }],
+                marginTop: Math.abs(i - mid) * 7,
+              }}
+            >
+              <GameCard variant={variant} card={c} width={48} />
+            </View>
+          );
+        })}
+      </View>
+      <Text style={styles.title}>{t.title}</Text>
+      <Text style={styles.subtitle}>{t.subtitle}</Text>
+      <RulesButton rules={variant === 'uno' ? UNO_RULES : HUIT_RULES} />
+
+      <Text style={styles.section}>Joueurs</Text>
+      {names.map((name, i) => (
+        <View key={i}>
+          <View style={styles.row}>
+            {bots[i] ? (
+              <>
+                <AvatarBadge avatar={avatars[i]} size={40} />
+                <View style={[styles.input, styles.flex, styles.botRow]}>
+                  <Text style={styles.botName}>{name}</Text>
+                  <Text style={styles.botTag}>Robot</Text>
+                </View>
+              </>
+            ) : (
+              <>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Changer l'avatar du joueur ${i + 1}`}
+                  onPress={() => setPicking(picking === i ? null : i)}
+                >
+                  <AvatarBadge avatar={avatars[i]} size={40} />
+                </Pressable>
+                <TextInput
+                  style={[styles.input, styles.flex]}
+                  placeholder={i === 0 ? 'Toi' : `Joueur ${i + 1}`}
+                  placeholderTextColor={colors.muted}
+                  value={name}
+                  maxLength={14}
+                  onChangeText={(v) => setNames(names.map((n, j) => (j === i ? v : n)))}
+                />
+              </>
+            )}
+            {names.length > 2 && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Retirer ${cleaned[i]}`}
+                onPress={() => {
+                  setNames(names.filter((_, j) => j !== i));
+                  setAvatars(avatars.filter((_, j) => j !== i));
+                  setBots(bots.filter((_, j) => j !== i));
+                  setPicking(null);
+                }}
+                style={styles.remove}
+              >
+                <Text style={styles.removeText}>✕</Text>
+              </Pressable>
+            )}
+          </View>
+          {picking === i && (
+            <AvatarPicker
+              value={avatars[i]}
+              onChange={(a) => setAvatars(avatars.map((x, j) => (j === i ? a : x)))}
+            />
+          )}
+        </View>
+      ))}
+      {names.length < UNO_MAX_PLAYERS && (
+        <View style={styles.row}>
+          <View style={styles.flex}>
+            <Button label="+ Joueur" variant="secondary" onPress={() => addPlayer(false)} />
+          </View>
+          <View style={styles.flex}>
+            <Button label="+ Robot 🤖" variant="secondary" onPress={() => addPlayer(true)} />
+          </View>
+        </View>
+      )}
+      <Text style={styles.hint}>
+        {humans > 1
+          ? 'Plusieurs joueurs sur ce téléphone : on se le passe à chaque tour, et chacun cache ses cartes.'
+          : `De 2 à ${UNO_MAX_PLAYERS} joueurs. Ajoute des amis pour jouer en se passant le téléphone.`}
+      </Text>
+      {duplicate && <Text style={styles.error}>Deux joueurs ont le même nom.</Text>}
+      {humans === 0 && <Text style={styles.error}>Il faut au moins un joueur humain.</Text>}
+
+      <Text style={styles.section}>Durée de la partie</Text>
+      <View style={styles.counts}>
+        {UNO_TARGETS[variant].map((n) => (
+          <Pressable
+            key={n}
+            accessibilityRole="button"
+            accessibilityState={{ selected: n === target }}
+            onPress={() => setTarget(n)}
+            style={[styles.count, n === target && styles.countOn]}
+          >
+            <Text style={[styles.countText, n === target && styles.countTextOn]}>
+              {n === 0 ? '1 manche' : `${n} points`}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+      <Text style={styles.hint}>
+        {target === 0
+          ? 'Le premier qui vide sa main gagne la partie.'
+          : `Le gagnant de chaque manche marque les cartes restées chez les autres. Premier à ${target} points !`}
+      </Text>
+
+      <View style={styles.spacer} />
+      <Button
+        label="Lancer la partie"
+        disabled={!valid}
+        onPress={() => onStart({ names: cleaned, avatars, bots, target })}
+      />
+      <Button label="Retour" variant="secondary" onPress={onBack} />
+    </ScrollView>
+  );
+}
+
+/* ---------------------------------------------------------------- game */
+
+function Game({
+  variant,
+  settings,
+  onQuit,
+  onReplay,
+}: {
+  variant: UnoVariant;
+  settings: Settings;
+  onQuit: () => void;
+  onReplay: () => void;
+}) {
+  const t = TEXTS[variant];
+  const { bots, avatars } = settings;
+  const humans = useMemo(() => bots.flatMap((b, i) => (b ? [] : [i])), [bots]);
+  const multi = humans.length > 1;
+  const [state, setState] = useState<UnoState>(() =>
+    unoNewGame(
+      variant,
+      settings.names.map((name, i) => ({ id: `p${i}`, name })),
+      settings.target,
+      deviceRng,
+    ),
+  );
+  /** Whose hand is shown at the bottom of the table. */
+  const [viewer, setViewer] = useState(humans[0]);
+  /** Pass-and-play: the viewer has confirmed they hold the phone. */
+  const [revealed, setRevealed] = useState(!multi);
+  /** A wild card waiting for its color. */
+  const [choosing, setChoosing] = useState<Card | null>(null);
+  const [finished, setFinished] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const isBot = (i: number) => bots[i];
+  const playing = state.phase === 'playing';
+  const humanTurn = playing && !isBot(state.current);
+  const curtain = multi && humanTurn && (state.current !== viewer || !revealed);
+  const myTurn = humanTurn && state.current === viewer && !curtain;
+  const me = state.players[viewer];
+  const legal = useMemo(() => (myTurn ? unoLegalCards(state, viewer) : []), [state, myTurn, viewer]);
+  const showHand = !multi || revealed;
+  const catchable =
+    state.exposed !== null && state.exposed !== viewer && unoCanCatch(state, viewer, state.exposed);
+
+  // Robots play on their own, and catch whoever forgot to announce their last card.
+  useEffect(() => {
+    if (state.phase !== 'playing' || curtain) return;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const { seq, exposed } = state;
+    if (exposed !== null) {
+      const catchers = state.players.map((_, i) => i).filter((i) => bots[i] && i !== exposed);
+      if (catchers.length && unoBotCatches(state, botRng, bots[exposed] ? 40 : 70)) {
+        const by = catchers[botRng(catchers.length)];
+        timers.push(
+          setTimeout(
+            () =>
+              setState((s) =>
+                s.seq === seq && unoCanCatch(s, by, exposed)
+                  ? unoApply(s, by, { type: 'catch', target: exposed }, deviceRng)
+                  : s,
+              ),
+            bots[exposed] ? CATCH_ROBOT : CATCH_HUMAN,
+          ),
+        );
+      }
+    }
+    if (bots[state.current]) {
+      const delay = exposed !== null ? EXPOSED_DELAY : state.drawn ? BOT_DELAY * 0.7 : BOT_DELAY;
+      timers.push(
+        setTimeout(
+          () =>
+            setState((s) =>
+              s.seq === seq && s.phase === 'playing'
+                ? unoApply(s, s.current, unoBotMove(s, s.current, botRng), deviceRng)
+                : s,
+            ),
+          delay,
+        ),
+      );
+    }
+    return () => timers.forEach(clearTimeout);
+  }, [state, curtain]);
+
+  // Sounds for what just happened.
+  const prev = useRef(state);
+  useEffect(() => {
+    const before = prev.current;
+    prev.current = state;
+    if (before === state || before.seq === state.seq) return;
+    if (state.phase !== 'playing' && before.phase === 'playing') {
+      if (state.roundWinner !== null && !bots[state.roundWinner]) sounds.win();
+      else sounds.chips();
+      return;
+    }
+    const e = state.last;
+    if (e?.type === 'play') sounds.card();
+    else if (e?.type === 'draw') sounds.fold();
+    else if (e?.type === 'say') sounds.reaction();
+    else if (e?.type === 'catch') sounds.chips();
+    if (!bots[state.current] && (state.current !== before.current || before.phase !== 'playing'))
+      sounds.myTurn();
+  }, [state]);
+
+  // Experience, once, when the game is over: a win if a person won it.
+  const reported = useRef(false);
+  useEffect(() => {
+    if (state.phase === 'gameOver' && !reported.current) {
+      reported.current = true;
+      reportLocalGame(variant, !bots[state.winner!]);
+    }
+  }, [state.phase]);
+
+  function act(move: UnoMove, by = viewer) {
+    try {
+      setState(unoApply(state, by, move, deviceRng));
+      setError(null);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  function tap(card: Card) {
+    if (!myTurn || !legal.includes(card)) return;
+    if (unoIsWild(variant, card)) setChoosing(card);
+    else act({ type: 'play', card });
+  }
+
+  function stop() {
+    // Stopping between rounds ends the game on the points so far.
+    if (!reported.current && state.round > 1) {
+      reported.current = true;
+      const best = unoStandings(state)[0];
+      reportLocalGame(variant, !bots[best.index]);
+    }
+    setFinished(true);
+  }
+
+  if (finished) {
+    return (
+      <FinalScreen variant={variant} state={state} settings={settings} onReplay={onReplay} onQuit={onQuit} />
+    );
+  }
+
+  const current = state.players[state.current];
+  const canSay = unoCanSay(state, viewer) && !curtain && !isBot(viewer);
+  const top = unoTop(state);
+  let prompt: string;
+  if (!playing) prompt = 'Manche terminée';
+  else if (curtain) prompt = `Au tour de ${current.name}`;
+  else if (myTurn) {
+    if (state.pendingDraw > 0)
+      prompt = legal.length
+        ? `Pose un 2 ou pioche ${state.pendingDraw} cartes`
+        : `Pas de 2 : pioche ${state.pendingDraw} cartes`;
+    else if (state.drawn) prompt = 'La carte piochée va : joue-la ou garde-la';
+    else if (me.hand.length === 2 && !me.said && legal.length)
+      prompt = `Plus que 2 cartes : annonce « ${t.call} » avant de jouer`;
+    else if (legal.length) prompt = multi ? `À toi, ${me.name} ! Joue une carte` : 'À toi ! Joue une carte';
+    else prompt = 'Aucune carte ne va : pioche';
+  } else prompt = isBot(state.current) ? `🤖 ${current.name} réfléchit…` : `Au tour de ${current.name}`;
+
+  const drawLabel =
+    state.drawn !== null ? 'Garder' : state.pendingDraw > 0 ? `Piocher ${state.pendingDraw}` : 'Piocher';
+
+  return (
+    <GameLayout
+      top={
+        <TopBar onBack={onQuit} backLabel="← Quitter">
+          <Text style={styles.topInfo}>
+            {state.target ? `Manche ${state.round} · ${state.target} pts` : t.title}
+          </Text>
+          {state.target > 0 && (
+            <View style={styles.scorePill}>
+              <Text style={styles.scoreText}>⭐ {me.score} pts</Text>
+            </View>
+          )}
+        </TopBar>
+      }
+      table={({ width, height }) => (
+        <TableView
+          variant={variant}
+          state={state}
+          avatars={avatars}
+          bots={bots}
+          viewer={viewer}
+          width={width}
+          height={height}
+          canDraw={myTurn && unoCanDraw(state, viewer)}
+          onDraw={() => act({ type: 'draw' })}
+        >
+          {choosing && (
+            <ColorPicker
+              variant={variant}
+              onPick={(color) => {
+                act({ type: 'play', card: choosing, color });
+                setChoosing(null);
+              }}
+              onCancel={() => setChoosing(null)}
+            />
+          )}
+          {curtain && (
+            <HandOff
+              name={current.name}
+              avatar={avatars[state.current]}
+              onReady={() => {
+                setViewer(state.current);
+                setRevealed(true);
+              }}
+            />
+          )}
+          {!playing && (
+            <RoundRecap
+              variant={variant}
+              state={state}
+              avatars={avatars}
+              bots={bots}
+              onNext={() => setState(unoNextRound(state, deviceRng))}
+              onStop={stop}
+              onResults={() => setFinished(true)}
+            />
+          )}
+        </TableView>
+      )}
+      bottom={
+        !playing ? null : (
+          <View style={styles.bottom}>
+            <Text style={[styles.prompt, myTurn && styles.promptMine]} numberOfLines={1}>
+              {prompt}
+            </Text>
+            <Hand
+              variant={variant}
+              cards={me.hand}
+              hidden={!showHand}
+              legal={legal}
+              drawn={myTurn ? state.drawn : null}
+              active={myTurn}
+              onTap={tap}
+            />
+            {error && <Text style={styles.error}>{error}</Text>}
+            <View style={styles.actions}>
+              <View style={styles.flex}>
+                <Button
+                  compact
+                  variant="secondary"
+                  label={drawLabel}
+                  disabled={!myTurn}
+                  onPress={() => act(state.drawn !== null ? { type: 'pass' } : { type: 'draw' })}
+                />
+              </View>
+              <View style={styles.flex}>
+                <CallButton
+                  label={catchable ? `Contre-${t.call.replace(' !', '')} !` : t.call}
+                  hot={canSay || catchable}
+                  onPress={() =>
+                    catchable ? act({ type: 'catch', target: state.exposed! }) : act({ type: 'say' }, viewer)
+                  }
+                />
+              </View>
+            </View>
+          </View>
+        )
+      }
+    />
+  );
+}
+
+/** The big round "Uno !" / "Carte !" button; it glows when there is something to announce. */
+function CallButton({ label, hot, onPress }: { label: string; hot: boolean; onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      disabled={!hot}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.call,
+        hot && styles.callHot,
+        !hot && styles.callOff,
+        pressed && styles.pressed,
+      ]}
+    >
+      {hot && <LinearGradient colors={['#ff5a4f', '#e0312f', '#a8161a']} style={StyleSheet.absoluteFill} />}
+      <Text style={[styles.callText, !hot && styles.callTextOff]} numberOfLines={1}>
+        📣 {label}
+      </Text>
+    </Pressable>
+  );
+}
+
+/* ---------------------------------------------------------------- table */
+
+function TableView({
+  variant,
+  state,
+  avatars,
+  bots,
+  viewer,
+  width,
+  height,
+  canDraw,
+  onDraw,
+  children,
+}: {
+  variant: UnoVariant;
+  state: UnoState;
+  avatars: Avatar[];
+  bots: boolean[];
+  viewer: number;
+  width: number;
+  height: number;
+  canDraw: boolean;
+  onDraw: () => void;
+  children?: ReactNode;
+}) {
+  const w = Math.min(width, 460);
+  const h = height;
+  const n = state.players.length;
+  const others = n - 1;
+  const cx = w / 2;
+  // The others sit on the upper half of an ellipse, in playing order from the left.
+  const cy = Math.round(h * 0.6);
+  const rx = w / 2 - SEAT_W / 2;
+  const ry = cy - SEAT_H / 2 - 2;
+  const seat = (k: number) => {
+    const angle = others === 1 ? Math.PI / 2 : Math.PI - ((k + 0.5) * Math.PI) / others;
+    return { x: cx + rx * Math.cos(angle), y: cy - ry * Math.sin(angle) };
+  };
+  const cardW = Math.max(52, Math.min(70, Math.floor(w / 6)));
+  const pileY = Math.round(Math.min(h - cardW * 1.4 - 60, Math.max(cy - cardW * 0.9, h * 0.34)));
+  const last = state.last;
+  const top = unoTop(state);
+  const under = state.discard.slice(-3, -1);
+
+  /** A short bubble over a seat for what this player just did. */
+  function bubble(i: number): { text: string; hot?: boolean } | null {
+    const p = state.players[i];
+    if (last?.type === 'catch' && last.target === i) return { text: `Pris ! +${UNO_PENALTY}`, hot: true };
+    if (last?.type === 'play' && last.penalty?.player === i)
+      return { text: `+${last.penalty.count}`, hot: true };
+    if (last?.type === 'draw' && last.player === i && last.forced)
+      return { text: `+${last.count}`, hot: true };
+    if (p.hand.length === 1 && p.said) return { text: TEXTS[variant].call, hot: true };
+    if (last?.type === 'draw' && last.player === i) return { text: 'Pioche' };
+    if (last?.type === 'pass' && last.player === i) return { text: 'Garde' };
+    return null;
+  }
+
+  let caption = '';
+  if (last?.type === 'play') {
+    caption = `${who(state, last.player, viewer)} : ${describe(variant, last.card)}`;
+    if (last.color) caption += ` → ${unoColorName(variant, last.color)}`;
+    if (last.penalty)
+      caption += ` · ${last.penalty.player === viewer ? 'tu pioches' : `${state.players[last.penalty.player].name} pioche`} ${last.penalty.count}`;
+  } else if (last?.type === 'draw')
+    caption = `${last.player === viewer ? 'Tu pioches' : `${state.players[last.player].name} pioche`} ${last.count} carte${last.count > 1 ? 's' : ''}`;
+  else if (last?.type === 'pass')
+    caption =
+      last.player === viewer ? 'Tu gardes ta carte' : `${state.players[last.player].name} garde sa carte`;
+  else if (last?.type === 'say')
+    caption = `${last.player === viewer ? 'Tu annonces' : `${state.players[last.player].name} annonce`} « ${TEXTS[variant].call} »`;
+  else if (last?.type === 'catch')
+    caption =
+      last.target === viewer
+        ? `${state.players[last.player].name} t’attrape : +${UNO_PENALTY} pour toi !`
+        : `${last.player === viewer ? 'Tu attrapes' : `${state.players[last.player].name} attrape`} ${state.players[last.target].name} : +${UNO_PENALTY} !`;
+  else
+    caption =
+      state.current === viewer ? 'À toi de commencer' : `${state.players[state.current].name} commence`;
+
+  return (
+    <View style={{ width: w, height: h }}>
+      <View style={styles.rail}>
+        <LinearGradient colors={gradients.wood} style={StyleSheet.absoluteFill} />
+        <View style={styles.felt}>
+          <LinearGradient colors={gradients.felt} style={StyleSheet.absoluteFill} />
+          <View style={styles.feltGlow} />
+          <View style={styles.feltLine} />
+          {theme.feltMark && (
+            <Text style={[styles.feltMark, { fontSize: Math.round(w * 0.3) }]}>{theme.feltMark}</Text>
+          )}
+        </View>
+      </View>
+
+      {/* Which way the turn goes. */}
+      <Text
+        pointerEvents="none"
+        style={[
+          styles.direction,
+          { top: pileY - cardW * 0.55, fontSize: cardW * 2.6, lineHeight: cardW * 2.9 },
+        ]}
+      >
+        {state.direction === 1 ? '↻' : '↺'}
+      </Text>
+
+      <View pointerEvents="box-none" style={[styles.piles, { top: pileY, width: w }]}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Pioche, ${state.deck.length} cartes`}
+          disabled={!canDraw}
+          onPress={onDraw}
+          style={styles.deck}
+        >
+          {[2, 1].map((k) =>
+            state.deck.length > k * 6 ? (
+              <View key={k} style={[styles.deckUnder, { top: -k * 2, left: k * 2 }]}>
+                <GameCard variant={variant} width={cardW} hidden />
+              </View>
+            ) : null,
+          )}
+          {state.deck.length > 0 ? (
+            <View style={canDraw && styles.deckReady}>
+              <GameCard variant={variant} width={cardW} hidden />
+            </View>
+          ) : (
+            <View style={[styles.emptyPile, { width: cardW, height: cardW * 1.4 }]} />
+          )}
+          <Text style={styles.deckCount}>{state.deck.length}</Text>
+        </Pressable>
+        <View style={[styles.discard, { width: cardW + 16, height: cardW * 1.4 }]}>
+          {under.map((c, k) => (
+            <View
+              key={c}
+              style={[
+                styles.discardUnder,
+                { transform: [{ rotate: `${(k === 0 ? -1 : 1) * (8 + (c.charCodeAt(1) % 7))}deg` }] },
+              ]}
+            >
+              <GameCard variant={variant} card={c} width={cardW} />
+            </View>
+          ))}
+          <Appear key={`${top}-${state.discard.length}`} from={-40} style={styles.discardTop}>
+            <GameCard variant={variant} card={top} width={cardW} />
+          </Appear>
+        </View>
+      </View>
+      <View pointerEvents="none" style={[styles.under, { top: pileY + cardW * 1.4 + 8, width: w }]}>
+        <View style={styles.chips}>
+          <View style={[styles.colorChip, { borderColor: colorPaint(variant, state.color) }]}>
+            <View style={[styles.colorDot, { backgroundColor: colorPaint(variant, state.color) }]}>
+              {variant === 'huit' && <Text style={styles.colorSuit}>{SUIT_SYMBOLS[state.color]}</Text>}
+            </View>
+            <Text style={styles.colorText}>{colorLabel(variant, state.color)}</Text>
+          </View>
+          {state.pendingDraw > 0 && (
+            <Appear from={6} style={styles.pendingChip}>
+              <Text style={styles.pendingText}>+{state.pendingDraw} à piocher</Text>
+            </Appear>
+          )}
+        </View>
+        <Text style={styles.caption} numberOfLines={1}>
+          {caption}
+        </Text>
+      </View>
+
+      {state.players.map((p, i) => {
+        if (i === viewer) return null;
+        const k = (i - viewer - 1 + n) % n;
+        const { x, y } = seat(k);
+        const active = state.phase === 'playing' && state.current === i;
+        const b = bubble(i);
+        return (
+          <View
+            key={p.id}
+            pointerEvents="none"
+            style={[styles.seat, { left: x - SEAT_W / 2, top: y - SEAT_H / 2 }]}
+          >
+            <View style={[styles.avatarRing, active && styles.avatarActive]}>
+              <AvatarBadge avatar={avatars[i]} size={38} />
+            </View>
+            <View style={[styles.plate, active && styles.plateActive]}>
+              <Text style={styles.name} numberOfLines={1}>
+                {bots[i] ? '' : '👤 '}
+                {p.name}
+              </Text>
+              <Text style={[styles.cards, p.hand.length === 1 && styles.cardsLast]}>🂠 {p.hand.length}</Text>
+            </View>
+            {state.target > 0 && <Text style={styles.seatScore}>{p.score} pts</Text>}
+            {b && (
+              <Appear key={`${state.seq}-${b.text}`} from={6} style={styles.bubble}>
+                <Text style={[styles.bubbleText, b.hot && styles.bubbleHot]}>{b.text}</Text>
+              </Appear>
+            )}
+          </View>
+        );
+      })}
+
+      <View pointerEvents="none" style={[styles.mePlate, { top: h - 30 }]}>
+        <View
+          style={[
+            styles.meRing,
+            state.current === viewer && state.phase === 'playing' && styles.avatarActive,
+          ]}
+        >
+          <AvatarBadge avatar={avatars[viewer]} size={22} />
+        </View>
+        <Text style={styles.meName} numberOfLines={1}>
+          {state.players[viewer].name}
+        </Text>
+        {(() => {
+          const b = bubble(viewer);
+          return b ? (
+            <Appear key={`${state.seq}-${b.text}`} from={6}>
+              <Text style={[styles.bubbleText, b.hot && styles.bubbleHot]}>{b.text}</Text>
+            </Appear>
+          ) : null;
+        })()}
+      </View>
+
+      {children}
+    </View>
+  );
+}
+
+function who(state: UnoState, i: number, viewer: number) {
+  if (i === viewer) return 'Toi';
+  return state.players[i].name;
+}
+
+/* ---------------------------------------------------------------- hand */
+
+function Hand({
+  variant,
+  cards,
+  hidden,
+  legal,
+  drawn,
+  active,
+  onTap,
+}: {
+  variant: UnoVariant;
+  cards: Card[];
+  hidden: boolean;
+  legal: Card[];
+  drawn: Card | null;
+  active: boolean;
+  onTap: (c: Card) => void;
+}) {
+  const { width } = useWindowDimensions();
+  const avail = Math.min(width, 480) - 24;
+  const cardW = cards.length > 14 ? 48 : 56;
+  const lift = 12;
+  // A long hand goes on two rows so every card stays easy to tap.
+  const rows = cards.length > 16 ? 2 : 1;
+  const perRow = Math.ceil(cards.length / rows);
+  const step = perRow > 1 ? Math.min(cardW + 4, (avail - cardW) / (perRow - 1)) : 0;
+  const rowH = cardW * 1.4;
+  const rowGap = rows > 1 ? rowH * 0.45 : 0;
+  return (
+    <View style={[styles.hand, { height: rowH + lift + rowGap + 2 }]}>
+      {cards.length === 0 && <Text style={styles.empty}>Plus de cartes !</Text>}
+      {Array.from({ length: rows }, (_, r) => {
+        const row = cards.slice(r * perRow, (r + 1) * perRow);
+        const total = row.length ? cardW + step * (row.length - 1) : 0;
+        return (
+          <View
+            key={r}
+            style={{ position: 'absolute', top: r * rowGap, width: total, height: rowH + lift }}
+            pointerEvents="box-none"
+          >
+            {row.map((c, i) => {
+              const ok = active && legal.includes(c);
+              return (
+                <Pressable
+                  key={c}
+                  accessibilityRole="button"
+                  accessibilityLabel={hidden ? 'Carte cachée' : `Carte ${describe(variant, c)}`}
+                  accessibilityState={{ disabled: !ok }}
+                  disabled={!ok}
+                  onPress={() => onTap(c)}
+                  style={[styles.handCard, { left: i * step, top: ok ? 0 : lift }]}
+                >
+                  <View style={[ok && styles.cardOk, c === drawn && styles.cardNew]}>
+                    <GameCard variant={variant} card={hidden ? undefined : c} width={cardW} hidden={hidden} />
+                    {active && !ok && <View style={styles.shade} />}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+/* ---------------------------------------------------------------- overlays */
+
+function ColorPicker({
+  variant,
+  onPick,
+  onCancel,
+}: {
+  variant: UnoVariant;
+  onPick: (color: string) => void;
+  onCancel: () => void;
+}) {
+  return (
+    <View style={styles.overlay}>
+      <Appear from={20} style={styles.overlayCard}>
+        <Panel compact title={variant === 'uno' ? 'Quelle couleur ?' : 'Quelle couleur demandes-tu ?'}>
+          <View style={styles.colorRow}>
+            {unoColors(variant).map((c) => (
+              <Pressable
+                key={c}
+                accessibilityRole="button"
+                accessibilityLabel={unoColorName(variant, c)}
+                onPress={() => onPick(c)}
+                style={({ pressed }) => [styles.colorPick, pressed && styles.pressed]}
+              >
+                <View
+                  style={[
+                    styles.colorBall,
+                    variant === 'uno'
+                      ? { backgroundColor: UNO_PAINT[c] }
+                      : { backgroundColor: '#fbf7ec', borderColor: colorPaint(variant, c) },
+                  ]}
+                >
+                  {variant === 'huit' && (
+                    <Text style={[styles.colorBallSuit, { color: colorPaint(variant, c) }]}>
+                      {SUIT_SYMBOLS[c]}
+                    </Text>
+                  )}
+                </View>
+                <Text style={styles.colorName}>{colorLabel(variant, c)}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <Button compact variant="secondary" label="Annuler" onPress={onCancel} />
+        </Panel>
+      </Appear>
+    </View>
+  );
+}
+
+/** Pass-and-play: hides the table until the next person holds the phone. */
+function HandOff({ name, avatar, onReady }: { name: string; avatar: Avatar; onReady: () => void }) {
+  return (
+    <View style={[styles.overlay, styles.overlayDark]}>
+      <Appear from={20} style={styles.overlayCard}>
+        <Panel compact title="Passe le téléphone">
+          <View style={styles.handoff}>
+            <AvatarBadge avatar={avatar} size={56} />
+            <Text style={styles.handoffName}>Au tour de {name}</Text>
+            <Text style={styles.exHint}>Les autres, ne regardez pas ses cartes !</Text>
+          </View>
+          <Button compact label={`Je suis ${name}, voir mes cartes`} onPress={onReady} />
+        </Panel>
+      </Appear>
+    </View>
+  );
+}
+
+function RoundRecap({
+  variant,
+  state,
+  avatars,
+  bots,
+  onNext,
+  onStop,
+  onResults,
+}: {
+  variant: UnoVariant;
+  state: UnoState;
+  avatars: Avatar[];
+  bots: boolean[];
+  onNext: () => void;
+  onStop: () => void;
+  onResults: () => void;
+}) {
+  const winner = state.roundWinner!;
+  const name = state.players[winner].name;
+  // With a single person at the table, their win is "Tu gagnes".
+  const soloWin = !bots[winner] && bots.filter((b) => !b).length === 1;
+  const over = state.phase === 'gameOver';
+  const single = state.target === 0;
+  const rows = state.players
+    .map((p, i) => ({ i, p, pts: unoHandPoints(state, i) }))
+    .sort((a, b) => (a.i === winner ? -1 : b.i === winner ? 1 : a.pts - b.pts));
+  return (
+    <View style={styles.overlay}>
+      <Appear from={20} style={styles.overlayCard}>
+        <Panel compact title={single ? 'Fin de la partie' : `Fin de la manche ${state.round}`}>
+          <View style={styles.recapHead}>
+            <Text style={styles.recapTrophy}>{bots[winner] ? '🃏' : '🏆'}</Text>
+            <Text style={styles.recapWinner}>
+              {soloWin ? 'Tu gagnes' : `${name} gagne`} {single || over ? 'la partie' : 'la manche'} !
+            </Text>
+            {!single && (
+              <Text style={styles.exHint}>
+                +{state.roundPoints} points pour {soloWin ? 'toi' : name}
+              </Text>
+            )}
+          </View>
+          {rows.map(({ i, p, pts }) => (
+            <View key={p.id} style={[styles.recapRow, i === winner && styles.recapMe]}>
+              <AvatarBadge avatar={avatars[i]} size={22} />
+              <Text style={styles.recapName} numberOfLines={1}>
+                {p.name}
+              </Text>
+              <View style={styles.recapCards}>
+                {i === winner ? (
+                  <Text style={styles.recapDone}>Plus de cartes</Text>
+                ) : (
+                  p.hand.slice(0, 6).map((c, k) => (
+                    <View key={c} style={{ marginLeft: k ? -14 : 0 }}>
+                      <GameCard variant={variant} card={c} width={26} />
+                    </View>
+                  ))
+                )}
+                {p.hand.length > 6 && <Text style={styles.recapMore}>+{p.hand.length - 6}</Text>}
+              </View>
+              {!single && <Text style={styles.recapTotal}>{p.score}</Text>}
+            </View>
+          ))}
+          {!single && !over && <Text style={styles.exHint}>Premier à {state.target} points</Text>}
+          {over ? (
+            <Button compact label="Voir le résultat" onPress={onResults} />
+          ) : (
+            <View style={styles.actions}>
+              <View style={styles.flex}>
+                <Button compact variant="secondary" label="Arrêter" onPress={onStop} />
+              </View>
+              <View style={styles.flex}>
+                <Button compact label="Manche suivante" onPress={onNext} />
+              </View>
+            </View>
+          )}
+        </Panel>
+      </Appear>
+    </View>
+  );
+}
+
+const MEDALS = ['🥇', '🥈', '🥉'];
+
+function FinalScreen({
+  variant,
+  state,
+  settings,
+  onReplay,
+  onQuit,
+}: {
+  variant: UnoVariant;
+  state: UnoState;
+  settings: Settings;
+  onReplay: () => void;
+  onQuit: () => void;
+}) {
+  const single = state.target === 0;
+  const standings = single
+    ? // One round: the winner, then whoever has the fewest points left in hand.
+      state.players
+        .map((p, index) => ({ index, name: p.name, score: unoHandPoints(state, index) }))
+        .sort((a, b) => a.score - b.score)
+        .map((s, k, all) => ({ ...s, place: all.findIndex((x) => x.score === s.score) + 1 }))
+    : unoStandings(state);
+  const first = state.winner ?? standings[0].index;
+  const humanWon = !settings.bots[first];
+  const humans = settings.bots.filter((b) => !b).length;
+  const rounds = state.round;
+  return (
+    <ScrollView contentContainerStyle={styles.setup}>
+      <Appear>
+        <Text style={styles.trophy}>{humanWon ? '🏆' : '🤖'}</Text>
+      </Appear>
+      <Text style={styles.title}>
+        {humanWon && humans === 1 ? 'Tu gagnes !' : `${state.players[first].name} gagne !`}
+      </Text>
+      <Text style={styles.subtitle}>
+        {TEXTS[variant].title} ·{' '}
+        {single ? 'une manche' : `${rounds} manche${rounds > 1 ? 's' : ''} · objectif ${state.target} points`}
+      </Text>
+      <Panel title="Classement">
+        {standings.map((s, k) => (
+          <Appear key={s.index} delay={k * 80} from={10}>
+            <View style={[styles.finalRow, !settings.bots[s.index] && styles.recapMe]}>
+              <Text style={styles.finalPlace}>{MEDALS[s.place - 1] ?? `${s.place}ᵉ`}</Text>
+              <AvatarBadge avatar={settings.avatars[s.index]} size={30} />
+              <Text style={[styles.finalName, s.place === 1 && styles.finalNameFirst]} numberOfLines={1}>
+                {state.players[s.index].name}
+              </Text>
+              <Text style={styles.finalScore}>
+                {single
+                  ? s.index === first
+                    ? 'Main vide'
+                    : `${state.players[s.index].hand.length} carte${state.players[s.index].hand.length > 1 ? 's' : ''} · ${s.score} pts`
+                  : `${s.score} pts`}
+              </Text>
+            </View>
+          </Appear>
+        ))}
+        {single && <Text style={styles.exHint}>Ensuite, le moins de points restés en main l’emporte.</Text>}
+      </Panel>
+      <View style={styles.spacer} />
+      <Button label="Rejouer" onPress={onReplay} />
+      <Button label="Retour" variant="secondary" onPress={onQuit} />
+    </ScrollView>
+  );
+}
+
+const styles = StyleSheet.create({
+  setup: {
+    padding: 20,
+    paddingTop: 40,
+    paddingBottom: 40,
+    maxWidth: 520,
+    width: '100%',
+    alignSelf: 'center',
+  },
+  hero: { flexDirection: 'row', justifyContent: 'center', marginBottom: 12 },
+  title: { color: colors.gold, fontSize: 32, fontWeight: '800', textAlign: 'center' },
+  subtitle: { color: colors.muted, fontSize: 15, textAlign: 'center', marginTop: 4 },
+  section: { color: colors.text, fontSize: 18, fontWeight: '700', marginTop: 22, marginBottom: 8 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
+  flex: { flex: 1 },
+  input: {
+    backgroundColor: colors.glass,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    color: colors.text,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+  },
+  botRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  botName: { color: colors.text, fontSize: 16 },
+  botTag: { color: colors.muted, fontSize: 12, fontWeight: '700' },
+  remove: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.glass,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+  },
+  removeText: { color: colors.muted, fontSize: 16, fontWeight: '800' },
+  counts: { flexDirection: 'row', gap: 8 },
+  count: {
+    flex: 1,
+    height: 46,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.glass,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+  },
+  countOn: { backgroundColor: colors.gold, borderColor: colors.goldBorder },
+  countText: { color: colors.text, fontSize: 15, fontWeight: '800' },
+  countTextOn: { color: colors.onGold },
+  hint: { color: colors.muted, marginTop: 4, fontSize: 13 },
+  error: { color: colors.gold, textAlign: 'center', fontSize: 13, marginTop: 4 },
+  spacer: { height: 22 },
+
+  topInfo: { color: colors.muted, fontSize: 13, fontWeight: '700' },
+  scorePill: {
+    backgroundColor: colors.glass,
+    borderColor: colors.glassBorder,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+  },
+  scoreText: { color: colors.gold, fontWeight: '800', fontSize: 13 },
+
+  rail: {
+    position: 'absolute',
+    top: 4,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    borderRadius: 999,
+    backgroundColor: colors.rail,
+    borderWidth: 2,
+    borderColor: colors.railBorder,
+    padding: 10,
+    overflow: 'hidden',
+    boxShadow: '0 10px 30px rgba(0,0,0,0.6), inset 0 2px 3px rgba(255,220,170,0.35)',
+  },
+  felt: {
+    flex: 1,
+    borderRadius: 999,
+    backgroundColor: colors.felt,
+    borderWidth: 2,
+    borderColor: colors.feltBorder,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: 'inset 0 6px 18px rgba(0,0,0,0.55)',
+  },
+  feltGlow: {
+    width: '60%',
+    height: '50%',
+    borderRadius: 999,
+    backgroundColor: colors.glow,
+    boxShadow: `0 0 60px 40px ${colors.glow}`,
+  },
+  feltLine: {
+    position: 'absolute',
+    top: 14,
+    bottom: 14,
+    left: 14,
+    right: 14,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255, 213, 120, 0.22)',
+  },
+  feltMark: { position: 'absolute', opacity: 0.1, color: '#ffffff' },
+  direction: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    color: 'rgba(255, 230, 170, 0.13)',
+    fontWeight: '300',
+  },
+
+  piles: { position: 'absolute', left: 0, flexDirection: 'row', justifyContent: 'center', gap: 26 },
+  deck: { alignItems: 'center' },
+  deckUnder: { position: 'absolute' },
+  deckReady: { borderRadius: 8, boxShadow: `0 0 0 2px ${colors.gold}, 0 0 16px ${colors.gold}` },
+  deckCount: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    minWidth: 26,
+    textAlign: 'center',
+    color: colors.onGold,
+    backgroundColor: colors.gold,
+    borderRadius: 10,
+    overflow: 'hidden',
+    fontSize: 11,
+    fontWeight: '900',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+  },
+  emptyPile: {
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: 'rgba(255,255,255,0.25)',
+  },
+  discard: { alignItems: 'center', justifyContent: 'center' },
+  discardUnder: { position: 'absolute', opacity: 0.85 },
+  discardTop: { position: 'absolute' },
+  under: { position: 'absolute', left: 0, alignItems: 'center', gap: 5 },
+  chips: { flexDirection: 'row', gap: 6, alignItems: 'center' },
+  colorChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingLeft: 3,
+    paddingRight: 10,
+    paddingVertical: 3,
+    borderRadius: 14,
+    borderWidth: 2,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+  },
+  colorDot: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: '#fff',
+  },
+  colorSuit: { color: '#fff', fontSize: 11, lineHeight: 13, fontWeight: '900' },
+  colorText: { color: colors.text, fontSize: 12, fontWeight: '800' },
+  pendingChip: {
+    borderRadius: 14,
+    backgroundColor: colors.danger,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  pendingText: { color: '#fff', fontSize: 12, fontWeight: '900' },
+  caption: {
+    color: colors.text,
+    fontSize: 12,
+    fontWeight: '700',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    paddingHorizontal: 10,
+    paddingVertical: 2,
+    borderRadius: 10,
+    overflow: 'hidden',
+    maxWidth: '86%',
+  },
+
+  seat: { position: 'absolute', width: SEAT_W, alignItems: 'center' },
+  avatarRing: { borderRadius: 24, padding: 2 },
+  avatarActive: { backgroundColor: colors.gold, boxShadow: `0 0 14px ${colors.gold}` },
+  plate: {
+    marginTop: -6,
+    backgroundColor: 'rgba(0,0,0,0.75)',
+    borderRadius: 8,
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    alignItems: 'center',
+    width: SEAT_W,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  plateActive: { borderColor: colors.gold },
+  name: { color: colors.text, fontWeight: '700', fontSize: 11 },
+  cards: { color: colors.gold, fontWeight: '700', fontSize: 11 },
+  cardsLast: { color: '#ff6b5e' },
+  seatScore: { color: colors.muted, fontSize: 10, fontWeight: '700', marginTop: 1 },
+  bubble: { position: 'absolute', top: -6, right: -10 },
+  bubbleText: {
+    backgroundColor: '#fffdf8',
+    color: '#1b1b1b',
+    fontSize: 10,
+    fontWeight: '900',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    overflow: 'hidden',
+    boxShadow: '0 2px 6px rgba(0,0,0,0.45)',
+  },
+  bubbleHot: { backgroundColor: '#e0312f', color: '#fff' },
+  mePlate: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  meRing: { borderRadius: 14, padding: 2 },
+  meName: { color: colors.text, fontWeight: '800', fontSize: 13, maxWidth: 140 },
+
+  bottom: { gap: 6 },
+  prompt: { color: colors.muted, fontSize: 14, fontWeight: '700', textAlign: 'center' },
+  promptMine: { color: colors.gold },
+  hand: { alignItems: 'center' },
+  handCard: { position: 'absolute' },
+  cardOk: { borderRadius: 8, boxShadow: `0 0 0 2px ${colors.gold}, 0 6px 12px rgba(0,0,0,0.5)` },
+  cardNew: { borderRadius: 8, boxShadow: `0 0 0 3px #4fd1ff, 0 0 14px #4fd1ff` },
+  shade: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 2,
+    right: 2,
+    borderRadius: 6,
+    backgroundColor: 'rgba(8, 20, 14, 0.5)',
+  },
+  empty: { color: colors.muted, position: 'absolute', alignSelf: 'center', top: 30 },
+  actions: { flexDirection: 'row', gap: 8 },
+  call: {
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+    borderWidth: 1,
+  },
+  callHot: { borderColor: '#ffb4ad', boxShadow: '0 0 16px rgba(255, 80, 70, 0.7)' },
+  callOff: { borderColor: colors.glassBorder, backgroundColor: colors.glass },
+  callText: { color: '#fff', fontSize: 16, fontWeight: '900', letterSpacing: 0.3 },
+  callTextOff: { color: colors.muted, opacity: 0.6 },
+  pressed: { opacity: 0.8 },
+
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    borderRadius: 24,
+    padding: 6,
+  },
+  overlayDark: { backgroundColor: 'rgba(0,0,0,0.92)' },
+  overlayCard: {
+    width: '100%',
+    maxWidth: 380,
+    borderRadius: 12,
+    backgroundColor: colors.background,
+    boxShadow: '0 10px 30px rgba(0,0,0,0.6)',
+  },
+  colorRow: { flexDirection: 'row', justifyContent: 'space-around', marginVertical: 6 },
+  colorPick: { alignItems: 'center', gap: 4, padding: 4 },
+  colorBall: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    borderWidth: 3,
+    borderColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 3px 8px rgba(0,0,0,0.5)',
+  },
+  colorBallSuit: { fontSize: 30, lineHeight: 34 },
+  colorName: { color: colors.text, fontSize: 12, fontWeight: '800' },
+  handoff: { alignItems: 'center', gap: 6, marginVertical: 8 },
+  handoffName: { color: colors.gold, fontSize: 20, fontWeight: '900' },
+  exHint: { color: colors.muted, textAlign: 'center', fontSize: 12 },
+  recapHead: { alignItems: 'center', gap: 2, marginBottom: 4 },
+  recapTrophy: { fontSize: 34 },
+  recapWinner: { color: colors.gold, fontSize: 17, fontWeight: '900', textAlign: 'center' },
+  recapRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 3,
+    paddingHorizontal: 4,
+    borderRadius: 8,
+  },
+  recapMe: { backgroundColor: 'rgba(255,255,255,0.1)' },
+  recapName: { color: colors.text, fontWeight: '700', width: 82, fontSize: 13 },
+  recapCards: { flex: 1, flexDirection: 'row', alignItems: 'center' },
+  recapDone: { color: colors.gold, fontSize: 12, fontWeight: '800' },
+  recapMore: { color: colors.muted, fontSize: 11, fontWeight: '800', marginLeft: 4 },
+  recapTotal: { color: colors.gold, fontWeight: '900', minWidth: 30, textAlign: 'right', fontSize: 13 },
+  trophy: { fontSize: 64, textAlign: 'center' },
+  finalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    borderRadius: 8,
+  },
+  finalPlace: { width: 30, textAlign: 'center', fontSize: 18, color: colors.muted, fontWeight: '700' },
+  finalName: { color: colors.text, fontSize: 16, fontWeight: '600', flex: 1 },
+  finalNameFirst: { color: colors.gold, fontWeight: '800' },
+  finalScore: { color: colors.gold, fontSize: 15, fontWeight: '800' },
+});

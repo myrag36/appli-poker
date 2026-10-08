@@ -19,6 +19,9 @@ import {
   type Reward,
   type RewardKind,
   SHOP_ITEMS,
+  forSale,
+  seasonDaysLeft,
+  seasonOf,
   defaultAvatar,
   ownedKey,
   parisDay,
@@ -28,12 +31,12 @@ import {
 import { ChestRow } from '../components/Chests';
 import { RewardPreview } from '../components/RewardPreview';
 import { TopBar } from '../components/TopBar';
-import { buyItem, claimQuest, equipReward, useMyProgress } from '../online/progress';
+import { buyItem, claimQuest, equipReward, syncMe, useMyProgress } from '../online/progress';
 import { loadAvatar, saveAvatar } from '../online/supabase';
 import { sounds } from '../feedback';
 import { colors, gradients, shadow } from '../theme';
 
-const KINDS: RewardKind[] = ['frame', 'title', 'avatar', 'cardBack', 'banner'];
+const KINDS: RewardKind[] = ['frame', 'title', 'avatar', 'emote', 'cardBack', 'banner'];
 
 /** Coins, the quests of the day and the items they buy. */
 export function ShopScreen({ onBack }: { onBack: () => void }) {
@@ -56,7 +59,11 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
   const quests = questsFor(parisDay());
   const has = (r: Reward) => owned.includes(ownedKey(r.kind, r.id));
   const worn = (r: Reward) =>
-    r.kind === 'avatar' ? avatar.emoji === r.id : progress?.equipped[r.kind as keyof Equipped] === r.id;
+    r.kind === 'emote'
+      ? false
+      : r.kind === 'avatar'
+        ? avatar.emoji === r.id
+        : progress?.equipped[r.kind as keyof Equipped] === r.id;
 
   async function run(key: string, action: () => Promise<void>) {
     setBusy(key);
@@ -87,7 +94,7 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
     if (item.kind === 'avatar') {
       const next = { ...avatar, emoji: item.id };
       setAvatar(next);
-      saveAvatar({ emoji: next.emoji, color: next.color });
+      saveAvatar({ emoji: next.emoji, color: next.color }).then(syncMe);
     } else {
       await run(item.id, () => equipReward(item.kind as keyof Equipped, item.id));
     }
@@ -97,9 +104,44 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
   function open(item: Reward) {
     setError(null);
     setBought(false);
-    if (has(item)) wear(item);
-    else setBuying(item);
+    if (has(item)) {
+      if (item.kind !== 'emote') wear(item);
+    } else setBuying(item);
   }
+
+  function tile(item: Reward) {
+    const mine = has(item);
+    const on = mine && worn(item);
+    const short = !mine && coins < (item.price ?? 0);
+    return (
+      <Pressable
+        key={item.id}
+        accessibilityRole="button"
+        accessibilityLabel={`${item.name}, ${mine ? (on ? 'porté' : 'à toi') : `${item.price} pièces`}`}
+        onPress={() => open(item)}
+        style={({ pressed }) => [styles.tile, on && styles.tileWorn, pressed && { opacity: 0.8 }]}
+      >
+        <View style={styles.tilePreview}>
+          <RewardPreview reward={item} avatar={avatar} />
+        </View>
+        <Text style={styles.tileName} numberOfLines={1}>
+          {item.name}
+        </Text>
+        {mine ? (
+          <Text style={[styles.tileState, on && styles.tileStateOn]}>
+            {item.kind === 'emote' ? '✓ À toi' : on ? '✓ Porté' : 'Porter'}
+          </Text>
+        ) : (
+          <View style={[styles.price, short && styles.priceShort]}>
+            <Text style={styles.priceText}>🪙 {item.price}</Text>
+          </View>
+        )}
+      </Pressable>
+    );
+  }
+
+  const season = seasonOf();
+  const seasonItems = SHOP_ITEMS.filter((x) => forSale(x, season.month) && x.season !== undefined);
 
   return (
     <ScrollView contentContainerStyle={[styles.container, { width }]}>
@@ -168,6 +210,26 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
       </View>
       {error && !buying && <Text style={styles.error}>{error}</Text>}
 
+      <LinearGradient
+        colors={season.colors}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.season}
+      >
+        <View style={styles.seasonHead}>
+          <Text style={styles.seasonEmoji}>{season.emoji}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.seasonKicker}>Saison du mois</Text>
+            <Text style={styles.seasonName}>{season.name}</Text>
+          </View>
+          <View style={styles.seasonLeft}>
+            <Text style={styles.seasonLeftText}>Plus que {seasonDaysLeft()} j</Text>
+          </View>
+        </View>
+        <Text style={styles.seasonText}>Ces articles ne sont en vente que ce mois-ci.</Text>
+        <View style={styles.grid}>{seasonItems.map(tile)}</View>
+      </LinearGradient>
+
       <Text style={styles.section}>Articles</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
         {KINDS.map((k) => (
@@ -183,34 +245,7 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
         ))}
       </ScrollView>
       <View style={styles.grid}>
-        {SHOP_ITEMS.filter((x) => x.kind === kind).map((item) => {
-          const mine = has(item);
-          const on = mine && worn(item);
-          const short = !mine && coins < (item.price ?? 0);
-          return (
-            <Pressable
-              key={item.id}
-              accessibilityRole="button"
-              accessibilityLabel={`${item.name}, ${mine ? (on ? 'porté' : 'à toi') : `${item.price} pièces`}`}
-              onPress={() => open(item)}
-              style={({ pressed }) => [styles.tile, on && styles.tileWorn, pressed && { opacity: 0.8 }]}
-            >
-              <View style={styles.tilePreview}>
-                <RewardPreview reward={item} avatar={avatar} />
-              </View>
-              <Text style={styles.tileName} numberOfLines={1}>
-                {item.name}
-              </Text>
-              {mine ? (
-                <Text style={[styles.tileState, on && styles.tileStateOn]}>{on ? '✓ Porté' : 'Porter'}</Text>
-              ) : (
-                <View style={[styles.price, short && styles.priceShort]}>
-                  <Text style={styles.priceText}>🪙 {item.price}</Text>
-                </View>
-              )}
-            </Pressable>
-          );
-        })}
+        {SHOP_ITEMS.filter((x) => x.kind === kind && x.season === undefined).map(tile)}
       </View>
 
       <Modal
@@ -336,6 +371,25 @@ const styles = StyleSheet.create({
   claimText: { color: colors.onGold, fontSize: 14, fontWeight: '900' },
   renew: { color: colors.muted, fontSize: 12, fontStyle: 'italic', textAlign: 'center' },
   tabs: { gap: 8, paddingVertical: 10 },
+  season: { marginTop: 22, padding: 14, borderRadius: 18, gap: 10, overflow: 'hidden' },
+  seasonHead: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  seasonEmoji: { fontSize: 40 },
+  seasonKicker: {
+    color: 'rgba(255,255,255,0.8)',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+  },
+  seasonName: { color: '#fff', fontSize: 22, fontWeight: '900' },
+  seasonLeft: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  seasonLeftText: { color: '#fff', fontSize: 12, fontWeight: '900' },
+  seasonText: { color: 'rgba(255,255,255,0.9)', fontSize: 13 },
   tab: {
     paddingHorizontal: 14,
     paddingVertical: 8,
