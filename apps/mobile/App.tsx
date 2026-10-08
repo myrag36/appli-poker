@@ -14,6 +14,7 @@ import { BeloteScreen } from './src/screens/BeloteScreen';
 import { Puissance4Screen } from './src/screens/Puissance4Screen';
 import { RamiScreen } from './src/screens/RamiScreen';
 import { HuitScreen, UnoScreen } from './src/screens/UnoScreen';
+import { TarotScreen } from './src/screens/TarotScreen';
 import { Backdrop } from './src/components/Backdrop';
 import { OnlineLobbyScreen } from './src/screens/OnlineLobbyScreen';
 import { OnlineRoomScreen } from './src/screens/OnlineRoomScreen';
@@ -113,6 +114,7 @@ export default function App() {
         {screen.name === 'game' && screen.game === 'rami' && <RamiScreen onBack={games} />}
         {screen.name === 'game' && screen.game === 'uno' && <UnoScreen onBack={games} />}
         {screen.name === 'game' && screen.game === 'huit' && <HuitScreen onBack={games} />}
+        {screen.name === 'game' && screen.game === 'tarot' && <TarotScreen onBack={games} />}
         {screen.name === 'game-online' && (
           <OnlineGameScreen
             key={screen.game}

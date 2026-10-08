@@ -40,6 +40,7 @@ const GAME_NAMES: Record<ProgressGame, string> = {
   rami: '🃏 Rami',
   uno: '🌈 Uno',
   huit: '🎱 8 américain',
+  tarot: '🌙 Tarot',
 };
 
 type Tab = keyof Equipped | 'avatar';

@@ -3,6 +3,7 @@ import { View } from 'react-native';
 import { Die } from './components/Die';
 import { PlayingCard } from './components/PlayingCard';
 import { UnoCard } from './components/UnoCard';
+import { TarotCard } from './components/TarotCard';
 import { type GameRules, RuleExample } from './components/Rules';
 import { Token } from './components/Token';
 
@@ -444,4 +445,62 @@ export const HUIT_RULES: GameRules = {
     },
   ],
   tip: 'Un 8 en fin de partie, c’est la sortie assurée.',
+};
+
+const TarotCards = ({ cards, label, width = 34 }: { cards: string[]; label?: string; width?: number }) => (
+  <RuleExample label={label}>
+    {cards.map((c) => (
+      <TarotCard key={c} card={c} width={width} />
+    ))}
+  </RuleExample>
+);
+
+export const TAROT_RULES: GameRules = {
+  game: 'tarot',
+  title: 'Tarot',
+  goal: 'Seul contre les trois autres, le preneur doit faire assez de points pour réussir son contrat.',
+  steps: [
+    {
+      icon: '🃏',
+      title: 'Les 78 cartes',
+      text: 'Quatre couleurs de 14 cartes (le Cavalier se place entre la Dame et le Valet), 21 atouts qui battent toutes les couleurs, et l’Excuse.',
+      visual: (
+        <TarotCards
+          cards={['Rh', 'Dh', 'Ch', 'Vh', '7t', '15t']}
+          label="Roi, Dame, Cavalier, Valet… et deux atouts"
+          width={30}
+        />
+      ),
+    },
+    {
+      icon: '⭐',
+      title: 'Les trois bouts',
+      text: 'Le Petit (1), le 21 et l’Excuse. Plus le preneur en gagne, moins il lui faut de points : 56 sans bout, 51 avec un, 41 avec deux, 36 avec les trois.',
+      visual: <TarotCards cards={['1t', '21t', 'EX']} label="Les bouts" />,
+    },
+    {
+      icon: '🙋',
+      title: 'Les enchères',
+      text: 'Chacun parle une fois : passe, ou plus haut que l’annonce d’avant. Petite (×1), Garde (×2), Garde sans le chien (×4), Garde contre le chien (×6).',
+    },
+    {
+      icon: '🐕',
+      title: 'Le chien et l’écart',
+      text: 'En Petite ou en Garde, le preneur montre les 6 cartes du chien, les prend, puis en écarte 6 : jamais de roi ni de bout, et pas d’atout sauf s’il n’a pas le choix.',
+    },
+    {
+      icon: '♠️',
+      title: 'Jouer les plis',
+      text: 'Fournis la couleur demandée. Sinon, coupe à l’atout. À l’atout, il faut toujours monter si on peut. L’Excuse se joue quand on veut et ne gagne jamais le pli.',
+    },
+    {
+      icon: '🔢',
+      title: 'Compter',
+      text: 'Bouts et rois 4,5 · dames 3,5 · cavaliers 2,5 · valets 1,5 · les autres 0,5 (91 en tout). La donne vaut (25 + l’écart au contrat) × le multiplicateur, payé par chaque défenseur.',
+      visual: (
+        <TarotCards cards={['Rs', 'Ds', 'Cs', 'Vs', '9s']} label="4,5 · 3,5 · 2,5 · 1,5 · 0,5" width={30} />
+      ),
+    },
+  ],
+  tip: 'Le Petit au bout : le mener au dernier pli rapporte 10 × le multiplicateur au camp qui le gagne.',
 };

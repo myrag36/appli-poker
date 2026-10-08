@@ -30,6 +30,7 @@ import { loadAvatar } from '../online/supabase';
 import { PlayingCard } from '../components/PlayingCard';
 import { Token } from '../components/Token';
 import { UnoCard } from '../components/UnoCard';
+import { TarotCard } from '../components/TarotCard';
 import { colors, gradients, shadow } from '../theme';
 
 export type GameId =
@@ -41,7 +42,8 @@ export type GameId =
   | 'puissance4'
   | 'rami'
   | 'uno'
-  | 'huit';
+  | 'huit'
+  | 'tarot';
 
 interface Game {
   id: GameId;
@@ -126,6 +128,14 @@ const GAMES: Game[] = [
     art: ['2h', '8s', '8h', 'Jd'],
     ready: true,
   },
+  {
+    id: 'tarot',
+    title: 'Tarot',
+    tagline: 'Prends, garde ou passe : seul contre trois, avec les bouts pour alliés.',
+    players: '4 joueurs',
+    art: ['1t', 'EX', '21t', 'Rh', 'Cs'],
+    ready: true,
+  },
 ];
 
 const GAP = 14;
@@ -169,6 +179,7 @@ function Art({ game }: { game: Game }) {
     );
   }
   const mid = (game.art.length - 1) / 2;
+  const tarot = game.id === 'tarot';
   if (game.id === 'uno') {
     return (
       <View style={styles.fan}>
@@ -196,7 +207,7 @@ function Art({ game }: { game: Game }) {
             { transform: [{ rotate: `${(i - mid) * 13}deg` }, { translateY: Math.abs(i - mid) * 8 }] },
           ]}
         >
-          <PlayingCard card={c} width={62} />
+          {tarot ? <TarotCard card={c} width={56} /> : <PlayingCard card={c} width={62} />}
         </View>
       ))}
     </View>
