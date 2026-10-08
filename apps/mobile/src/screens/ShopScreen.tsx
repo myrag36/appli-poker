@@ -34,6 +34,7 @@ import { TopBar } from '../components/TopBar';
 import { buyItem, claimQuest, equipReward, syncMe, useMyProgress } from '../online/progress';
 import { loadAvatar, saveAvatar } from '../online/supabase';
 import { sounds } from '../feedback';
+import { t, tn } from '../i18n';
 import { colors, gradients, shadow } from '../theme';
 
 const KINDS: RewardKind[] = ['frame', 'title', 'avatar', 'emote', 'cardBack', 'banner'];
@@ -72,7 +73,7 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
       await action();
       return true;
     } catch (e) {
-      setError((e as Error).message);
+      setError(t((e as Error).message));
       return false;
     } finally {
       setBusy(null);
@@ -117,7 +118,7 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
       <Pressable
         key={item.id}
         accessibilityRole="button"
-        accessibilityLabel={`${item.name}, ${mine ? (on ? 'porté' : 'à toi') : `${item.price} pièces`}`}
+        accessibilityLabel={`${t(item.name)}, ${mine ? (on ? t('porté') : t('à toi')) : t('{n} pièces', { n: item.price ?? 0 })}`}
         onPress={() => open(item)}
         style={({ pressed }) => [styles.tile, on && styles.tileWorn, pressed && { opacity: 0.8 }]}
       >
@@ -125,11 +126,11 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
           <RewardPreview reward={item} avatar={avatar} />
         </View>
         <Text style={styles.tileName} numberOfLines={1}>
-          {item.name}
+          {t(item.name)}
         </Text>
         {mine ? (
           <Text style={[styles.tileState, on && styles.tileStateOn]}>
-            {item.kind === 'emote' ? '✓ À toi' : on ? '✓ Porté' : 'Porter'}
+            {item.kind === 'emote' ? t('✓ À toi') : on ? t('✓ Porté') : t('Porter')}
           </Text>
         ) : (
           <View style={[styles.price, short && styles.priceShort]}>
@@ -145,21 +146,24 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
 
   return (
     <ScrollView contentContainerStyle={[styles.container, { width }]}>
-      <TopBar onBack={onBack} backLabel="← Retour">
-        <Text style={styles.topTitle}>Boutique</Text>
+      <TopBar onBack={onBack} backLabel={t('← Retour')}>
+        <Text style={styles.topTitle}>{t('Boutique')}</Text>
       </TopBar>
 
       <LinearGradient colors={['#4a3200', '#2a1c00']} style={[styles.wallet, shadow]}>
-        <Text style={styles.walletLabel}>Mes pièces</Text>
+        <Text style={styles.walletLabel}>{t('Mes pièces')}</Text>
         <Text style={styles.walletCoins}>🪙 {coins}</Text>
         <Text style={styles.walletHow}>
-          +{COINS_PLAY} par partie finie, +{COINS_WIN} de plus si tu gagnes, et les quêtes du jour.
+          {t('+{play} par partie finie, +{win} de plus si tu gagnes, et les quêtes du jour.', {
+            play: COINS_PLAY,
+            win: COINS_WIN,
+          })}
         </Text>
       </LinearGradient>
 
       <ChestRow chests={progress?.chests ?? []} avatar={avatar} />
 
-      <Text style={styles.section}>Quêtes du jour</Text>
+      <Text style={styles.section}>{t('Quêtes du jour')}</Text>
       <View style={styles.card}>
         {quests.map((q) => {
           const done = questProgress(q, progress?.today ?? {});
@@ -168,7 +172,7 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
           return (
             <View key={q.id} style={styles.quest}>
               <View style={styles.questBody}>
-                <Text style={[styles.questText, claimed && styles.questDone]}>{q.text}</Text>
+                <Text style={[styles.questText, claimed && styles.questDone]}>{t(q.text)}</Text>
                 <View style={styles.track}>
                   <View
                     style={[
@@ -183,11 +187,11 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
                 </Text>
               </View>
               {claimed ? (
-                <Text style={styles.claimed}>✓ Prise</Text>
+                <Text style={styles.claimed}>{t('✓ Prise')}</Text>
               ) : finished ? (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Prendre ${q.coins} pièces`}
+                  accessibilityLabel={t('Prendre {n} pièces', { n: q.coins })}
                   onPress={() => claim(q.id)}
                   disabled={busy !== null}
                   style={({ pressed }) => [styles.claim, pressed && { opacity: 0.8 }]}
@@ -196,7 +200,7 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
                     {busy === q.id ? (
                       <ActivityIndicator color={colors.onGold} />
                     ) : (
-                      <Text style={styles.claimText}>Prendre +{q.coins} 🪙</Text>
+                      <Text style={styles.claimText}>{t('Prendre +{n} 🪙', { n: q.coins })}</Text>
                     )}
                   </LinearGradient>
                 </Pressable>
@@ -206,7 +210,7 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
             </View>
           );
         })}
-        <Text style={styles.renew}>De nouvelles quêtes chaque jour à minuit.</Text>
+        <Text style={styles.renew}>{t('De nouvelles quêtes chaque jour à minuit.')}</Text>
       </View>
       {error && !buying && <Text style={styles.error}>{error}</Text>}
 
@@ -219,18 +223,18 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
         <View style={styles.seasonHead}>
           <Text style={styles.seasonEmoji}>{season.emoji}</Text>
           <View style={{ flex: 1 }}>
-            <Text style={styles.seasonKicker}>Saison du mois</Text>
-            <Text style={styles.seasonName}>{season.name}</Text>
+            <Text style={styles.seasonKicker}>{t('Saison du mois')}</Text>
+            <Text style={styles.seasonName}>{t(season.name)}</Text>
           </View>
           <View style={styles.seasonLeft}>
-            <Text style={styles.seasonLeftText}>Plus que {seasonDaysLeft()} j</Text>
+            <Text style={styles.seasonLeftText}>{t('Plus que {n} j', { n: seasonDaysLeft() })}</Text>
           </View>
         </View>
-        <Text style={styles.seasonText}>Ces articles ne sont en vente que ce mois-ci.</Text>
+        <Text style={styles.seasonText}>{t('Ces articles ne sont en vente que ce mois-ci.')}</Text>
         <View style={styles.grid}>{seasonItems.map(tile)}</View>
       </LinearGradient>
 
-      <Text style={styles.section}>Articles</Text>
+      <Text style={styles.section}>{t('Articles')}</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
         {KINDS.map((k) => (
           <Pressable
@@ -240,7 +244,9 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
             onPress={() => setKind(k)}
             style={[styles.tab, k === kind && styles.tabActive]}
           >
-            <Text style={[styles.tabText, k === kind && styles.tabTextActive]}>{REWARD_KIND_NAMES[k]}</Text>
+            <Text style={[styles.tabText, k === kind && styles.tabTextActive]}>
+              {t(REWARD_KIND_NAMES[k])}
+            </Text>
           </Pressable>
         ))}
       </ScrollView>
@@ -257,34 +263,39 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
         <View style={styles.backdrop}>
           {buying && (
             <View style={[styles.modal, shadow]}>
-              <Text style={styles.kicker}>{bought ? 'C’est à toi !' : REWARD_KIND_NAMES[buying.kind]}</Text>
+              <Text style={styles.kicker}>
+                {bought ? t('C’est à toi !') : t(REWARD_KIND_NAMES[buying.kind])}
+              </Text>
               <View style={styles.modalPreview}>
                 <RewardPreview reward={buying} avatar={avatar} big />
               </View>
-              <Text style={styles.modalName}>{buying.name}</Text>
+              <Text style={styles.modalName}>{t(buying.name)}</Text>
               {bought ? (
                 <>
-                  <Button label="Le porter maintenant" onPress={() => wear(buying)} gold />
-                  <Button label="Plus tard" onPress={() => setBuying(null)} />
+                  <Button label={t('Le porter maintenant')} onPress={() => wear(buying)} gold />
+                  <Button label={t('Plus tard')} onPress={() => setBuying(null)} />
                 </>
               ) : (
                 <>
                   <Text style={styles.modalPrice}>🪙 {buying.price}</Text>
                   {coins < (buying.price ?? 0) ? (
                     <Text style={styles.modalShort}>
-                      Il te manque {(buying.price ?? 0) - coins} pièces. Joue quelques parties ou finis tes
-                      quêtes !
+                      {tn(
+                        (buying.price ?? 0) - coins,
+                        'Il te manque {n} pièce. Joue quelques parties ou finis tes quêtes !',
+                        'Il te manque {n} pièces. Joue quelques parties ou finis tes quêtes !',
+                      )}
                     </Text>
                   ) : (
                     <Button
-                      label={busy === buying.id ? '…' : 'Acheter'}
+                      label={busy === buying.id ? '…' : t('Acheter')}
                       onPress={() => buy(buying)}
                       gold
                       disabled={busy !== null}
                     />
                   )}
                   {error && <Text style={styles.error}>{error}</Text>}
-                  <Button label="Annuler" onPress={() => setBuying(null)} />
+                  <Button label={t('Annuler')} onPress={() => setBuying(null)} />
                 </>
               )}
             </View>

@@ -2,6 +2,7 @@ import { Fragment, useEffect, useRef } from 'react';
 import { Animated, Easing, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AVATAR_COLORS, AVATAR_EMOJIS, REWARDS, type Avatar, ownedKey } from '@appli-poker/engine';
+import { t } from '../i18n';
 import { colors, shadow } from '../theme';
 
 const native = Platform.OS !== 'web';
@@ -1254,7 +1255,9 @@ export function AvatarPicker({
             <Pressable
               key={emoji}
               accessibilityRole="button"
-              accessibilityLabel={locked ? `${emoji}, débloqué au niveau ${need}` : undefined}
+              accessibilityLabel={
+                locked ? t('{emoji}, débloqué au niveau {n}', { emoji, n: need }) : undefined
+              }
               accessibilityState={{ selected, disabled: locked }}
               disabled={locked}
               onPress={() => onChange({ ...value, emoji })}
@@ -1270,7 +1273,7 @@ export function AvatarPicker({
                 <>
                   <Text style={styles.lock}>🔒</Text>
                   <View style={styles.need}>
-                    <Text style={styles.needText}>Niv. {need}</Text>
+                    <Text style={styles.needText}>{t('Niv. {n}', { n: need })}</Text>
                   </View>
                 </>
               )}
@@ -1283,7 +1286,7 @@ export function AvatarPicker({
           <Pressable
             key={color}
             accessibilityRole="button"
-            accessibilityLabel={`Couleur ${color}`}
+            accessibilityLabel={t('Couleur {color}', { color })}
             accessibilityState={{ selected: color === value.color }}
             onPress={() => onChange({ ...value, color })}
             style={[styles.color, { backgroundColor: color }, color === value.color && styles.colorSelected]}

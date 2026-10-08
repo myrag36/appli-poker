@@ -6,14 +6,24 @@ import {
   CHEST_NAMES,
   CHEST_REASONS,
   type Chest,
-  REWARD_KIND_NAMES,
   type RewardKind,
   findReward,
 } from '@appli-poker/engine';
 import { RewardPreview } from './RewardPreview';
 import { openChest } from '../online/progress';
 import { sounds } from '../feedback';
+import { t } from '../i18n';
 import { colors, gradients, shadow } from '../theme';
+
+/** One item of each kind, for "Bordure : Or" when a chest gives it. */
+const KIND_NAME: Record<RewardKind, string> = {
+  frame: 'Bordure',
+  title: 'Titre',
+  avatar: 'Avatar',
+  cardBack: 'Dos de carte',
+  banner: 'Bannière',
+  emote: 'Emote',
+};
 
 /** A treasure chest drawn with shapes; the big one is gold and glows. */
 export function ChestArt({ grand, size = 64, open }: { grand?: boolean; size?: number; open?: boolean }) {
@@ -86,13 +96,13 @@ export function ChestRow({ chests, avatar }: { chests: Chest[]; avatar: Avatar }
   if (chests.length === 0 && !opening) return null;
   return (
     <>
-      <Text style={styles.section}>Mes coffres</Text>
+      <Text style={styles.section}>{t('Mes coffres')}</Text>
       <View style={styles.row}>
         {chests.map((c) => (
           <Pressable
             key={c.id}
             accessibilityRole="button"
-            accessibilityLabel={`Ouvrir : ${CHEST_NAMES[c.kind]}`}
+            accessibilityLabel={t('Ouvrir : {chest}', { chest: t(CHEST_NAMES[c.kind]) })}
             onPress={() => setOpening(c)}
             style={({ pressed }) => [
               styles.tile,
@@ -101,11 +111,11 @@ export function ChestRow({ chests, avatar }: { chests: Chest[]; avatar: Avatar }
             ]}
           >
             <ChestArt grand={c.kind === 'grand'} size={58} />
-            <Text style={styles.tileName}>{CHEST_NAMES[c.kind]}</Text>
+            <Text style={styles.tileName}>{t(CHEST_NAMES[c.kind])}</Text>
             <Text style={styles.tileReason} numberOfLines={1}>
-              {CHEST_REASONS[c.reason] ?? ''}
+              {CHEST_REASONS[c.reason] ? t(CHEST_REASONS[c.reason]) : ''}
             </Text>
-            <Text style={styles.tileOpen}>Ouvrir</Text>
+            <Text style={styles.tileOpen}>{t('Ouvrir')}</Text>
           </Pressable>
         ))}
       </View>
@@ -143,7 +153,7 @@ function ChestOpening({ chest, avatar, onClose }: { chest: Chest; avatar: Avatar
       })
       .catch((e) => {
         wobble.stop();
-        setError((e as Error).message);
+        setError(t((e as Error).message));
       });
     return () => wobble.stop();
   }, [chest.id]);
@@ -156,7 +166,7 @@ function ChestOpening({ chest, avatar, onClose }: { chest: Chest; avatar: Avatar
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View style={[styles.modal, shadow]}>
-          <Text style={styles.kicker}>{CHEST_NAMES[chest.kind]}</Text>
+          <Text style={styles.kicker}>{t(CHEST_NAMES[chest.kind])}</Text>
           <Animated.View style={{ transform: [{ rotate }], marginVertical: 14 }}>
             <ChestArt grand={chest.kind === 'grand'} size={120} open={got !== null} />
           </Animated.View>
@@ -167,21 +177,21 @@ function ChestOpening({ chest, avatar, onClose }: { chest: Chest; avatar: Avatar
                 <View style={styles.lootItem}>
                   <RewardPreview reward={reward} avatar={avatar} big />
                   <Text style={styles.lootName}>
-                    {REWARD_KIND_NAMES[reward.kind].replace(/s$/, '')} : {reward.name}
+                    {t('{kind} : {name}', { kind: t(KIND_NAME[reward.kind]), name: t(reward.name) })}
                   </Text>
-                  <Text style={styles.lootHint}>Il t’attend dans ton profil !</Text>
+                  <Text style={styles.lootHint}>{t('Il t’attend dans ton profil !')}</Text>
                 </View>
               )}
             </Animated.View>
           ) : error ? (
             <Text style={styles.error}>{error}</Text>
           ) : (
-            <Text style={styles.wait}>Ouverture…</Text>
+            <Text style={styles.wait}>{t('Ouverture…')}</Text>
           )}
           {(got || error) && (
             <Pressable accessibilityRole="button" onPress={onClose} style={styles.ok}>
               <LinearGradient colors={gradients.gold} style={styles.okInner}>
-                <Text style={styles.okText}>Super !</Text>
+                <Text style={styles.okText}>{t('Super !')}</Text>
               </LinearGradient>
             </Pressable>
           )}

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Platform, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { findReward } from '@appli-poker/engine';
+import { t } from '../i18n';
 
 const native = Platform.OS !== 'web';
 
@@ -221,7 +222,7 @@ export function TitleBadge({ id, small }: { id: string; small?: boolean }) {
       {tier.shimmer && <Shimmer />}
       <Text style={[styles.text, { color: tier.text, fontSize: font }]} numberOfLines={1}>
         {tier.icon ? `${tier.icon} ` : ''}
-        {reward.name}
+        {t(reward.name)}
       </Text>
     </View>
   );
