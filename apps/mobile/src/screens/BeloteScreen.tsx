@@ -37,6 +37,7 @@ import { TurnTimer } from '../components/TurnTimer';
 import { sounds } from '../feedback';
 import type { OnlineBoardProps, OnlineOptionsProps } from '../online-games/types';
 import { deviceRng } from '../rng';
+import { t } from '../i18n';
 import { colors, gradients, seatColors, shadow } from '../theme';
 
 /** How long a robot seems to think, in ms. */
@@ -44,7 +45,7 @@ const BOT_DELAY = 900;
 /** How long a finished trick stays on the table, in ms. */
 const TRICK_PAUSE = 1300;
 const ME = 0;
-const TEAM_NAMES = ['Nous', 'Eux'];
+const TEAM_NAMES = [t('Nous'), t('Eux')];
 
 interface Settings {
   names: string[];
@@ -85,7 +86,7 @@ function BeloteSetup({
   const [picking, setPicking] = useState(false);
   const [target, setTarget] = useState(1000);
 
-  const me = name.trim() || 'Toi';
+  const me = name.trim() || t('Toi');
   const north = botName([me]);
   const west = botName([me, north]);
   const east = botName([me, north, west]);
@@ -105,22 +106,22 @@ function BeloteSetup({
   return (
     <ScrollView contentContainerStyle={styles.setup} keyboardShouldPersistTaps="handled">
       <Text style={styles.title}>Belote</Text>
-      <Text style={styles.subtitle}>Toi et ton partenaire robot contre deux robots.</Text>
+      <Text style={styles.subtitle}>{t('Toi et ton partenaire robot contre deux robots.')}</Text>
       {onOnline && <OnlineButton onPress={onOnline} />}
       <RulesButton rules={BELOTE_RULES} />
 
-      <Text style={styles.section}>Nous</Text>
+      <Text style={styles.section}>{t('Nous')}</Text>
       <View style={styles.row}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Changer ton avatar"
+          accessibilityLabel={t('Changer ton avatar')}
           onPress={() => setPicking(!picking)}
         >
           <AvatarBadge avatar={avatar} size={40} />
         </Pressable>
         <TextInput
           style={[styles.input, styles.flex]}
-          placeholder="Ton prénom"
+          placeholder={t('Ton prénom')}
           placeholderTextColor={colors.muted}
           value={name}
           maxLength={14}
@@ -128,27 +129,29 @@ function BeloteSetup({
         />
       </View>
       {picking && <AvatarPicker value={avatar} onChange={setAvatar} />}
-      {robotRow('Partenaire', 2)}
+      {robotRow(t('Partenaire'), 2)}
 
-      <Text style={styles.section}>Eux</Text>
-      {robotRow('Adversaire', 1)}
-      {robotRow('Adversaire', 3)}
+      <Text style={styles.section}>{t('Eux')}</Text>
+      {robotRow(t('Adversaire'), 1)}
+      {robotRow(t('Adversaire'), 3)}
 
-      <Text style={styles.section}>Partie en</Text>
+      <Text style={styles.section}>{t('Partie en')}</Text>
       <View style={styles.pills}>
-        <Pill label="501 points" active={target === 501} onPress={() => setTarget(501)} />
-        <Pill label="1000 points" active={target === 1000} onPress={() => setTarget(1000)} />
+        <Pill label={t('501 points')} active={target === 501} onPress={() => setTarget(501)} />
+        <Pill label={t('1000 points')} active={target === 1000} onPress={() => setTarget(1000)} />
       </View>
       <Text style={styles.hint}>
-        {target === 501 ? 'Une partie rapide, environ 5 donnes.' : 'La partie classique, environ 10 donnes.'}
+        {target === 501
+          ? t('Une partie rapide, environ 5 donnes.')
+          : t('La partie classique, environ 10 donnes.')}
       </Text>
 
       <View style={styles.spacer} />
       <Button
-        label="Lancer la partie"
+        label={t('Lancer la partie')}
         onPress={() => onStart({ names, avatars: [avatar, robot(1), robot(2), robot(3)], target })}
       />
-      <Button label="Retour" variant="secondary" onPress={onBack} />
+      <Button label={t('Retour')} variant="secondary" onPress={onBack} />
     </ScrollView>
   );
 }
@@ -219,11 +222,13 @@ function BeloteGame({
   let prompt: string;
   if (holding && game.lastTrick) {
     const w = game.lastTrick.winner;
-    prompt = w === ME ? 'Tu remportes le pli !' : `Pli pour ${names[w]}`;
+    prompt = w === ME ? t('Tu remportes le pli !') : t('Pli pour {name}', { name: names[w] });
   } else if (game.phase === 'dealOver' || game.phase === 'gameOver') {
-    prompt = game.phase === 'gameOver' ? 'Partie terminée' : 'Fin de la donne';
+    prompt = game.phase === 'gameOver' ? t('Partie terminée') : t('Fin de la donne');
   } else if (robotTurn) {
-    prompt = `🤖 ${names[game.toAct]} ${bidding ? 'réfléchit…' : 'joue…'}`;
+    prompt = bidding
+      ? t('🤖 {name} réfléchit…', { name: names[game.toAct] })
+      : t('🤖 {name} joue…', { name: names[game.toAct] });
   } else {
     prompt = myPrompt(game, game.hands[ME], legal);
   }
@@ -232,23 +237,23 @@ function BeloteGame({
   const overlay = !result ? null : game.phase === 'gameOver' ? (
     <FinalPanel game={game} me={ME} names={names}>
       <View style={styles.finalButtons}>
-        <Button compact label="Rejouer" onPress={onReplay} />
-        <Button compact variant="secondary" label="Réglages" onPress={onSettings} />
+        <Button compact label={t('Rejouer')} onPress={onReplay} />
+        <Button compact variant="secondary" label={t('Réglages')} onPress={onSettings} />
       </View>
-      <Button compact variant="secondary" label="Retour aux jeux" onPress={onBack} />
+      <Button compact variant="secondary" label={t('Retour aux jeux')} onPress={onBack} />
     </FinalPanel>
   ) : result.kind === 'redeal' ? (
     <Appear>
-      <Panel compact title="Personne ne prend">
-        <PanelText>On redistribue, c’est au joueur suivant de donner.</PanelText>
-        <Button compact label="Redistribuer" onPress={onNext} />
+      <Panel compact title={t('Personne ne prend')}>
+        <PanelText>{t('On redistribue, c’est au joueur suivant de donner.')}</PanelText>
+        <Button compact label={t('Redistribuer')} onPress={onNext} />
       </Panel>
     </Appear>
   ) : (
     <Appear>
       <DealSummary game={game} names={names} me={ME} />
       <View style={styles.nextButton}>
-        <Button compact label="Donne suivante" onPress={onNext} />
+        <Button compact label={t('Donne suivante')} onPress={onNext} />
       </View>
     </Appear>
   );
@@ -261,9 +266,9 @@ function BeloteGame({
   return (
     <GameLayout
       top={
-        <TopBar onBack={onBack} backLabel="← Quitter">
-          <ScorePill label="Nous" value={game.scores[0]} mine />
-          <ScorePill label="Eux" value={game.scores[1]} />
+        <TopBar onBack={onBack} backLabel={t('← Quitter')}>
+          <ScorePill label={t('Nous')} value={game.scores[0]} mine />
+          <ScorePill label={t('Eux')} value={game.scores[1]} />
           <Text style={styles.target}>/ {game.target}</Text>
         </TopBar>
       }
@@ -306,8 +311,8 @@ function BeloteGame({
 /** What to tell me when it is my turn. */
 function myPrompt(game: Omit<BeloteState, 'hands' | 'stock'>, hand: Card[], legal: Card[]): string {
   if (game.phase === 'bidding1')
-    return `À toi : tu prends à ${BELOTE_SUIT_SYMBOLS[game.turnUp![1] as BeloteSuit]} ?`;
-  if (game.phase === 'bidding2') return 'Second tour : choisis l’atout ou passe';
+    return t('À toi : tu prends à {suit} ?', { suit: BELOTE_SUIT_SYMBOLS[game.turnUp![1] as BeloteSuit] });
+  if (game.phase === 'bidding2') return t('Second tour : choisis l’atout ou passe');
   return playHint(game, hand, legal);
 }
 
@@ -328,14 +333,14 @@ function BidButtons({
         <Button
           compact
           disabled={disabled}
-          label={`Prendre ${BELOTE_SUIT_SYMBOLS[turned!]}`}
+          label={t('Prendre {suit}', { suit: BELOTE_SUIT_SYMBOLS[turned!] })}
           onPress={() => onMove({ type: 'take' })}
         />
         <Button
           compact
           disabled={disabled}
           variant="secondary"
-          label="Passer"
+          label={t('Passer')}
           onPress={() => onMove({ type: 'pass' })}
         />
       </View>
@@ -348,7 +353,7 @@ function BidButtons({
             key={s}
             compact
             disabled={disabled}
-            label={`À ${BELOTE_SUIT_SYMBOLS[s]}`}
+            label={t('À {suit}', { suit: BELOTE_SUIT_SYMBOLS[s] })}
             onPress={() => onMove({ type: 'choose', suit: s })}
           />
         ))}
@@ -356,7 +361,7 @@ function BidButtons({
           compact
           disabled={disabled}
           variant="secondary"
-          label="Passer"
+          label={t('Passer')}
           onPress={() => onMove({ type: 'pass' })}
         />
       </View>
@@ -391,7 +396,7 @@ function BeloteHand({
           <Pressable
             key={c}
             accessibilityRole="button"
-            accessibilityLabel={`Jouer ${c}`}
+            accessibilityLabel={t('Jouer {card}', { card: c })}
             disabled={!playable}
             onPress={() => onPlay(c)}
             style={[
@@ -412,19 +417,19 @@ function BeloteHand({
 }
 
 function playHint(game: Omit<BeloteState, 'hands' | 'stock'>, hand: Card[], legal: Card[]): string {
-  if (game.trick.length === 0) return 'À toi d’entamer';
+  if (game.trick.length === 0) return t('À toi d’entamer');
   const led = game.trick[0].card[1] as BeloteSuit;
   const trump = game.trump!;
-  if (legal.length === hand.length) return 'À toi : joue ce que tu veux';
+  if (legal.length === hand.length) return t('À toi : joue ce que tu veux');
   if (hand.some((c) => c[1] === led)) {
     if (led === trump && legal.length < hand.filter((c) => c[1] === led).length)
-      return 'À toi : monte à l’atout !';
-    return `À toi : fournis à ${BELOTE_SUIT_SYMBOLS[led]}`;
+      return t('À toi : monte à l’atout !');
+    return t('À toi : fournis à {suit}', { suit: BELOTE_SUIT_SYMBOLS[led] });
   }
   const trumped = game.trick.some((p) => p.card[1] === trump);
   return trumped && legal.length < hand.filter((c) => c[1] === trump).length
-    ? 'À toi : surcoupe !'
-    : `À toi : coupe à ${BELOTE_SUIT_SYMBOLS[trump]} !`;
+    ? t('À toi : surcoupe !')
+    : t('À toi : coupe à {suit} !', { suit: BELOTE_SUIT_SYMBOLS[trump] });
 }
 
 function ScorePill({ label, value, mine }: { label: string; value: number; mine?: boolean }) {
@@ -455,9 +460,9 @@ function SuitChip({ suit, size = 22 }: { suit: BeloteSuit; size?: number }) {
 // ------------------------------------------------------------------ Table
 
 function bidText(bid: 'pass' | 'take' | BeloteSuit): string {
-  if (bid === 'pass') return 'Passe';
-  if (bid === 'take') return 'Je prends !';
-  return `À ${BELOTE_SUIT_SYMBOLS[bid]} !`;
+  if (bid === 'pass') return t('Passe');
+  if (bid === 'take') return t('Je prends !');
+  return t('À {suit} !', { suit: BELOTE_SUIT_SYMBOLS[bid] });
 }
 
 /** The deal as the table shows it: hands are given as counts, so a player's own view is enough. */
@@ -466,7 +471,7 @@ type TableGame = Omit<BeloteState, 'hands' | 'stock'>;
 /** Team names from my side of the table; a spectator sees the players' names instead. */
 function teamName(team: number, me: number, names: string[]): string {
   if (me < 0) return `${names[team]} & ${names[team + 2]}`;
-  return team === beloteTeamOf(me) ? 'Nous' : 'Eux';
+  return team === beloteTeamOf(me) ? t('Nous') : t('Eux');
 }
 
 function BeloteTable({
@@ -548,18 +553,18 @@ function BeloteTable({
       {/* Trump and taker, in the corner. */}
       {game.trump && game.taker !== null && (
         <Appear style={styles.trumpBox} from={-10}>
-          <Text style={styles.trumpLabel}>Atout</Text>
+          <Text style={styles.trumpLabel}>{t('Atout')}</Text>
           <SuitChip suit={game.trump} size={30} />
           <Text style={styles.trumpTaker} numberOfLines={1}>
-            {game.taker === me ? 'pris par toi' : `pris par ${names[game.taker]}`}
+            {game.taker === me ? t('pris par toi') : t('pris par {name}', { name: names[game.taker] })}
           </Text>
         </Appear>
       )}
       <View style={styles.dealBox}>
-        <Text style={styles.dealText}>Donne {game.dealNumber}</Text>
+        <Text style={styles.dealText}>{t('Donne {n}', { n: game.dealNumber })}</Text>
         {game.phase === 'playing' && (
           <Text style={styles.dealText}>
-            Plis {myTeamTricks}–{theirTricks}
+            {t('Plis {us}–{them}', { us: myTeamTricks, them: theirTricks })}
           </Text>
         )}
       </View>
@@ -620,7 +625,9 @@ function BeloteTable({
             )}
             {game.announce?.player === seat && (
               <FloatUp key={`${game.dealNumber}-${game.announce.text}`} style={styles.announce}>
-                <Text style={styles.announceText}>{game.announce.text} !</Text>
+                <Text style={styles.announceText}>
+                  {game.announce.text === 'Belote' ? t('Belote !') : t('Rebelote !')}
+                </Text>
               </FloatUp>
             )}
           </View>
@@ -636,7 +643,7 @@ function BeloteTable({
           <Appear key={`${game.dealNumber}`} from={-20}>
             <PlayingCard card={game.turnUp} width={cw} />
           </Appear>
-          <Text style={styles.turnUpLabel}>{game.phase === 'bidding1' ? 'Retournée' : '2e tour'}</Text>
+          <Text style={styles.turnUpLabel}>{game.phase === 'bidding1' ? t('Retournée') : t('2e tour')}</Text>
         </View>
       )}
 
@@ -671,23 +678,25 @@ function DealSummary({ game, names, me }: { game: TableGame; names: string[]; me
   const us = r.takerTeam === myTeam;
   let title: string;
   if (me < 0) {
-    title = r.capot !== null ? 'Capot !' : r.made ? 'Contrat réussi' : 'Dedans !';
-  } else if (r.capot !== null) title = r.capot === myTeam ? 'Capot ! 🎉' : 'Capot pour eux…';
-  else if (!r.made) title = us ? 'Dedans… 😬' : 'Ils sont dedans ! 🎉';
-  else title = us ? 'Contrat réussi ✅' : 'Contrat réussi pour eux';
+    title = r.capot !== null ? t('Capot !') : r.made ? t('Contrat réussi') : t('Dedans !');
+  } else if (r.capot !== null) title = r.capot === myTeam ? t('Capot ! 🎉') : t('Capot pour eux…');
+  else if (!r.made) title = us ? t('Dedans… 😬') : t('Ils sont dedans ! 🎉');
+  else title = us ? t('Contrat réussi ✅') : t('Contrat réussi pour eux');
   return (
     <View style={styles.summary}>
       <Text style={styles.summaryTitle}>{title}</Text>
       <View style={styles.summaryTaker}>
-        <Text style={styles.summaryText}>{r.taker === me ? 'Tu as pris' : `${names[r.taker]} a pris`} à</Text>
+        <Text style={styles.summaryText}>
+          {r.taker === me ? t('Tu as pris à') : t('{name} a pris à', { name: names[r.taker] })}
+        </Text>
         <SuitChip suit={r.trump} size={20} />
       </View>
       <View style={styles.summaryTable}>
         <View style={styles.summaryRow}>
           <Text style={[styles.cell, styles.cellHead, styles.cellName]} />
-          <Text style={[styles.cell, styles.cellHead]}>Points</Text>
-          <Text style={[styles.cell, styles.cellHead]}>Belote</Text>
-          <Text style={[styles.cell, styles.cellHead]}>Marqué</Text>
+          <Text style={[styles.cell, styles.cellHead]}>{t('Points')}</Text>
+          <Text style={[styles.cell, styles.cellHead]}>{t('Belote')}</Text>
+          <Text style={[styles.cell, styles.cellHead]}>{t('Marqué')}</Text>
         </View>
         {[myTeam, other].map((team) => (
           <View key={team} style={styles.summaryRow}>
@@ -702,7 +711,9 @@ function DealSummary({ game, names, me }: { game: TableGame; names: string[]; me
       </View>
       {!r.made && (
         <Text style={styles.summaryNote}>
-          Le preneur n’a pas fait plus que la défense : {r.capot !== null ? 252 : 162} pour la défense.
+          {t('Le preneur n’a pas fait plus que la défense : {n} pour la défense.', {
+            n: r.capot !== null ? 252 : 162,
+          })}
         </Text>
       )}
       <Text style={styles.summaryTotal}>
@@ -730,10 +741,10 @@ function FinalPanel({
   const won = game.winner === myTeam;
   const title =
     me < 0
-      ? `${teamName(game.winner ?? 0, me, names)} gagnent la partie !`
+      ? t('{team} gagnent la partie !', { team: teamName(game.winner ?? 0, me, names) })
       : won
-        ? 'Vous gagnez la partie !'
-        : 'Eux gagnent la partie';
+        ? t('Vous gagnez la partie !')
+        : t('Eux gagnent la partie');
   return (
     <Appear>
       <View style={styles.summary}>
@@ -750,7 +761,7 @@ function FinalPanel({
           ))}
         </View>
         <Text style={styles.summaryText}>
-          En {game.dealNumber} donnes · objectif {game.target}
+          {t('En {n} donnes · objectif {target}', { n: game.dealNumber, target: game.target })}
         </Text>
         <DealSummaryLine game={game} me={me} names={names} />
         {children}
@@ -766,9 +777,19 @@ function DealSummaryLine({ game, me, names }: { game: TableGame; me: number; nam
   const other = 1 - myTeam;
   return (
     <Text style={styles.summaryNote}>
-      Dernière donne : {teamName(myTeam, me, names)} +{r.dealPoints[myTeam]}, {teamName(other, me, names)} +
-      {r.dealPoints[other]}
-      {r.capot !== null ? ' (capot)' : !r.made ? ' (dedans)' : ''}
+      {t(
+        r.capot !== null
+          ? 'Dernière donne : {us} +{a}, {them} +{b} (capot)'
+          : !r.made
+            ? 'Dernière donne : {us} +{a}, {them} +{b} (dedans)'
+            : 'Dernière donne : {us} +{a}, {them} +{b}',
+        {
+          us: teamName(myTeam, me, names),
+          a: r.dealPoints[myTeam],
+          them: teamName(other, me, names),
+          b: r.dealPoints[other],
+        },
+      )}
     </Text>
   );
 }
@@ -1050,21 +1071,23 @@ export function BeloteOnlineOptions({ value, onChange }: OnlineOptionsProps) {
   const target = value.target === 501 ? 501 : 1000;
   return (
     <View>
-      <Text style={styles.section}>Partie en</Text>
+      <Text style={styles.section}>{t('Partie en')}</Text>
       <View style={styles.pills}>
         <Pill
-          label="501 points"
+          label={t('501 points')}
           active={target === 501}
           onPress={() => onChange({ ...value, target: 501 })}
         />
         <Pill
-          label="1000 points"
+          label={t('1000 points')}
           active={target === 1000}
           onPress={() => onChange({ ...value, target: 1000 })}
         />
       </View>
       <Text style={styles.hint}>
-        {target === 501 ? 'Une partie rapide, environ 5 donnes.' : 'La partie classique, environ 10 donnes.'}
+        {target === 501
+          ? t('Une partie rapide, environ 5 donnes.')
+          : t('La partie classique, environ 10 donnes.')}
       </Text>
     </View>
   );
@@ -1122,13 +1145,14 @@ export function BeloteOnlineBoard({
   let prompt: string;
   if (shownHold && game.lastTrick) {
     const w = game.lastTrick.winner;
-    prompt = w === me ? 'Tu remportes le pli !' : `Pli pour ${names[w]}`;
+    prompt = w === me ? t('Tu remportes le pli !') : t('Pli pour {name}', { name: names[w] });
   } else if (game.phase === 'dealOver' || game.phase === 'gameOver') {
-    prompt = game.phase === 'gameOver' ? 'Partie terminée' : 'Fin de la donne';
+    prompt = game.phase === 'gameOver' ? t('Partie terminée') : t('Fin de la donne');
   } else if (myTurn) {
     prompt = myPrompt(game, game.hands[me], legal);
   } else if (actor) {
-    prompt = `${actor.bot ? '🤖 ' : ''}${actor.name} ${bidding ? 'réfléchit…' : 'joue…'}`;
+    const who = `${actor.bot ? '🤖 ' : ''}${actor.name}`;
+    prompt = bidding ? t('{name} réfléchit…', { name: who }) : t('{name} joue…', { name: who });
   } else {
     prompt = '';
   }
@@ -1136,20 +1160,27 @@ export function BeloteOnlineBoard({
   const nextIn = deadline ? Math.max(0, Math.ceil((deadline - now) / 1000)) : null;
   const nextHint = (
     <Text style={styles.summaryNote}>
-      {nextIn ? `La suite commence toute seule dans ${nextIn} s.` : 'La suite commence toute seule.'}
+      {nextIn
+        ? t('La suite commence toute seule dans {n} s.', { n: nextIn })
+        : t('La suite commence toute seule.')}
     </Text>
   );
   const result = game.result;
   const overlay = !result ? null : game.phase === 'gameOver' ? (
     <FinalPanel game={game} me={me} names={names}>
-      <Button compact label="Quitter la table" onPress={onLeave} />
+      <Button compact label={t('Quitter la table')} onPress={onLeave} />
     </FinalPanel>
   ) : result.kind === 'redeal' ? (
     <Appear>
-      <Panel compact title="Personne ne prend">
-        <PanelText>On redistribue, c’est au joueur suivant de donner.</PanelText>
+      <Panel compact title={t('Personne ne prend')}>
+        <PanelText>{t('On redistribue, c’est au joueur suivant de donner.')}</PanelText>
         {me >= 0 && (
-          <Button compact label="Redistribuer" disabled={busy} onPress={() => onMove({ type: 'next' })} />
+          <Button
+            compact
+            label={t('Redistribuer')}
+            disabled={busy}
+            onPress={() => onMove({ type: 'next' })}
+          />
         )}
         {nextHint}
       </Panel>
@@ -1159,7 +1190,12 @@ export function BeloteOnlineBoard({
       <DealSummary game={game} names={names} me={me} />
       <View style={styles.nextButton}>
         {me >= 0 && (
-          <Button compact label="Donne suivante" disabled={busy} onPress={() => onMove({ type: 'next' })} />
+          <Button
+            compact
+            label={t('Donne suivante')}
+            disabled={busy}
+            onPress={() => onMove({ type: 'next' })}
+          />
         )}
         {nextHint}
       </View>
@@ -1170,13 +1206,13 @@ export function BeloteOnlineBoard({
     <GameLayout
       top={
         <>
-          <TopBar onBack={onLeave} backLabel="← Quitter">
+          <TopBar onBack={onLeave} backLabel={t('← Quitter')}>
             <ScorePill label={teamName(myTeam, me, names)} value={game.scores[myTeam]} mine />
             <ScorePill label={teamName(1 - myTeam, me, names)} value={game.scores[1 - myTeam]} />
             <Text style={styles.target}>/ {game.target}</Text>
           </TopBar>
           {deadline && actor && !actor.bot && (
-            <TurnTimer deadline={deadline} now={now} name={myTurn ? 'Toi' : actor.name} seconds={60} />
+            <TurnTimer deadline={deadline} now={now} name={myTurn ? t('Toi') : actor.name} seconds={60} />
           )}
         </>
       }

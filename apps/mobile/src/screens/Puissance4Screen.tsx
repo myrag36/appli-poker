@@ -40,6 +40,7 @@ import { reportFeat, reportLocalGame } from '../online/progress';
 import { deviceRng } from '../rng';
 import { PUISSANCE4_RULES } from '../rules';
 import { colors } from '../theme';
+import { t, tn } from '../i18n';
 
 const native = Platform.OS !== 'web';
 
@@ -50,9 +51,9 @@ const BOARD_BLUE = '#1f5fd1';
 const BOARD_BLUE_DARK = '#123f9a';
 
 const LEVEL_HINTS: Record<P4Level, string> = {
-  facile: 'Il joue un peu au hasard et rate parfois tes menaces.',
-  moyen: 'Il bloque tes alignements et prépare les siens.',
-  difficile: 'Il calcule plusieurs coups à l’avance. Bonne chance !',
+  facile: t('Il joue un peu au hasard et rate parfois tes menaces.'),
+  moyen: t('Il bloque tes alignements et prépare les siens.'),
+  difficile: t('Il calcule plusieurs coups à l’avance. Bonne chance !'),
 };
 
 interface Settings {
@@ -115,8 +116,8 @@ function Setup({
   const [picking, setPicking] = useState<0 | 1 | null>(null);
 
   const cleaned: [string, string] = [
-    names[0].trim() || 'Joueur 1',
-    vsBot ? 'Robby' : names[1].trim() || 'Joueur 2',
+    names[0].trim() || t('Joueur {n}', { n: 1 }),
+    vsBot ? 'Robby' : names[1].trim() || t('Joueur {n}', { n: 2 }),
   ];
   const duplicate = cleaned[0] === cleaned[1];
 
@@ -129,25 +130,25 @@ function Setup({
             <AvatarBadge avatar={ROBOT_AVATAR} size={40} />
             <View style={[styles.input, styles.flex, styles.botRow]}>
               <Text style={styles.botName}>Robby</Text>
-              <Text style={styles.botTag}>Robot · {P4_LEVEL_LABELS[level]}</Text>
+              <Text style={styles.botTag}>{t('Robot · {level}', { level: t(P4_LEVEL_LABELS[level]) })}</Text>
             </View>
           </>
         ) : (
           <>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`Changer l'avatar du joueur ${i + 1}`}
+              accessibilityLabel={t("Changer l'avatar du joueur {n}", { n: i + 1 })}
               onPress={() => setPicking(picking === i ? null : i)}
             >
               <AvatarBadge avatar={avatars[i]} size={40} />
             </Pressable>
             <TextInput
               style={[styles.input, styles.flex, styles.nameInput]}
-              placeholder={`Joueur ${i + 1}`}
+              placeholder={t('Joueur {n}', { n: i + 1 })}
               placeholderTextColor={colors.muted}
               value={names[i]}
               maxLength={14}
-              onChangeText={(t) => setNames(i === 0 ? [t, names[1]] : [names[0], t])}
+              onChangeText={(v) => setNames(i === 0 ? [v, names[1]] : [names[0], v])}
             />
           </>
         )}
@@ -168,40 +169,40 @@ function Setup({
           <Token key={i} player={p} size={34} style={{ transform: [{ translateY: i === 1 ? -6 : 0 }] }} />
         ))}
       </View>
-      <Text style={styles.title}>Puissance 4</Text>
-      <Text style={styles.subtitle}>7 colonnes, 6 rangées, 4 jetons à aligner</Text>
+      <Text style={styles.title}>{t('Puissance 4')}</Text>
+      <Text style={styles.subtitle}>{t('7 colonnes, 6 rangées, 4 jetons à aligner')}</Text>
       <RulesButton rules={PUISSANCE4_RULES} />
 
-      <Text style={styles.section}>Adversaire</Text>
+      <Text style={styles.section}>{t('Adversaire')}</Text>
       <View style={styles.pills}>
-        <Pill label="🤖 Contre le robot" active={vsBot} onPress={() => setVsBot(true)} />
-        <Pill label="👥 À deux sur ce téléphone" active={!vsBot} onPress={() => setVsBot(false)} />
+        <Pill label={t('🤖 Contre le robot')} active={vsBot} onPress={() => setVsBot(true)} />
+        <Pill label={t('👥 À deux sur ce téléphone')} active={!vsBot} onPress={() => setVsBot(false)} />
       </View>
       {vsBot && (
         <>
-          <Text style={styles.section}>Niveau du robot</Text>
+          <Text style={styles.section}>{t('Niveau du robot')}</Text>
           <View style={styles.pills}>
             {(['facile', 'moyen', 'difficile'] as P4Level[]).map((l) => (
-              <Pill key={l} label={P4_LEVEL_LABELS[l]} active={level === l} onPress={() => setLevel(l)} />
+              <Pill key={l} label={t(P4_LEVEL_LABELS[l])} active={level === l} onPress={() => setLevel(l)} />
             ))}
           </View>
           <Text style={styles.hint}>{LEVEL_HINTS[level]}</Text>
         </>
       )}
 
-      <Text style={styles.section}>Joueurs</Text>
+      <Text style={styles.section}>{t('Joueurs')}</Text>
       {playerRow(0)}
       {playerRow(1)}
       <Text style={styles.hint}>
         {vsBot
-          ? 'Tu joues les rouges. On joue autant de manches que tu veux, et on alterne qui commence.'
-          : 'On se passe le téléphone à chaque coup. Rouge commence la première manche, puis on alterne.'}
+          ? t('Tu joues les rouges. On joue autant de manches que tu veux, et on alterne qui commence.')
+          : t('On se passe le téléphone à chaque coup. Rouge commence la première manche, puis on alterne.')}
       </Text>
-      {duplicate && <Text style={styles.error}>Les deux joueurs ont le même nom.</Text>}
+      {duplicate && <Text style={styles.error}>{t('Les deux joueurs ont le même nom.')}</Text>}
 
       <View style={styles.spacer} />
       <Button
-        label="Lancer la partie"
+        label={t('Lancer la partie')}
         disabled={duplicate}
         onPress={() =>
           onStart({
@@ -212,7 +213,7 @@ function Setup({
           })
         }
       />
-      <Button label="Retour" variant="secondary" onPress={onBack} />
+      <Button label={t('Retour')} variant="secondary" onPress={onBack} />
     </ScrollView>
   );
 }
@@ -279,20 +280,20 @@ function Match({
   const humans = settings.vsBot ? 1 : 2;
   const prompt = finished
     ? game.draw
-      ? '🤝 Grille pleine : match nul !'
-      : `🏆 ${name(game.winner!)} gagne la manche !`
+      ? t('🤝 Grille pleine : match nul !')
+      : t('🏆 {name} gagne la manche !', { name: name(game.winner!) })
     : botTurn
-      ? `🤖 ${name(game.current)} réfléchit…`
+      ? t('🤖 {name} réfléchit…', { name: name(game.current) })
       : humans > 1
-        ? `À toi, ${name(game.current)} !`
-        : 'À toi de jouer !';
+        ? t('À toi, {name} !', { name: name(game.current) })
+        : t('À toi de jouer !');
 
   return (
     <GameLayout
       top={
         <>
-          <TopBar onBack={onQuit} backLabel="← Quitter">
-            <Text style={styles.round}>Manche {game.round}</Text>
+          <TopBar onBack={onQuit} backLabel={t('← Quitter')}>
+            <Text style={styles.round}>{t('Manche {n}', { n: game.round })}</Text>
           </TopBar>
           <Scoreboard game={game} settings={settings} />
         </>
@@ -313,7 +314,7 @@ function Match({
             <View style={styles.buttons}>
               <View style={styles.flex}>
                 <Button
-                  label="Manche suivante"
+                  label={t('Manche suivante')}
                   onPress={() => {
                     setGame(p4NextRound(game));
                     sounds.chips();
@@ -321,14 +322,14 @@ function Match({
                 />
               </View>
               <View style={styles.flex}>
-                <Button label="Terminer" variant="secondary" onPress={() => setOver(true)} />
+                <Button label={t('Terminer')} variant="secondary" onPress={() => setOver(true)} />
               </View>
             </View>
           ) : (
             <Text style={styles.help}>
               {botTurn
-                ? `${TOKEN_NAMES[game.current]} joue…`
-                : 'Touche une colonne pour y faire tomber ton jeton.'}
+                ? t('{name} joue…', { name: TOKEN_NAMES[game.current] })
+                : t('Touche une colonne pour y faire tomber ton jeton.')}
             </Text>
           )}
         </View>
@@ -352,7 +353,9 @@ function Scoreboard({ game, settings }: { game: P4State; settings: Settings }) {
             {settings.names[p]}
           </Text>
           <Text style={styles.scoreSub} numberOfLines={1}>
-            {settings.vsBot && p === 1 ? `Robot ${P4_LEVEL_LABELS[settings.level]}` : TOKEN_NAMES[p]}
+            {settings.vsBot && p === 1
+              ? t('Robot {level}', { level: t(P4_LEVEL_LABELS[settings.level]) })
+              : TOKEN_NAMES[p]}
           </Text>
         </View>
         <Text style={[styles.scoreValue, { color: TOKEN_COLORS[p].fill }]}>{game.scores[p]}</Text>
@@ -363,12 +366,8 @@ function Scoreboard({ game, settings }: { game: P4State; settings: Settings }) {
     <View style={styles.scoreboard}>
       {cell(0)}
       <View style={styles.scoreMiddle}>
-        <Text style={styles.scoreVs}>VS</Text>
-        {game.draws > 0 && (
-          <Text style={styles.scoreDraws}>
-            {game.draws} nul{game.draws > 1 ? 's' : ''}
-          </Text>
-        )}
+        <Text style={styles.scoreVs}>{t('VS')}</Text>
+        {game.draws > 0 && <Text style={styles.scoreDraws}>{tn(game.draws, '{n} nul', '{n} nuls')}</Text>}
       </View>
       {cell(1)}
     </View>
@@ -389,17 +388,17 @@ function Falling({
   x: number;
   y: number;
 }) {
-  const t = useRef(new Animated.Value(from)).current;
+  const fall = useRef(new Animated.Value(from)).current;
   useEffect(() => {
-    Animated.timing(t, {
+    Animated.timing(fall, {
       toValue: 0,
       duration: 260 + Math.sqrt(Math.abs(from)) * 22,
       easing: Easing.bounce,
       useNativeDriver: native,
     }).start();
-  }, [t]);
+  }, [fall]);
   return (
-    <Animated.View style={[styles.abs, { left: x, top: y, transform: [{ translateY: t }] }]}>
+    <Animated.View style={[styles.abs, { left: x, top: y, transform: [{ translateY: fall }] }]}>
       <Token player={player} size={size} />
     </Animated.View>
   );
@@ -407,12 +406,12 @@ function Falling({
 
 /** White rings that pulse around the winning tokens. */
 function WinRing({ x, y, size }: { x: number; y: number; size: number }) {
-  const t = useRef(new Animated.Value(0)).current;
+  const pulse = useRef(new Animated.Value(0)).current;
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(t, { toValue: 1, duration: 550, useNativeDriver: native }),
-        Animated.timing(t, { toValue: 0, duration: 550, useNativeDriver: native }),
+        Animated.timing(pulse, { toValue: 1, duration: 550, useNativeDriver: native }),
+        Animated.timing(pulse, { toValue: 0, duration: 550, useNativeDriver: native }),
       ]),
     );
     // Wait for the last token to land first.
@@ -421,7 +420,7 @@ function WinRing({ x, y, size }: { x: number; y: number; size: number }) {
       clearTimeout(id);
       loop.stop();
     };
-  }, [t]);
+  }, [pulse]);
   return (
     <Animated.View
       pointerEvents="none"
@@ -435,8 +434,8 @@ function WinRing({ x, y, size }: { x: number; y: number; size: number }) {
           height: size,
           borderRadius: size / 2,
           borderWidth: Math.max(3, size * 0.09),
-          opacity: t.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] }),
-          transform: [{ scale: t.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) }],
+          opacity: pulse.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] }),
+          transform: [{ scale: pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.08] }) }],
         },
       ]}
     />
@@ -563,7 +562,7 @@ function Board({
           <Pressable
             key={c}
             accessibilityRole="button"
-            accessibilityLabel={`Colonne ${c + 1}`}
+            accessibilityLabel={t('Colonne {n}', { n: c + 1 })}
             disabled={!canPlay || p4DropRow(game.board, c) < 0}
             onPressIn={() => setAim(c)}
             onHoverIn={() => setAim(c)}
@@ -604,10 +603,10 @@ function MatchResults({
   const played = a + b + game.draws;
   const headline =
     winner === null
-      ? 'Égalité parfaite !'
+      ? t('Égalité parfaite !')
       : settings.vsBot && winner === 1
-        ? `${settings.names[1]} remporte le match`
-        : `${settings.names[winner]} remporte le match !`;
+        ? t('{name} remporte le match', { name: settings.names[1] })
+        : t('{name} remporte le match !', { name: settings.names[winner] });
   const side = (p: P4Player) => (
     <View style={[styles.finalSide, winner === p && styles.finalWinner]}>
       <AvatarBadge avatar={settings.avatars[p]} size={52} />
@@ -628,9 +627,11 @@ function MatchResults({
         </Text>
         <Text style={styles.winner}>{headline}</Text>
         <Text style={styles.resultsSub}>
-          {played} manche{played > 1 ? 's' : ''} jouée{played > 1 ? 's' : ''}
-          {game.draws > 0 ? ` · ${game.draws} nulle${game.draws > 1 ? 's' : ''}` : ''}
-          {settings.vsBot ? ` · robot ${P4_LEVEL_LABELS[settings.level].toLowerCase()}` : ''}
+          {tn(played, '{n} manche jouée', '{n} manches jouées')}
+          {game.draws > 0 ? ` · ${tn(game.draws, '{n} nulle', '{n} nulles')}` : ''}
+          {settings.vsBot
+            ? ` · ${t('robot {level}', { level: t(P4_LEVEL_LABELS[settings.level]).toLowerCase() })}`
+            : ''}
         </Text>
       </Appear>
       <View style={styles.finalRow}>
@@ -639,9 +640,9 @@ function MatchResults({
         {side(1)}
       </View>
       <View style={styles.spacer} />
-      <Button label="Rejouer" onPress={onReplay} />
-      <Button label="Changer les réglages" variant="secondary" onPress={onSettings} />
-      <Button label="Retour aux jeux" variant="secondary" onPress={onHome} />
+      <Button label={t('Rejouer')} onPress={onReplay} />
+      <Button label={t('Changer les réglages')} variant="secondary" onPress={onSettings} />
+      <Button label={t('Retour aux jeux')} variant="secondary" onPress={onHome} />
     </ScrollView>
   );
 }

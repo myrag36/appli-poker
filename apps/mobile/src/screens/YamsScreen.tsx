@@ -39,6 +39,7 @@ import type { OnlineBoardProps } from '../online-games/types';
 import { sounds } from '../feedback';
 import { deviceRng } from '../rng';
 import { colors, gradients, shadow, theme } from '../theme';
+import { t, tn } from '../i18n';
 
 /** How long a robot seems to think before each step (roll, keep a die, score), in ms. */
 const BOT_DELAY = 750;
@@ -98,7 +99,7 @@ function YamsSetup({
   const [bots, setBots] = useState(initial?.bots ?? [false, true]);
   const [picking, setPicking] = useState<number | null>(null);
 
-  const cleaned = names.map((n, i) => n.trim() || `Joueur ${i + 1}`);
+  const cleaned = names.map((n, i) => n.trim() || t('Joueur {n}', { n: i + 1 }));
   const duplicate = new Set(cleaned).size !== cleaned.length;
   const valid = !duplicate && bots.includes(false);
 
@@ -121,11 +122,11 @@ function YamsSetup({
         ))}
       </View>
       <Text style={styles.title}>Yams</Text>
-      <Text style={styles.subtitle}>5 dés, 3 lancers, 13 cases à remplir</Text>
+      <Text style={styles.subtitle}>{t('5 dés, 3 lancers, 13 cases à remplir')}</Text>
       {onOnline && <OnlineButton onPress={onOnline} />}
       <RulesButton rules={YAMS_RULES} />
 
-      <Text style={styles.section}>Joueurs</Text>
+      <Text style={styles.section}>{t('Joueurs')}</Text>
       {names.map((name, i) => (
         <View key={i}>
           <View style={styles.row}>
@@ -134,25 +135,25 @@ function YamsSetup({
                 <AvatarBadge avatar={avatars[i]} size={40} />
                 <View style={[styles.input, styles.flex, styles.botRow]}>
                   <Text style={styles.botName}>{name}</Text>
-                  <Text style={styles.botTag}>Robot</Text>
+                  <Text style={styles.botTag}>{t('Robot')}</Text>
                 </View>
               </>
             ) : (
               <>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Changer l'avatar du joueur ${i + 1}`}
+                  accessibilityLabel={t("Changer l'avatar du joueur {n}", { n: i + 1 })}
                   onPress={() => setPicking(picking === i ? null : i)}
                 >
                   <AvatarBadge avatar={avatars[i]} size={40} />
                 </Pressable>
                 <TextInput
                   style={[styles.input, styles.flex, styles.nameInput]}
-                  placeholder={`Joueur ${i + 1}`}
+                  placeholder={t('Joueur {n}', { n: i + 1 })}
                   placeholderTextColor={colors.muted}
                   value={name}
                   maxLength={14}
-                  onChangeText={(t) => setNames(names.map((n, j) => (j === i ? t : n)))}
+                  onChangeText={(v) => setNames(names.map((n, j) => (j === i ? v : n)))}
                 />
               </>
             )}
@@ -182,26 +183,26 @@ function YamsSetup({
       {names.length < YAMS_MAX_PLAYERS && (
         <View style={styles.row}>
           <View style={styles.flex}>
-            <Button label="+ Joueur" variant="secondary" onPress={() => addPlayer(false)} />
+            <Button label={t('+ Joueur')} variant="secondary" onPress={() => addPlayer(false)} />
           </View>
           <View style={styles.flex}>
-            <Button label="+ Robot 🤖" variant="secondary" onPress={() => addPlayer(true)} />
+            <Button label={t('+ Robot 🤖')} variant="secondary" onPress={() => addPlayer(true)} />
           </View>
         </View>
       )}
       <Text style={styles.hint}>
-        De 1 à 6 joueurs sur ce téléphone : on se le passe à chaque tour, rien n’est caché.
+        {t('De 1 à 6 joueurs sur ce téléphone : on se le passe à chaque tour, rien n’est caché.')}
       </Text>
-      {duplicate && <Text style={styles.error}>Deux joueurs ont le même nom.</Text>}
-      {!bots.includes(false) && <Text style={styles.error}>Il faut au moins un joueur humain.</Text>}
+      {duplicate && <Text style={styles.error}>{t('Deux joueurs ont le même nom.')}</Text>}
+      {!bots.includes(false) && <Text style={styles.error}>{t('Il faut au moins un joueur humain.')}</Text>}
 
       <View style={styles.spacer} />
       <Button
-        label="Lancer la partie"
+        label={t('Lancer la partie')}
         disabled={!valid}
         onPress={() => onStart({ names: cleaned, avatars, bots })}
       />
-      <Button label="Retour" variant="secondary" onPress={onBack} />
+      <Button label={t('Retour')} variant="secondary" onPress={onBack} />
     </ScrollView>
   );
 }
@@ -282,21 +283,21 @@ function YamsGame({
   }
 
   const prompt = botTurn
-    ? `🤖 ${player.name} réfléchit…`
+    ? t('🤖 {name} réfléchit…', { name: player.name })
     : !rolled
       ? humans > 1
-        ? `À toi, ${player.name} ! Lance les dés`
-        : 'À toi de jouer ! Lance les dés'
+        ? t('À toi, {name} ! Lance les dés', { name: player.name })
+        : t('À toi de jouer ! Lance les dés')
       : game.rollsLeft > 0
-        ? 'Touche les dés à garder, puis relance'
-        : 'Choisis une case dans ta grille';
+        ? t('Touche les dés à garder, puis relance')
+        : t('Choisis une case dans ta grille');
 
   return (
     <GameLayout
       top={
         <>
-          <TopBar onBack={onQuit} backLabel="← Quitter">
-            <Text style={styles.turn}>Tour {turn}/13</Text>
+          <TopBar onBack={onQuit} backLabel={t('← Quitter')}>
+            <Text style={styles.turn}>{t('Tour {n}/13', { n: turn })}</Text>
           </TopBar>
           <Scoreboard game={game} avatars={settings.avatars} />
         </>
@@ -317,14 +318,19 @@ function YamsGame({
           {confirmZero ? (
             <View style={styles.confirm}>
               <Text style={styles.confirmText} numberOfLines={2}>
-                Barrer « {YAMS_BOX_LABELS[confirmZero]} » pour 0 point ?
+                {t('Barrer « {box} » pour 0 point ?', { box: t(YAMS_BOX_LABELS[confirmZero]) })}
               </Text>
               <View style={styles.confirmButtons}>
-                <Button compact variant="secondary" label="Annuler" onPress={() => setConfirmZero(null)} />
+                <Button
+                  compact
+                  variant="secondary"
+                  label={t('Annuler')}
+                  onPress={() => setConfirmZero(null)}
+                />
                 <Button
                   compact
                   variant="danger"
-                  label="Oui, 0"
+                  label={t('Oui, 0')}
                   onPress={() => {
                     play({ type: 'score', box: confirmZero });
                     setConfirmZero(null);
@@ -336,12 +342,14 @@ function YamsGame({
             <Button
               label={
                 botTurn
-                  ? `Tour de ${player.name}`
+                  ? t('Tour de {name}', { name: player.name })
                   : game.rollsLeft === 0
-                    ? 'Plus de lancer'
+                    ? t('Plus de lancer')
                     : game.rollsLeft === 1
-                      ? 'Relancer (dernier lancer)'
-                      : `${rolled ? 'Relancer' : 'Lancer'} (${game.rollsLeft - 1} restant${game.rollsLeft > 2 ? 's' : ''})`
+                      ? t('Relancer (dernier lancer)')
+                      : rolled
+                        ? tn(game.rollsLeft - 1, 'Relancer ({n} restant)', 'Relancer ({n} restants)')
+                        : tn(game.rollsLeft - 1, 'Lancer ({n} restant)', 'Lancer ({n} restants)')
               }
               disabled={botTurn || game.rollsLeft === 0 || game.held.every(Boolean)}
               onPress={() => play({ type: 'roll' })}
@@ -390,7 +398,7 @@ export function YamsOnlineBoard({
   }, [game]);
 
   if (game.finished)
-    return <YamsResults game={game} avatars={avatars} onHome={onLeave} homeLabel="Quitter la table" />;
+    return <YamsResults game={game} avatars={avatars} onHome={onLeave} homeLabel={t('Quitter la table')} />;
 
   function pick(box: YamsBox) {
     if (!myTurn || busy || !rolled || player.scores[box] !== undefined) return;
@@ -399,23 +407,23 @@ export function YamsOnlineBoard({
   }
 
   const prompt = !myTurn
-    ? `${player.bot ? '🤖 ' : ''}${player.name} joue…`
+    ? t('{name} joue…', { name: `${player.bot ? '🤖 ' : ''}${player.name}` })
     : !rolled
-      ? 'À toi ! Lance les dés'
+      ? t('À toi ! Lance les dés')
       : game.rollsLeft > 0
-        ? 'Touche les dés à garder, puis relance'
-        : 'Choisis une case dans ta grille';
+        ? t('Touche les dés à garder, puis relance')
+        : t('Choisis une case dans ta grille');
 
   return (
     <GameLayout
       top={
         <>
-          <TopBar onBack={onLeave} backLabel="← Quitter">
-            <Text style={styles.turn}>Tour {turn}/13</Text>
+          <TopBar onBack={onLeave} backLabel={t('← Quitter')}>
+            <Text style={styles.turn}>{t('Tour {n}/13', { n: turn })}</Text>
           </TopBar>
           <Scoreboard game={game} avatars={avatars} />
           {deadline && !player.bot && (
-            <TurnTimer deadline={deadline} now={now} name={myTurn ? 'Toi' : player.name} seconds={60} />
+            <TurnTimer deadline={deadline} now={now} name={myTurn ? t('Toi') : player.name} seconds={60} />
           )}
         </>
       }
@@ -435,14 +443,19 @@ export function YamsOnlineBoard({
           {confirmZero ? (
             <View style={styles.confirm}>
               <Text style={styles.confirmText} numberOfLines={2}>
-                Barrer « {YAMS_BOX_LABELS[confirmZero]} » pour 0 point ?
+                {t('Barrer « {box} » pour 0 point ?', { box: t(YAMS_BOX_LABELS[confirmZero]) })}
               </Text>
               <View style={styles.confirmButtons}>
-                <Button compact variant="secondary" label="Annuler" onPress={() => setConfirmZero(null)} />
+                <Button
+                  compact
+                  variant="secondary"
+                  label={t('Annuler')}
+                  onPress={() => setConfirmZero(null)}
+                />
                 <Button
                   compact
                   variant="danger"
-                  label="Oui, 0"
+                  label={t('Oui, 0')}
                   onPress={() => {
                     onMove({ type: 'score', box: confirmZero });
                     setConfirmZero(null);
@@ -454,12 +467,14 @@ export function YamsOnlineBoard({
             <Button
               label={
                 !myTurn
-                  ? `Tour de ${player.name}`
+                  ? t('Tour de {name}', { name: player.name })
                   : game.rollsLeft === 0
-                    ? 'Plus de lancer'
+                    ? t('Plus de lancer')
                     : game.rollsLeft === 1
-                      ? 'Relancer (dernier lancer)'
-                      : `${rolled ? 'Relancer' : 'Lancer'} (${game.rollsLeft - 1} restant${game.rollsLeft > 2 ? 's' : ''})`
+                      ? t('Relancer (dernier lancer)')
+                      : rolled
+                        ? tn(game.rollsLeft - 1, 'Relancer ({n} restant)', 'Relancer ({n} restants)')
+                        : tn(game.rollsLeft - 1, 'Lancer ({n} restant)', 'Lancer ({n} restants)')
               }
               disabled={!myTurn || busy || game.rollsLeft === 0 || game.held.every(Boolean)}
               onPress={() => onMove({ type: 'roll' })}
@@ -559,7 +574,11 @@ function Tray({
         {last && (
           <FloatUp key={`${game.rollCount}-${last.player}-${last.box}`} style={styles.toast}>
             <Text style={[styles.toastText, last.points === 0 && styles.toastZero]} numberOfLines={1}>
-              {lastName} : {last.points === 0 ? '0' : `+${last.points}`} en {YAMS_BOX_LABELS[last.box]}
+              {t('{name} : {points} en {box}', {
+                name: lastName,
+                points: last.points === 0 ? '0' : `+${last.points}`,
+                box: t(YAMS_BOX_LABELS[last.box]),
+              })}
             </Text>
           </FloatUp>
         )}
@@ -590,7 +609,7 @@ function ScoreGrid({
       <Pressable
         key={box}
         accessibilityRole="button"
-        accessibilityLabel={`${YAMS_BOX_LABELS[box]} ${filled ?? potential ?? ''}`}
+        accessibilityLabel={`${t(YAMS_BOX_LABELS[box])} ${filled ?? potential ?? ''}`}
         disabled={potential === null || !interactive}
         onPress={() => onPick(box)}
         style={({ pressed }) => [
@@ -602,7 +621,7 @@ function ScoreGrid({
         ]}
       >
         <Text style={[styles.cellLabel, filled !== undefined && styles.cellLabelDone]} numberOfLines={1}>
-          {YAMS_BOX_LABELS[box]}
+          {t(YAMS_BOX_LABELS[box])}
         </Text>
         <Text
           style={[
@@ -620,16 +639,16 @@ function ScoreGrid({
     <View style={styles.grid}>
       <View style={styles.gridHead}>
         <Text style={styles.gridTitle} numberOfLines={1}>
-          Grille de {player.name}
+          {t('Grille de {name}', { name: player.name })}
         </Text>
-        <Text style={styles.gridTotal}>Total {yamsTotal(player.scores)}</Text>
+        <Text style={styles.gridTotal}>{t('Total {n}', { n: yamsTotal(player.scores) })}</Text>
       </View>
       <View style={styles.gridCols}>
         <View style={styles.col}>
           {YAMS_UPPER_BOXES.map(row)}
           <View style={[styles.cell, styles.bonusCell]}>
             <Text style={styles.bonusLabel} numberOfLines={1}>
-              Bonus {Math.min(upper, YAMS_BONUS_THRESHOLD)}/{YAMS_BONUS_THRESHOLD}
+              {t('Bonus {n}/{max}', { n: Math.min(upper, YAMS_BONUS_THRESHOLD), max: YAMS_BONUS_THRESHOLD })}
             </Text>
             <Text style={[styles.cellValue, yamsBonus(player.scores) > 0 && styles.cellPotential]}>
               {yamsBonus(player.scores) > 0 ? `+${YAMS_BONUS}` : '·'}
@@ -652,7 +671,7 @@ function YamsResults({
   avatars,
   onReplay,
   onHome,
-  homeLabel = 'Retour aux jeux',
+  homeLabel = t('Retour aux jeux'),
 }: {
   game: YamsState;
   avatars: Avatar[];
@@ -703,17 +722,17 @@ function YamsResults({
         <Text style={styles.trophy}>🏆</Text>
         <Text style={styles.winner}>
           {winners.length > 1
-            ? `Égalité ! ${winners.map((w) => w.name).join(' et ')}`
+            ? t('Égalité ! {names}', { names: winners.map((w) => w.name).join(` ${t('et')} `) })
             : n === 1
-              ? `${winners[0].name} : ${best} points !`
-              : `${winners[0].name} gagne !`}
+              ? t('{name} : {n} points !', { name: winners[0].name, n: best })
+              : t('{name} gagne !', { name: winners[0].name })}
         </Text>
       </Appear>
       {n > 1 && (
         <View style={styles.podium}>
           {ranking.map((r) => (
             <View key={r.id} style={[styles.podiumRow, r.place === 1 && styles.podiumFirst]}>
-              <Text style={styles.podiumPlace}>{MEDALS[r.place - 1] ?? `${r.place}e`}</Text>
+              <Text style={styles.podiumPlace}>{MEDALS[r.place - 1] ?? t('{n}e', { n: r.place })}</Text>
               <AvatarBadge avatar={avatars[Number(r.id.slice(1))]} size={26} />
               <Text style={[styles.podiumName, r.place === 1 && styles.podiumNameFirst]} numberOfLines={1}>
                 {r.name}
@@ -735,14 +754,16 @@ function YamsResults({
             </View>
           ))}
         </View>
-        {YAMS_UPPER_BOXES.map((b) => line(YAMS_BOX_LABELS[b], (s) => s[b] ?? 0))}
-        {line('Sous-total', (s) => yamsUpperTotal(s))}
-        {line(`Bonus (≥ ${YAMS_BONUS_THRESHOLD})`, (s) => (yamsBonus(s) ? `+${YAMS_BONUS}` : '–'))}
-        {YAMS_LOWER_BOXES.map((b) => line(YAMS_BOX_LABELS[b], (s) => s[b] ?? 0))}
-        {line('Total', (s) => yamsTotal(s), true)}
+        {YAMS_UPPER_BOXES.map((b) => line(t(YAMS_BOX_LABELS[b]), (s) => s[b] ?? 0))}
+        {line(t('Sous-total'), (s) => yamsUpperTotal(s))}
+        {line(t('Bonus (≥ {n})', { n: YAMS_BONUS_THRESHOLD }), (s) =>
+          yamsBonus(s) ? `+${YAMS_BONUS}` : '–',
+        )}
+        {YAMS_LOWER_BOXES.map((b) => line(t(YAMS_BOX_LABELS[b]), (s) => s[b] ?? 0))}
+        {line(t('Total'), (s) => yamsTotal(s), true)}
       </View>
       <View style={styles.spacerSmall} />
-      {onReplay && <Button label="Rejouer" onPress={onReplay} />}
+      {onReplay && <Button label={t('Rejouer')} onPress={onReplay} />}
       <Button label={homeLabel} variant="secondary" onPress={onHome} />
     </ScrollView>
   );
@@ -959,7 +980,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'rgba(255,255,255,0.1)',
   },
   tRowStrong: { borderBottomWidth: 0, paddingTop: 5 },
-  tLabel: { width: 92, color: colors.muted, fontSize: 12, fontWeight: '600' },
+  tLabel: { width: 104, color: colors.muted, fontSize: 12, fontWeight: '600' },
   tCellHead: { flex: 1, alignItems: 'center', gap: 2, minWidth: 0 },
   tName: { color: colors.text, fontSize: 10, fontWeight: '700', maxWidth: '100%' },
   tCell: { flex: 1, textAlign: 'center', color: colors.text, fontSize: 13, fontWeight: '600' },

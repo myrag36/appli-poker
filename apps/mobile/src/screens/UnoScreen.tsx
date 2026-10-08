@@ -42,6 +42,7 @@ import { GameCard, UNO_PAINT } from '../components/UnoCard';
 import { sounds } from '../feedback';
 import { deviceRng } from '../rng';
 import { colors, gradients, theme } from '../theme';
+import { t, tn } from '../i18n';
 
 /** How long a robot seems to think before playing, in ms. */
 const BOT_DELAY = 1000;
@@ -60,49 +61,68 @@ interface Texts {
   subtitle: string;
   /** The announcement of the last card. */
   call: string;
+  /** Catching someone who forgot to announce. */
+  counter: string;
   hero: Card[];
 }
 
 const TEXTS: Record<UnoVariant, Texts> = {
   uno: {
     title: 'Uno',
-    subtitle: 'Vide ta main le premier… et n’oublie pas de crier « Uno ! »',
-    call: 'Uno !',
+    subtitle: t('Vide ta main le premier… et n’oublie pas de crier « Uno ! »'),
+    call: t('Uno !'),
+    counter: t('Contre-Uno !'),
     hero: ['r7a', 'yRa', 'gDa', 'bSa', 'wFa'],
   },
   huit: {
-    title: '8 américain',
-    subtitle: 'Couleur ou valeur : le premier qui pose sa dernière carte gagne.',
-    call: 'Carte !',
+    title: t('8 américain'),
+    subtitle: t('Couleur ou valeur : le premier qui pose sa dernière carte gagne.'),
+    call: t('Carte !'),
+    counter: t('Contre-Carte !'),
     hero: ['8s', '8h', '8d', '8c'],
   },
 };
 
+/**
+ * Short words that mean something else in other games ("Passe" and "Garde" are Tarot bids, "Joker" an
+ * avatar): their key carries a `{uno}` mark, empty in French, so the English can differ here.
+ */
+function tUno(fr: string): string {
+  return t(`${fr}{uno}`, { uno: '' });
+}
+
 const SUIT_SYMBOLS: Record<string, string> = { s: '♠', h: '♥', d: '♦', c: '♣' };
-const RANK_NAMES: Record<string, string> = { T: '10', J: 'Valet', Q: 'Dame', K: 'Roi', A: 'As' };
+const RANK_NAMES: Record<string, string> = { T: '10', J: t('Valet'), Q: t('Dame'), K: t('Roi'), A: t('As') };
 const UNO_SYMBOL_NAMES: Record<string, string> = {
-  S: 'Passe',
-  R: 'Inverse',
+  S: tUno('Passe'),
+  R: t('Inverse'),
   D: '+2',
-  W: 'Joker',
+  W: tUno('Joker'),
   F: '+4',
 };
+
+/** A color or suit name from the engine ("rouge", "cœur"…), in the chosen language. */
+function colorName(variant: UnoVariant, color: string): string {
+  return t(unoColorName(variant, color));
+}
 
 /** "un 7 rouge", "une Dame de cœur", "un Joker"… */
 function describe(variant: UnoVariant, card: Card): string {
   if (variant === 'uno') {
     const s = card[1];
-    if (card[0] === 'w') return `un ${UNO_SYMBOL_NAMES[s]}`;
-    return `un ${UNO_SYMBOL_NAMES[s] ?? s} ${unoColorName('uno', card[0])}`;
+    if (card[0] === 'w') return t('un {name}', { name: UNO_SYMBOL_NAMES[s] });
+    return t('un {name} {color}', { name: UNO_SYMBOL_NAMES[s] ?? s, color: colorName('uno', card[0]) });
   }
   const r = card[0];
   const name = RANK_NAMES[r] ?? r;
-  return `${r === 'Q' ? 'une' : 'un'} ${name} de ${unoColorName('huit', card[1])}`;
+  return r === 'Q'
+    ? t('une {name} de {suit}', { name, suit: colorName('huit', card[1]) })
+    : t('un {name} de {suit}', { name, suit: colorName('huit', card[1]) });
 }
 
 /** The color asked for, written on its own chip. */
 function colorLabel(variant: UnoVariant, color: string): string {
-  const name = unoColorName(variant, color);
+  const name = colorName(variant, color);
   return name[0].toUpperCase() + name.slice(1);
 }
 
@@ -167,7 +187,7 @@ function Setup({
   onStart: (s: Settings) => void;
   onBack: () => void;
 }) {
-  const t = TEXTS[variant];
+  const tx = TEXTS[variant];
   const [names, setNames] = useState(initial?.names ?? ['', 'Robby', 'Bip']);
   const [avatars, setAvatars] = useState<Avatar[]>(
     initial?.avatars ?? [
@@ -180,7 +200,9 @@ function Setup({
   const [target, setTarget] = useState(initial?.target ?? UNO_TARGETS[variant][0]);
   const [picking, setPicking] = useState<number | null>(null);
 
-  const cleaned = names.map((n, i) => n.trim() || (i === 0 && !bots[0] ? 'Toi' : `Joueur ${i + 1}`));
+  const cleaned = names.map(
+    (n, i) => n.trim() || (i === 0 && !bots[0] ? t('Toi') : t('Joueur {n}', { n: i + 1 })),
+  );
   const duplicate = new Set(cleaned).size !== cleaned.length;
   const humans = bots.filter((b) => !b).length;
   const valid = !duplicate && humans > 0 && names.length >= 2;
@@ -197,8 +219,8 @@ function Setup({
   return (
     <ScrollView contentContainerStyle={styles.setup} keyboardShouldPersistTaps="handled">
       <View style={styles.hero}>
-        {t.hero.map((c, i) => {
-          const mid = (t.hero.length - 1) / 2;
+        {tx.hero.map((c, i) => {
+          const mid = (tx.hero.length - 1) / 2;
           return (
             <View
               key={c}
@@ -213,11 +235,11 @@ function Setup({
           );
         })}
       </View>
-      <Text style={styles.title}>{t.title}</Text>
-      <Text style={styles.subtitle}>{t.subtitle}</Text>
+      <Text style={styles.title}>{tx.title}</Text>
+      <Text style={styles.subtitle}>{tx.subtitle}</Text>
       <RulesButton rules={variant === 'uno' ? UNO_RULES : HUIT_RULES} />
 
-      <Text style={styles.section}>Joueurs</Text>
+      <Text style={styles.section}>{t('Joueurs')}</Text>
       {names.map((name, i) => (
         <View key={i}>
           <View style={styles.row}>
@@ -226,21 +248,21 @@ function Setup({
                 <AvatarBadge avatar={avatars[i]} size={40} />
                 <View style={[styles.input, styles.flex, styles.botRow]}>
                   <Text style={styles.botName}>{name}</Text>
-                  <Text style={styles.botTag}>Robot</Text>
+                  <Text style={styles.botTag}>{t('Robot')}</Text>
                 </View>
               </>
             ) : (
               <>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Changer l'avatar du joueur ${i + 1}`}
+                  accessibilityLabel={t("Changer l'avatar du joueur {n}", { n: i + 1 })}
                   onPress={() => setPicking(picking === i ? null : i)}
                 >
                   <AvatarBadge avatar={avatars[i]} size={40} />
                 </Pressable>
                 <TextInput
                   style={[styles.input, styles.flex]}
-                  placeholder={i === 0 ? 'Toi' : `Joueur ${i + 1}`}
+                  placeholder={i === 0 ? t('Toi') : t('Joueur {n}', { n: i + 1 })}
                   placeholderTextColor={colors.muted}
                   value={name}
                   maxLength={14}
@@ -251,7 +273,7 @@ function Setup({
             {names.length > 2 && (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`Retirer ${cleaned[i]}`}
+                accessibilityLabel={t('Retirer {name}', { name: cleaned[i] })}
                 onPress={() => {
                   setNames(names.filter((_, j) => j !== i));
                   setAvatars(avatars.filter((_, j) => j !== i));
@@ -275,22 +297,26 @@ function Setup({
       {names.length < UNO_MAX_PLAYERS && (
         <View style={styles.row}>
           <View style={styles.flex}>
-            <Button label="+ Joueur" variant="secondary" onPress={() => addPlayer(false)} />
+            <Button label={t('+ Joueur')} variant="secondary" onPress={() => addPlayer(false)} />
           </View>
           <View style={styles.flex}>
-            <Button label="+ Robot 🤖" variant="secondary" onPress={() => addPlayer(true)} />
+            <Button label={t('+ Robot 🤖')} variant="secondary" onPress={() => addPlayer(true)} />
           </View>
         </View>
       )}
       <Text style={styles.hint}>
         {humans > 1
-          ? 'Plusieurs joueurs sur ce téléphone : on se le passe à chaque tour, et chacun cache ses cartes.'
-          : `De 2 à ${UNO_MAX_PLAYERS} joueurs. Ajoute des amis pour jouer en se passant le téléphone.`}
+          ? t(
+              'Plusieurs joueurs sur ce téléphone : on se le passe à chaque tour, et chacun cache ses cartes.',
+            )
+          : t('De 2 à {n} joueurs. Ajoute des amis pour jouer en se passant le téléphone.', {
+              n: UNO_MAX_PLAYERS,
+            })}
       </Text>
-      {duplicate && <Text style={styles.error}>Deux joueurs ont le même nom.</Text>}
-      {humans === 0 && <Text style={styles.error}>Il faut au moins un joueur humain.</Text>}
+      {duplicate && <Text style={styles.error}>{t('Deux joueurs ont le même nom.')}</Text>}
+      {humans === 0 && <Text style={styles.error}>{t('Il faut au moins un joueur humain.')}</Text>}
 
-      <Text style={styles.section}>Durée de la partie</Text>
+      <Text style={styles.section}>{t('Durée de la partie')}</Text>
       <View style={styles.counts}>
         {UNO_TARGETS[variant].map((n) => (
           <Pressable
@@ -301,24 +327,29 @@ function Setup({
             style={[styles.count, n === target && styles.countOn]}
           >
             <Text style={[styles.countText, n === target && styles.countTextOn]}>
-              {n === 0 ? '1 manche' : `${n} points`}
+              {n === 0 ? t('1 manche') : t('{n} points', { n })}
             </Text>
           </Pressable>
         ))}
       </View>
       <Text style={styles.hint}>
         {target === 0
-          ? 'Le premier qui vide sa main gagne la partie.'
-          : `Le gagnant de chaque manche marque les cartes restées chez les autres. Premier à ${target} points !`}
+          ? t('Le premier qui vide sa main gagne la partie.')
+          : t(
+              'Le gagnant de chaque manche marque les cartes restées chez les autres. Premier à {n} points !',
+              {
+                n: target,
+              },
+            )}
       </Text>
 
       <View style={styles.spacer} />
       <Button
-        label="Lancer la partie"
+        label={t('Lancer la partie')}
         disabled={!valid}
         onPress={() => onStart({ names: cleaned, avatars, bots, target })}
       />
-      <Button label="Retour" variant="secondary" onPress={onBack} />
+      <Button label={t('Retour')} variant="secondary" onPress={onBack} />
     </ScrollView>
   );
 }
@@ -336,7 +367,7 @@ function Game({
   onQuit: () => void;
   onReplay: () => void;
 }) {
-  const t = TEXTS[variant];
+  const tx = TEXTS[variant];
   const { bots, avatars } = settings;
   const humans = useMemo(() => bots.flatMap((b, i) => (b ? [] : [i])), [bots]);
   const multi = humans.length > 1;
@@ -471,33 +502,43 @@ function Game({
   const canSay = unoCanSay(state, viewer) && !curtain && !isBot(viewer);
   const top = unoTop(state);
   let prompt: string;
-  if (!playing) prompt = 'Manche terminée';
-  else if (curtain) prompt = `Au tour de ${current.name}`;
+  if (!playing) prompt = t('Manche terminée');
+  else if (curtain) prompt = t('Au tour de {name}', { name: current.name });
   else if (myTurn) {
     if (state.pendingDraw > 0)
       prompt = legal.length
-        ? `Pose un 2 ou pioche ${state.pendingDraw} cartes`
-        : `Pas de 2 : pioche ${state.pendingDraw} cartes`;
-    else if (state.drawn) prompt = 'La carte piochée va : joue-la ou garde-la';
+        ? t('Pose un 2 ou pioche {n} cartes', { n: state.pendingDraw })
+        : t('Pas de 2 : pioche {n} cartes', { n: state.pendingDraw });
+    else if (state.drawn) prompt = t('La carte piochée va : joue-la ou garde-la');
     else if (me.hand.length === 2 && !me.said && legal.length)
-      prompt = `Plus que 2 cartes : annonce « ${t.call} » avant de jouer`;
-    else if (legal.length) prompt = multi ? `À toi, ${me.name} ! Joue une carte` : 'À toi ! Joue une carte';
-    else prompt = 'Aucune carte ne va : pioche';
-  } else prompt = isBot(state.current) ? `🤖 ${current.name} réfléchit…` : `Au tour de ${current.name}`;
+      prompt = t('Plus que 2 cartes : annonce « {call} » avant de jouer', { call: tx.call });
+    else if (legal.length)
+      prompt = multi ? t('À toi, {name} ! Joue une carte', { name: me.name }) : t('À toi ! Joue une carte');
+    else prompt = t('Aucune carte ne va : pioche');
+  } else
+    prompt = isBot(state.current)
+      ? t('🤖 {name} réfléchit…', { name: current.name })
+      : t('Au tour de {name}', { name: current.name });
 
   const drawLabel =
-    state.drawn !== null ? 'Garder' : state.pendingDraw > 0 ? `Piocher ${state.pendingDraw}` : 'Piocher';
+    state.drawn !== null
+      ? t('Garder')
+      : state.pendingDraw > 0
+        ? t('Piocher {n}', { n: state.pendingDraw })
+        : t('Piocher');
 
   return (
     <GameLayout
       top={
-        <TopBar onBack={onQuit} backLabel="← Quitter">
+        <TopBar onBack={onQuit} backLabel={t('← Quitter')}>
           <Text style={styles.topInfo}>
-            {state.target ? `Manche ${state.round} · ${state.target} pts` : t.title}
+            {state.target
+              ? t('Manche {n} · {target} pts', { n: state.round, target: state.target })
+              : tx.title}
           </Text>
           {state.target > 0 && (
             <View style={styles.scorePill}>
-              <Text style={styles.scoreText}>⭐ {me.score} pts</Text>
+              <Text style={styles.scoreText}>{t('⭐ {n} pts', { n: me.score })}</Text>
             </View>
           )}
         </TopBar>
@@ -575,7 +616,7 @@ function Game({
               </View>
               <View style={styles.flex}>
                 <CallButton
-                  label={catchable ? `Contre-${t.call.replace(' !', '')} !` : t.call}
+                  label={catchable ? tx.counter : tx.call}
                   hot={canSay || catchable}
                   onPress={() =>
                     catchable ? act({ type: 'catch', target: state.exposed! }) : act({ type: 'say' }, viewer)
@@ -660,38 +701,67 @@ function TableView({
   /** A short bubble over a seat for what this player just did. */
   function bubble(i: number): { text: string; hot?: boolean } | null {
     const p = state.players[i];
-    if (last?.type === 'catch' && last.target === i) return { text: `Pris ! +${UNO_PENALTY}`, hot: true };
+    if (last?.type === 'catch' && last.target === i)
+      return { text: t('Pris ! +{n}', { n: UNO_PENALTY }), hot: true };
     if (last?.type === 'play' && last.penalty?.player === i)
       return { text: `+${last.penalty.count}`, hot: true };
     if (last?.type === 'draw' && last.player === i && last.forced)
       return { text: `+${last.count}`, hot: true };
     if (p.hand.length === 1 && p.said) return { text: TEXTS[variant].call, hot: true };
-    if (last?.type === 'draw' && last.player === i) return { text: 'Pioche' };
-    if (last?.type === 'pass' && last.player === i) return { text: 'Garde' };
+    if (last?.type === 'draw' && last.player === i) return { text: t('Pioche') };
+    if (last?.type === 'pass' && last.player === i) return { text: tUno('Garde') };
     return null;
   }
 
   let caption = '';
   if (last?.type === 'play') {
-    caption = `${who(state, last.player, viewer)} : ${describe(variant, last.card)}`;
-    if (last.color) caption += ` → ${unoColorName(variant, last.color)}`;
+    caption = t('{who} : {card}', {
+      who: who(state, last.player, viewer),
+      card: describe(variant, last.card),
+    });
+    if (last.color) caption += ` → ${colorName(variant, last.color)}`;
     if (last.penalty)
-      caption += ` · ${last.penalty.player === viewer ? 'tu pioches' : `${state.players[last.penalty.player].name} pioche`} ${last.penalty.count}`;
+      caption += ` · ${
+        last.penalty.player === viewer
+          ? t('tu pioches {n}', { n: last.penalty.count })
+          : t('{name} pioche {n}', { name: state.players[last.penalty.player].name, n: last.penalty.count })
+      }`;
   } else if (last?.type === 'draw')
-    caption = `${last.player === viewer ? 'Tu pioches' : `${state.players[last.player].name} pioche`} ${last.count} carte${last.count > 1 ? 's' : ''}`;
+    caption =
+      last.player === viewer
+        ? tn(last.count, 'Tu pioches {n} carte', 'Tu pioches {n} cartes')
+        : tn(last.count, '{name} pioche {n} carte', '{name} pioche {n} cartes', {
+            name: state.players[last.player].name,
+          });
   else if (last?.type === 'pass')
     caption =
-      last.player === viewer ? 'Tu gardes ta carte' : `${state.players[last.player].name} garde sa carte`;
+      last.player === viewer
+        ? t('Tu gardes ta carte')
+        : t('{name} garde sa carte', { name: state.players[last.player].name });
   else if (last?.type === 'say')
-    caption = `${last.player === viewer ? 'Tu annonces' : `${state.players[last.player].name} annonce`} « ${TEXTS[variant].call} »`;
+    caption =
+      last.player === viewer
+        ? t('Tu annonces « {call} »', { call: TEXTS[variant].call })
+        : t('{name} annonce « {call} »', {
+            name: state.players[last.player].name,
+            call: TEXTS[variant].call,
+          });
   else if (last?.type === 'catch')
     caption =
       last.target === viewer
-        ? `${state.players[last.player].name} t’attrape : +${UNO_PENALTY} pour toi !`
-        : `${last.player === viewer ? 'Tu attrapes' : `${state.players[last.player].name} attrape`} ${state.players[last.target].name} : +${UNO_PENALTY} !`;
+        ? t('{name} t’attrape : +{n} pour toi !', { name: state.players[last.player].name, n: UNO_PENALTY })
+        : last.player === viewer
+          ? t('Tu attrapes {target} : +{n} !', { target: state.players[last.target].name, n: UNO_PENALTY })
+          : t('{name} attrape {target} : +{n} !', {
+              name: state.players[last.player].name,
+              target: state.players[last.target].name,
+              n: UNO_PENALTY,
+            });
   else
     caption =
-      state.current === viewer ? 'À toi de commencer' : `${state.players[state.current].name} commence`;
+      state.current === viewer
+        ? t('À toi de commencer')
+        : t('{name} commence', { name: state.players[state.current].name });
 
   return (
     <View style={{ width: w, height: h }}>
@@ -721,7 +791,7 @@ function TableView({
       <View pointerEvents="box-none" style={[styles.piles, { top: pileY, width: w }]}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={`Pioche, ${state.deck.length} cartes`}
+          accessibilityLabel={t('Pioche, {n} cartes', { n: state.deck.length })}
           disabled={!canDraw}
           onPress={onDraw}
           style={styles.deck}
@@ -769,7 +839,7 @@ function TableView({
           </View>
           {state.pendingDraw > 0 && (
             <Appear from={6} style={styles.pendingChip}>
-              <Text style={styles.pendingText}>+{state.pendingDraw} à piocher</Text>
+              <Text style={styles.pendingText}>{t('+{n} à piocher', { n: state.pendingDraw })}</Text>
             </Appear>
           )}
         </View>
@@ -800,7 +870,7 @@ function TableView({
               </Text>
               <Text style={[styles.cards, p.hand.length === 1 && styles.cardsLast]}>🂠 {p.hand.length}</Text>
             </View>
-            {state.target > 0 && <Text style={styles.seatScore}>{p.score} pts</Text>}
+            {state.target > 0 && <Text style={styles.seatScore}>{t('{n} pts', { n: p.score })}</Text>}
             {b && (
               <Appear key={`${state.seq}-${b.text}`} from={6} style={styles.bubble}>
                 <Text style={[styles.bubbleText, b.hot && styles.bubbleHot]}>{b.text}</Text>
@@ -838,7 +908,7 @@ function TableView({
 }
 
 function who(state: UnoState, i: number, viewer: number) {
-  if (i === viewer) return 'Toi';
+  if (i === viewer) return t('Toi');
   return state.players[i].name;
 }
 
@@ -873,7 +943,7 @@ function Hand({
   const rowGap = rows > 1 ? rowH * 0.45 : 0;
   return (
     <View style={[styles.hand, { height: rowH + lift + rowGap + 2 }]}>
-      {cards.length === 0 && <Text style={styles.empty}>Plus de cartes !</Text>}
+      {cards.length === 0 && <Text style={styles.empty}>{t('Plus de cartes !')}</Text>}
       {Array.from({ length: rows }, (_, r) => {
         const row = cards.slice(r * perRow, (r + 1) * perRow);
         const total = row.length ? cardW + step * (row.length - 1) : 0;
@@ -889,7 +959,9 @@ function Hand({
                 <Pressable
                   key={c}
                   accessibilityRole="button"
-                  accessibilityLabel={hidden ? 'Carte cachée' : `Carte ${describe(variant, c)}`}
+                  accessibilityLabel={
+                    hidden ? t('Carte cachée') : t('Carte {card}', { card: describe(variant, c) })
+                  }
                   accessibilityState={{ disabled: !ok }}
                   disabled={!ok}
                   onPress={() => onTap(c)}
@@ -923,13 +995,13 @@ function ColorPicker({
   return (
     <View style={styles.overlay}>
       <Appear from={20} style={styles.overlayCard}>
-        <Panel compact title={variant === 'uno' ? 'Quelle couleur ?' : 'Quelle couleur demandes-tu ?'}>
+        <Panel compact title={variant === 'uno' ? t('Quelle couleur ?') : t('Quelle couleur demandes-tu ?')}>
           <View style={styles.colorRow}>
             {unoColors(variant).map((c) => (
               <Pressable
                 key={c}
                 accessibilityRole="button"
-                accessibilityLabel={unoColorName(variant, c)}
+                accessibilityLabel={colorName(variant, c)}
                 onPress={() => onPick(c)}
                 style={({ pressed }) => [styles.colorPick, pressed && styles.pressed]}
               >
@@ -951,7 +1023,7 @@ function ColorPicker({
               </Pressable>
             ))}
           </View>
-          <Button compact variant="secondary" label="Annuler" onPress={onCancel} />
+          <Button compact variant="secondary" label={t('Annuler')} onPress={onCancel} />
         </Panel>
       </Appear>
     </View>
@@ -963,13 +1035,13 @@ function HandOff({ name, avatar, onReady }: { name: string; avatar: Avatar; onRe
   return (
     <View style={[styles.overlay, styles.overlayDark]}>
       <Appear from={20} style={styles.overlayCard}>
-        <Panel compact title="Passe le téléphone">
+        <Panel compact title={t('Passe le téléphone')}>
           <View style={styles.handoff}>
             <AvatarBadge avatar={avatar} size={56} />
-            <Text style={styles.handoffName}>Au tour de {name}</Text>
-            <Text style={styles.exHint}>Les autres, ne regardez pas ses cartes !</Text>
+            <Text style={styles.handoffName}>{t('Au tour de {name}', { name })}</Text>
+            <Text style={styles.exHint}>{t('Les autres, ne regardez pas ses cartes !')}</Text>
           </View>
-          <Button compact label={`Je suis ${name}, voir mes cartes`} onPress={onReady} />
+          <Button compact label={t('Je suis {name}, voir mes cartes', { name })} onPress={onReady} />
         </Panel>
       </Appear>
     </View>
@@ -1005,15 +1077,23 @@ function RoundRecap({
   return (
     <View style={styles.overlay}>
       <Appear from={20} style={styles.overlayCard}>
-        <Panel compact title={single ? 'Fin de la partie' : `Fin de la manche ${state.round}`}>
+        <Panel compact title={single ? t('Fin de la partie') : t('Fin de la manche {n}', { n: state.round })}>
           <View style={styles.recapHead}>
             <Text style={styles.recapTrophy}>{bots[winner] ? '🃏' : '🏆'}</Text>
             <Text style={styles.recapWinner}>
-              {soloWin ? 'Tu gagnes' : `${name} gagne`} {single || over ? 'la partie' : 'la manche'} !
+              {single || over
+                ? soloWin
+                  ? t('Tu gagnes la partie !')
+                  : t('{name} gagne la partie !', { name })
+                : soloWin
+                  ? t('Tu gagnes la manche !')
+                  : t('{name} gagne la manche !', { name })}
             </Text>
             {!single && (
               <Text style={styles.exHint}>
-                +{state.roundPoints} points pour {soloWin ? 'toi' : name}
+                {soloWin
+                  ? t('+{n} points pour toi', { n: state.roundPoints })
+                  : t('+{n} points pour {name}', { n: state.roundPoints, name })}
               </Text>
             )}
           </View>
@@ -1025,7 +1105,7 @@ function RoundRecap({
               </Text>
               <View style={styles.recapCards}>
                 {i === winner ? (
-                  <Text style={styles.recapDone}>Plus de cartes</Text>
+                  <Text style={styles.recapDone}>{t('Plus de cartes')}</Text>
                 ) : (
                   p.hand.slice(0, 6).map((c, k) => (
                     <View key={c} style={{ marginLeft: k ? -14 : 0 }}>
@@ -1038,16 +1118,18 @@ function RoundRecap({
               {!single && <Text style={styles.recapTotal}>{p.score}</Text>}
             </View>
           ))}
-          {!single && !over && <Text style={styles.exHint}>Premier à {state.target} points</Text>}
+          {!single && !over && (
+            <Text style={styles.exHint}>{t('Premier à {n} points', { n: state.target })}</Text>
+          )}
           {over ? (
-            <Button compact label="Voir le résultat" onPress={onResults} />
+            <Button compact label={t('Voir le résultat')} onPress={onResults} />
           ) : (
             <View style={styles.actions}>
               <View style={styles.flex}>
-                <Button compact variant="secondary" label="Arrêter" onPress={onStop} />
+                <Button compact variant="secondary" label={t('Arrêter')} onPress={onStop} />
               </View>
               <View style={styles.flex}>
-                <Button compact label="Manche suivante" onPress={onNext} />
+                <Button compact label={t('Manche suivante')} onPress={onNext} />
               </View>
             </View>
           )}
@@ -1090,17 +1172,23 @@ function FinalScreen({
         <Text style={styles.trophy}>{humanWon ? '🏆' : '🤖'}</Text>
       </Appear>
       <Text style={styles.title}>
-        {humanWon && humans === 1 ? 'Tu gagnes !' : `${state.players[first].name} gagne !`}
+        {humanWon && humans === 1
+          ? t('Tu gagnes !')
+          : t('{name} gagne !', { name: state.players[first].name })}
       </Text>
       <Text style={styles.subtitle}>
         {TEXTS[variant].title} ·{' '}
-        {single ? 'une manche' : `${rounds} manche${rounds > 1 ? 's' : ''} · objectif ${state.target} points`}
+        {single
+          ? t('une manche')
+          : tn(rounds, '{n} manche · objectif {target} points', '{n} manches · objectif {target} points', {
+              target: state.target,
+            })}
       </Text>
-      <Panel title="Classement">
+      <Panel title={t('Classement')}>
         {standings.map((s, k) => (
           <Appear key={s.index} delay={k * 80} from={10}>
             <View style={[styles.finalRow, !settings.bots[s.index] && styles.recapMe]}>
-              <Text style={styles.finalPlace}>{MEDALS[s.place - 1] ?? `${s.place}ᵉ`}</Text>
+              <Text style={styles.finalPlace}>{MEDALS[s.place - 1] ?? t('{n}ᵉ', { n: s.place })}</Text>
               <AvatarBadge avatar={settings.avatars[s.index]} size={30} />
               <Text style={[styles.finalName, s.place === 1 && styles.finalNameFirst]} numberOfLines={1}>
                 {state.players[s.index].name}
@@ -1108,18 +1196,27 @@ function FinalScreen({
               <Text style={styles.finalScore}>
                 {single
                   ? s.index === first
-                    ? 'Main vide'
-                    : `${state.players[s.index].hand.length} carte${state.players[s.index].hand.length > 1 ? 's' : ''} · ${s.score} pts`
-                  : `${s.score} pts`}
+                    ? t('Main vide')
+                    : tn(
+                        state.players[s.index].hand.length,
+                        '{n} carte · {pts} pts',
+                        '{n} cartes · {pts} pts',
+                        {
+                          pts: s.score,
+                        },
+                      )
+                  : t('{n} pts', { n: s.score })}
               </Text>
             </View>
           </Appear>
         ))}
-        {single && <Text style={styles.exHint}>Ensuite, le moins de points restés en main l’emporte.</Text>}
+        {single && (
+          <Text style={styles.exHint}>{t('Ensuite, le moins de points restés en main l’emporte.')}</Text>
+        )}
       </Panel>
       <View style={styles.spacer} />
-      <Button label="Rejouer" onPress={onReplay} />
-      <Button label="Retour" variant="secondary" onPress={onQuit} />
+      <Button label={t('Rejouer')} onPress={onReplay} />
+      <Button label={t('Retour')} variant="secondary" onPress={onQuit} />
     </ScrollView>
   );
 }
