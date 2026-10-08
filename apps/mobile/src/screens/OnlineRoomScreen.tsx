@@ -1,5 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Share, StyleSheet, Text, View } from 'react-native';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  type PressableStateCallbackType,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   type Action,
@@ -31,6 +40,7 @@ import { useRoom } from '../online/useRoom';
 import { useMyProgress, useProgressOf } from '../online/progress';
 import { sounds, useHandSounds } from '../feedback';
 import { Appear } from '../components/Motion';
+import { useDesktop } from '../layout';
 import { colors } from '../theme';
 import { t, tn } from '../i18n';
 import { tMessage } from '../online/messages';
@@ -62,11 +72,16 @@ export function OnlineRoomScreen({ roomId, userId, onLeave, onSwitch }: Props) {
   const myEmotes = emotesFor(useMyProgress()?.owned ?? []);
   const [chatOpen, setChatOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const desktop = useDesktop();
+  /** On a computer, the side panel next to the table shows the chat or the past hands. */
+  const [sideTab, setSideTab] = useState<'chat' | 'history'>('chat');
+  // On a computer the chat is drawn beside the table (always in the waiting room).
+  const chatShown = chatOpen || (desktop && (!room?.public_state || sideTab === 'chat'));
   /** Names of the people watching, so their chat messages are signed. */
   const [spectators, setSpectators] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    if (!chatOpen) return;
+    if (!chatShown) return;
     supabase
       .from('room_spectators')
       .select('user_id, name')
@@ -74,7 +89,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave, onSwitch }: Props) {
       .then(({ data }) => {
         if (data) setSpectators(Object.fromEntries(data.map((s) => [s.user_id, `👀 ${s.name}`])));
       });
-  }, [chatOpen, roomId]);
+  }, [chatShown, roomId]);
   const [manageOpen, setManageOpen] = useState(false);
   useEffect(() => {
     // Don't offer to go back to a table I was removed from.
@@ -85,8 +100,8 @@ export function OnlineRoomScreen({ roomId, userId, onLeave, onSwitch }: Props) {
   const lastMessageId = messages.length ? messages[messages.length - 1].id : null;
   useEffect(() => {
     if (!messagesLoaded) return;
-    if (chatOpen || readUpTo === null) setReadUpTo(lastMessageId ?? 0);
-  }, [messagesLoaded, lastMessageId, chatOpen, readUpTo]);
+    if (chatShown || readUpTo === null) setReadUpTo(lastMessageId ?? 0);
+  }, [messagesLoaded, lastMessageId, chatShown, readUpTo]);
   const unread = messages.filter((m) => m.user_id !== userId && m.id > (readUpTo ?? Infinity)).length;
   const lastOtherMessage = Object.entries(bubbles)
     .filter(([from]) => from !== userId)
@@ -189,17 +204,10 @@ export function OnlineRoomScreen({ roomId, userId, onLeave, onSwitch }: Props) {
   );
 
   const names = { ...spectators, ...Object.fromEntries(players.map((p) => [p.user_id, p.name])) };
-  const chat = (
-    <ChatPanel
-      visible={chatOpen}
-      onClose={() => setChatOpen(false)}
-      messages={messages}
-      meId={userId}
-      names={names}
-      avatars={avatars}
-      onSend={sendMessage}
-    />
-  );
+  const chatProps = { messages, meId: userId, names, avatars, onSend: sendMessage };
+  // On a computer the chat sits beside the table or the waiting room instead of in a sheet.
+  const chat = !desktop && <ChatPanel visible={chatOpen} onClose={() => setChatOpen(false)} {...chatProps} />;
+  const chatInline = <ChatPanel inline visible onClose={() => {}} {...chatProps} />;
   const chatButton = (
     <Pressable
       accessibilityRole="button"
@@ -261,54 +269,108 @@ export function OnlineRoomScreen({ roomId, userId, onLeave, onSwitch }: Props) {
     });
 
   if (!hand) {
-    return (
-      <ScrollView contentContainerStyle={[styles.container, { paddingTop: insets.top + 16 }]}>
-        <View style={styles.codeBox}>
-          <Text style={styles.codeLabel}>{t('Code de la table')}</Text>
-          <Text style={styles.code}>{room.code}</Text>
+    const codeBox = (
+      <View style={[styles.codeBox, desktop && styles.codeBoxWide]}>
+        <Text style={styles.codeLabel}>{t('Code de la table')}</Text>
+        <Text style={[styles.code, desktop && styles.codeWide]}>{room.code}</Text>
+        <View style={desktop && styles.centered}>
           <Button label={t('Inviter des amis')} variant="secondary" onPress={invite} />
         </View>
-        {!isSpectator && <InviteFriends game="poker" code={room.code} />}
-        {!isSpectator && <NotifyPrompt />}
-        <Panel title={t('Joueurs ({n}/8)', { n: players.length })}>
-          {players.map((p) => (
-            <View key={p.user_id} style={styles.lobbyPlayer}>
-              <AvatarBadge avatar={avatars[p.user_id]} size={34} />
-              <Text style={styles.lobbyName}>
-                {p.name}
-                {p.user_id === room.host_id ? ' 👑' : ''}
-                {p.user_id === userId ? t(' (toi)') : ''}
-                {p.is_bot ? t(' · robot') : ''}
-              </Text>
-            </View>
-          ))}
-          {omaha && <PanelText>{t('🃏 Omaha : 4 cartes chacun, mises limitées au pot.')}</PanelText>}
-          {room.level_minutes && (
-            <PanelText>
-              {t('🏆 Tournoi : les blindes augmentent toutes les {n} minutes.', { n: room.level_minutes })}
-            </PanelText>
-          )}
-          {isSpectator ? (
-            <>
-              <PanelText>{t('👀 Tu regardes cette table.')}</PanelText>
-              <Button
-                label={t('Rejoindre la partie')}
-                disabled={busy || players.length >= 8}
-                onPress={joinGame}
-              />
-            </>
-          ) : isHost ? (
+      </View>
+    );
+    const invites = !isSpectator && (
+      <>
+        <InviteFriends game="poker" code={room.code} />
+        <NotifyPrompt />
+      </>
+    );
+    const playerRows = players.map((p) => (
+      <View key={p.user_id} style={[styles.lobbyPlayer, desktop && styles.lobbyPlayerWide]}>
+        <AvatarBadge avatar={avatars[p.user_id]} size={desktop ? 40 : 34} />
+        <Text style={styles.lobbyName} numberOfLines={desktop ? 1 : undefined}>
+          {p.name}
+          {p.user_id === room.host_id ? ' 👑' : ''}
+          {p.user_id === userId ? t(' (toi)') : ''}
+          {p.is_bot ? t(' · robot') : ''}
+        </Text>
+      </View>
+    ));
+    const playersPanel = (
+      <Panel title={t('Joueurs ({n}/8)', { n: players.length })}>
+        {/* Two columns of players on a computer. */}
+        {desktop ? <View style={styles.lobbyGrid}>{playerRows}</View> : playerRows}
+        {omaha && <PanelText>{t('🃏 Omaha : 4 cartes chacun, mises limitées au pot.')}</PanelText>}
+        {room.level_minutes && (
+          <PanelText>
+            {t('🏆 Tournoi : les blindes augmentent toutes les {n} minutes.', { n: room.level_minutes })}
+          </PanelText>
+        )}
+        {isSpectator ? (
+          <>
+            <PanelText>{t('👀 Tu regardes cette table.')}</PanelText>
             <Button
-              label={players.length < 2 ? t("En attente d'un autre joueur…") : t('Lancer la partie')}
-              disabled={busy || players.length < 2}
-              onPress={() => send({ type: 'deal', roomId })}
+              label={t('Rejoindre la partie')}
+              disabled={busy || players.length >= 8}
+              onPress={joinGame}
             />
-          ) : (
-            <PanelText>
-              {t('En attente que {name} lance la partie…', { name: host?.name ?? t('le créateur') })}
-            </PanelText>
-          )}
-        </Panel>
+          </>
+        ) : isHost ? (
+          <Button
+            label={players.length < 2 ? t("En attente d'un autre joueur…") : t('Lancer la partie')}
+            disabled={busy || players.length < 2}
+            onPress={() => send({ type: 'deal', roomId })}
+          />
+        ) : (
+          <PanelText>
+            {t('En attente que {name} lance la partie…', { name: host?.name ?? t('le créateur') })}
+          </PanelText>
+        )}
+      </Panel>
+    );
+    const addBot = isHost && players.length < 8 && (
+      <Button
+        label={t('🤖 Ajouter un robot')}
+        variant="secondary"
+        disabled={busy}
+        onPress={() => send({ type: 'addBot', roomId })}
+      />
+    );
+    const manageButton = isHost && players.length > 1 && (
+      <Button label={t('⚙️ Gérer la table')} variant="secondary" onPress={() => setManageOpen(true)} />
+    );
+    const back = <Button label={t("Retour à l'accueil")} variant="secondary" onPress={onLeave} />;
+
+    if (desktop) {
+      // On a computer: the table and its players on the left, invitations and the chat on the right.
+      return (
+        <ScrollView contentContainerStyle={[styles.lobbyWide, { paddingTop: insets.top + 32 }]}>
+          <View style={styles.lobbyColumns}>
+            <View style={styles.lobbyMain}>
+              {codeBox}
+              {playersPanel}
+              <View style={styles.lobbyActions}>
+                {addBot && <View style={styles.natural}>{addBot}</View>}
+                {manageButton && <View style={styles.natural}>{manageButton}</View>}
+                <View style={styles.flexSpacer} />
+                <View style={styles.natural}>{back}</View>
+              </View>
+              {syncError && <Text style={styles.error}>{syncError}</Text>}
+            </View>
+            <View style={styles.lobbySide}>
+              {invites}
+              <SideCard title={t('💬 Discussion')}>{chatInline}</SideCard>
+            </View>
+          </View>
+          {manage}
+        </ScrollView>
+      );
+    }
+
+    return (
+      <ScrollView contentContainerStyle={[styles.container, { paddingTop: insets.top + 16 }]}>
+        {codeBox}
+        {invites}
+        {playersPanel}
         <View style={styles.spacer} />
         <Button
           label={
@@ -319,31 +381,146 @@ export function OnlineRoomScreen({ roomId, userId, onLeave, onSwitch }: Props) {
           variant="secondary"
           onPress={() => setChatOpen(true)}
         />
-        {isHost && players.length < 8 && (
+        {addBot && (
           <>
             <View style={styles.spacer} />
-            <Button
-              label={t('🤖 Ajouter un robot')}
-              variant="secondary"
-              disabled={busy}
-              onPress={() => send({ type: 'addBot', roomId })}
-            />
+            {addBot}
           </>
         )}
-        {isHost && players.length > 1 && (
+        {manageButton && (
           <>
             <View style={styles.spacer} />
-            <Button label={t('⚙️ Gérer la table')} variant="secondary" onPress={() => setManageOpen(true)} />
+            {manageButton}
           </>
         )}
         {syncError && <Text style={styles.error}>{syncError}</Text>}
         <View style={styles.spacer} />
-        <Button label={t("Retour à l'accueil")} variant="secondary" onPress={onLeave} />
+        {back}
         {chat}
         {manage}
       </ScrollView>
     );
   }
+
+  const controls = (
+    <>
+      {actor && !botTurn && hand.deadline && (
+        <TurnTimer deadline={hand.deadline} now={now} name={myTurn ? t('Toi') : actor.name} />
+      )}
+
+      {room.paused && (
+        <View style={styles.pausePanel}>
+          <Text style={styles.pauseTitle}>{t('⏸ Partie en pause')}</Text>
+          {isHost ? (
+            <Button
+              compact
+              label={t('▶ Reprendre')}
+              disabled={busy}
+              onPress={() => send({ type: 'pause', roomId, paused: false })}
+            />
+          ) : (
+            <Text style={styles.waitText}>
+              {t('{name} va bientôt reprendre la partie.', { name: host?.name ?? t('Le créateur') })}
+            </Text>
+          )}
+          {error && <Text style={styles.error}>{error}</Text>}
+        </View>
+      )}
+
+      {!room.paused && myTurn && hand.street !== 'finished' && (
+        <ActionPanel
+          key={room.version}
+          hand={hand}
+          playerId={userId}
+          title={t('À toi de jouer')}
+          hole={myCards}
+          error={error}
+          busy={busy}
+          onAction={(action: Action) => send({ type: 'act', roomId, action })}
+        />
+      )}
+
+      {!room.paused && !myTurn && hand.street !== 'finished' && (
+        <View style={styles.waitPanel}>
+          {inHand && myCards.length > 0 && (
+            <View style={styles.cards}>
+              {myCards.map((c, i) => (
+                <Appear key={c} delay={i * 140}>
+                  <PlayingCard card={c} width={(myCards.length > 2 ? 30 : 42) * (desktop ? 1.43 : 1)} />
+                </Appear>
+              ))}
+            </View>
+          )}
+          <Text style={styles.waitText}>
+            {isSpectator
+              ? t('👀 Tu regardes')
+              : !inHand
+                ? t('Tu joueras à la prochaine main.')
+                : botTurn
+                  ? t('🤖 {name} réfléchit…', { name: actor?.name ?? '' })
+                  : actor
+                    ? t('Au tour de {name}', { name: actor.name })
+                    : ''}
+          </Text>
+          {isSpectator && players.length < 8 && (
+            <Button compact label={t('Rejoindre la partie')} disabled={busy} onPress={joinGame} />
+          )}
+          {isSpectator && error && <Text style={styles.error}>{error}</Text>}
+        </View>
+      )}
+
+      {!room.paused && hand.street === 'finished' && (
+        <HandSummary hand={hand}>
+          {withChips.length < 2 ? (
+            <>
+              <PanelText>{t('🏆 {name} gagne la partie !', { name: withChips[0]?.name ?? '' })}</PanelText>
+              <Ranking
+                entries={players
+                  .filter((p) => p.stack > 0 || p.place !== null)
+                  .map((p) => ({ name: p.name, place: p.stack > 0 ? 1 : (p.place ?? players.length) }))}
+              />
+              {!isSpectator && <RematchPanel bare rematch={room.rematch} meId={userId} onRematch={rematch} />}
+            </>
+          ) : isHost ? (
+            <Button
+              compact
+              label={t('Main suivante')}
+              disabled={busy}
+              onPress={() => send({ type: 'deal', roomId })}
+            />
+          ) : (
+            <PanelText>
+              {t('En attente que {name} distribue…', { name: host?.name ?? t('le créateur') })}
+            </PanelText>
+          )}
+          {error && <Text style={styles.error}>{error}</Text>}
+        </HandSummary>
+      )}
+
+      {waiting.length > 0 && (
+        <Text style={styles.note} numberOfLines={1}>
+          {t('Rejoindront à la prochaine main : {names}', {
+            names: waiting.map((p) => p.name).join(', '),
+          })}
+        </Text>
+      )}
+      {syncError && <Text style={styles.error}>{syncError}</Text>}
+    </>
+  );
+
+  const table = (width: number, height: number, wide?: boolean) => (
+    <Table
+      hand={hand}
+      meId={userId}
+      maxWidth={width}
+      maxHeight={height}
+      reactions={reactions}
+      avatars={avatars}
+      bubbles={bubbles}
+      nextLevelAt={hand.tournament?.nextLevelAt}
+      wide={wide}
+    />
+  );
 
   return (
     <GameLayout
@@ -365,19 +542,22 @@ export function OnlineRoomScreen({ roomId, userId, onLeave, onSwitch }: Props) {
                 <Text style={styles.reactButtonText}>⚙️</Text>
               </Pressable>
             )}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('Mains précédentes')}
-              onPress={() => {
-                setTrayOpen(false);
-                setHistoryOpen(true);
-              }}
-              hitSlop={8}
-              style={styles.reactButton}
-            >
-              <Text style={styles.reactButtonText}>📜</Text>
-            </Pressable>
-            {chatButton}
+            {/* On a computer the history and the chat are always beside the table. */}
+            {!desktop && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('Mains précédentes')}
+                onPress={() => {
+                  setTrayOpen(false);
+                  setHistoryOpen(true);
+                }}
+                hitSlop={8}
+                style={styles.reactButton}
+              >
+                <Text style={styles.reactButtonText}>📜</Text>
+              </Pressable>
+            )}
+            {!desktop && chatButton}
             {!isSpectator && (
               <Pressable
                 accessibilityRole="button"
@@ -399,7 +579,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave, onSwitch }: Props) {
               {/* The host has one more button, so only the code fits on a small phone. */}
               <Text style={styles.codePillText}>
                 <Text style={styles.codePillCode}>{room.code}</Text>
-                {isHost ? '' : t(' · Inviter')}
+                {isHost && !desktop ? '' : t(' · Inviter')}
               </Text>
             </Pressable>
           </TopBar>
@@ -422,137 +602,122 @@ export function OnlineRoomScreen({ roomId, userId, onLeave, onSwitch }: Props) {
           )}
         </View>
       }
-      table={({ width, height }) => (
-        <Table
-          hand={hand}
-          meId={userId}
-          maxWidth={width}
-          maxHeight={height}
-          reactions={reactions}
-          avatars={avatars}
-          bubbles={bubbles}
-          nextLevelAt={hand.tournament?.nextLevelAt}
-        />
-      )}
+      table={({ width, height }) =>
+        desktop ? (
+          // On a computer: the table and its controls on the left, the chat and past hands on the right.
+          <View style={[styles.desk, { width, height }]}>
+            <View style={styles.deskMain}>
+              <Measured>{(size) => table(size.width, size.height, true)}</Measured>
+              <View style={styles.deskControls}>{controls}</View>
+            </View>
+            <View style={styles.side}>
+              <View style={styles.tabs}>
+                <SideTab
+                  label={t('💬 Discussion')}
+                  active={sideTab === 'chat'}
+                  badge={sideTab === 'chat' ? 0 : unread}
+                  onPress={() => setSideTab('chat')}
+                />
+                <SideTab
+                  label={t('📜 Mains précédentes')}
+                  active={sideTab === 'history'}
+                  onPress={() => setSideTab('history')}
+                />
+              </View>
+              {sideTab === 'chat' ? (
+                chatInline
+              ) : (
+                <HistoryPanel
+                  inline
+                  visible
+                  onClose={() => setSideTab('chat')}
+                  roomId={roomId}
+                  meId={userId}
+                  avatars={avatars}
+                  reloadKey={room.hand_number * 2 + (hand.street === 'finished' ? 1 : 0)}
+                />
+              )}
+            </View>
+          </View>
+        ) : (
+          table(width, height)
+        )
+      }
       bottom={
         <>
-          {actor && !botTurn && hand.deadline && (
-            <TurnTimer deadline={hand.deadline} now={now} name={myTurn ? t('Toi') : actor.name} />
-          )}
-
-          {room.paused && (
-            <View style={styles.pausePanel}>
-              <Text style={styles.pauseTitle}>{t('⏸ Partie en pause')}</Text>
-              {isHost ? (
-                <Button
-                  compact
-                  label={t('▶ Reprendre')}
-                  disabled={busy}
-                  onPress={() => send({ type: 'pause', roomId, paused: false })}
-                />
-              ) : (
-                <Text style={styles.waitText}>
-                  {t('{name} va bientôt reprendre la partie.', { name: host?.name ?? t('Le créateur') })}
-                </Text>
-              )}
-              {error && <Text style={styles.error}>{error}</Text>}
-            </View>
-          )}
-
-          {!room.paused && myTurn && hand.street !== 'finished' && (
-            <ActionPanel
-              key={room.version}
-              hand={hand}
-              playerId={userId}
-              title={t('À toi de jouer')}
-              hole={myCards}
-              error={error}
-              busy={busy}
-              onAction={(action: Action) => send({ type: 'act', roomId, action })}
-            />
-          )}
-
-          {!room.paused && !myTurn && hand.street !== 'finished' && (
-            <View style={styles.waitPanel}>
-              {inHand && myCards.length > 0 && (
-                <View style={styles.cards}>
-                  {myCards.map((c, i) => (
-                    <Appear key={c} delay={i * 140}>
-                      <PlayingCard card={c} width={myCards.length > 2 ? 30 : 42} />
-                    </Appear>
-                  ))}
-                </View>
-              )}
-              <Text style={styles.waitText}>
-                {isSpectator
-                  ? t('👀 Tu regardes')
-                  : !inHand
-                    ? t('Tu joueras à la prochaine main.')
-                    : botTurn
-                      ? t('🤖 {name} réfléchit…', { name: actor?.name ?? '' })
-                      : actor
-                        ? t('Au tour de {name}', { name: actor.name })
-                        : ''}
-              </Text>
-              {isSpectator && players.length < 8 && (
-                <Button compact label={t('Rejoindre la partie')} disabled={busy} onPress={joinGame} />
-              )}
-              {isSpectator && error && <Text style={styles.error}>{error}</Text>}
-            </View>
-          )}
-
-          {!room.paused && hand.street === 'finished' && (
-            <HandSummary hand={hand}>
-              {withChips.length < 2 ? (
-                <>
-                  <PanelText>
-                    {t('🏆 {name} gagne la partie !', { name: withChips[0]?.name ?? '' })}
-                  </PanelText>
-                  <Ranking
-                    entries={players
-                      .filter((p) => p.stack > 0 || p.place !== null)
-                      .map((p) => ({ name: p.name, place: p.stack > 0 ? 1 : (p.place ?? players.length) }))}
-                  />
-                  {!isSpectator && (
-                    <RematchPanel bare rematch={room.rematch} meId={userId} onRematch={rematch} />
-                  )}
-                </>
-              ) : isHost ? (
-                <Button
-                  compact
-                  label={t('Main suivante')}
-                  disabled={busy}
-                  onPress={() => send({ type: 'deal', roomId })}
-                />
-              ) : (
-                <PanelText>
-                  {t('En attente que {name} distribue…', { name: host?.name ?? t('le créateur') })}
-                </PanelText>
-              )}
-              {error && <Text style={styles.error}>{error}</Text>}
-            </HandSummary>
-          )}
-
-          {waiting.length > 0 && (
-            <Text style={styles.note} numberOfLines={1}>
-              {t('Rejoindront à la prochaine main : {names}', {
-                names: waiting.map((p) => p.name).join(', '),
-              })}
-            </Text>
-          )}
-          {syncError && <Text style={styles.error}>{syncError}</Text>}
+          {!desktop && controls}
           {chat}
           {manage}
-          <HistoryPanel
-            visible={historyOpen}
-            onClose={() => setHistoryOpen(false)}
-            roomId={roomId}
-            meId={userId}
-            avatars={avatars}
-          />
+          {!desktop && (
+            <HistoryPanel
+              visible={historyOpen}
+              onClose={() => setHistoryOpen(false)}
+              roomId={roomId}
+              meId={userId}
+              avatars={avatars}
+            />
+          )}
         </>
       }
     />
+  );
+}
+
+/** Fills the space it is given and hands its size to the content, once known. */
+function Measured({ children }: { children: (size: { width: number; height: number }) => ReactNode }) {
+  const [size, setSize] = useState<{ width: number; height: number } | null>(null);
+  return (
+    <View
+      style={styles.measured}
+      onLayout={(e) => setSize({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}
+    >
+      {size && children(size)}
+    </View>
+  );
+}
+
+/** A tab at the top of the side panel, with a red count of unread messages. */
+function SideTab({
+  label,
+  active,
+  badge = 0,
+  onPress,
+}: {
+  label: string;
+  active: boolean;
+  badge?: number;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="tab"
+      accessibilityState={{ selected: active }}
+      onPress={onPress}
+      style={(state) => [
+        styles.tab,
+        (state as PressableStateCallbackType & { hovered?: boolean }).hovered && styles.tabHover,
+        active && styles.tabActive,
+      ]}
+    >
+      <Text style={[styles.tabText, active && styles.tabTextActive]} numberOfLines={1}>
+        {label}
+      </Text>
+      {badge > 0 && (
+        <View style={styles.tabBadge}>
+          <Text style={styles.badgeText}>{badge > 9 ? '9+' : badge}</Text>
+        </View>
+      )}
+    </Pressable>
+  );
+}
+
+/** A titled card in the side column of the waiting room. */
+function SideCard({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <View style={styles.sideCard}>
+      <Text style={styles.sideTitle}>{title}</Text>
+      {children}
+    </View>
   );
 }
 
@@ -654,4 +819,81 @@ const styles = StyleSheet.create({
   note: { color: colors.muted, textAlign: 'center', fontSize: 12 },
   error: { color: colors.gold, textAlign: 'center' },
   spacer: { height: 16 },
+  natural: { alignSelf: 'flex-start' },
+  centered: { alignSelf: 'center', marginTop: 4 },
+  flexSpacer: { flex: 1 },
+  // Waiting room on a computer.
+  lobbyWide: { paddingHorizontal: 32, paddingBottom: 32 },
+  lobbyColumns: { flexDirection: 'row', gap: 28, width: '100%', maxWidth: 1120, alignSelf: 'center' },
+  lobbyMain: { flex: 1, minWidth: 0 },
+  lobbySide: { width: 380 },
+  codeBoxWide: {
+    alignItems: 'center',
+    marginTop: 0,
+    paddingVertical: 22,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    backgroundColor: colors.glass,
+    borderWidth: 1,
+    borderColor: colors.gold,
+    gap: 6,
+  },
+  codeWide: { fontSize: 52, letterSpacing: 12 },
+  lobbyGrid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 8 },
+  lobbyPlayerWide: { width: '50%', paddingRight: 12 },
+  lobbyActions: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 16 },
+  sideCard: {
+    marginTop: 14,
+    height: 460,
+    borderRadius: 14,
+    backgroundColor: colors.glass,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    paddingTop: 12,
+    overflow: 'hidden',
+  },
+  sideTitle: { color: colors.text, fontSize: 17, fontWeight: '800', paddingHorizontal: 16, paddingBottom: 6 },
+  // Game on a computer.
+  desk: { flexDirection: 'row', gap: 20 },
+  deskMain: { flex: 1, minWidth: 0 },
+  measured: { flex: 1, minHeight: 0, alignItems: 'center', justifyContent: 'center' },
+  deskControls: { width: '100%', maxWidth: 780, alignSelf: 'center', gap: 6, marginTop: 8 },
+  side: {
+    width: 340,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.28)',
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    overflow: 'hidden',
+  },
+  tabs: {
+    flexDirection: 'row',
+    gap: 4,
+    padding: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.glassBorder,
+    marginBottom: 6,
+  },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 9,
+    borderRadius: 10,
+  },
+  tabHover: { backgroundColor: 'rgba(255,255,255,0.06)' },
+  tabActive: { backgroundColor: colors.glass, borderWidth: 1, borderColor: colors.gold },
+  tabText: { color: colors.muted, fontSize: 14, fontWeight: '700' },
+  tabTextActive: { color: colors.text },
+  tabBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.danger,
+  },
 });

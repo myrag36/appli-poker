@@ -25,6 +25,7 @@ import { TopBar } from '../components/TopBar';
 import { useHandSounds } from '../feedback';
 import { deviceRng } from '../rng';
 import type { GameSettings } from './SetupScreen';
+import { useDesktop } from '../layout';
 import { colors } from '../theme';
 import { t } from '../i18n';
 import { tMessage } from '../online/messages';
@@ -54,6 +55,7 @@ export function GameScreen({ settings, onQuit }: { settings: GameSettings; onQui
   /** Id of the player who has tapped to see their cards; reset whenever the turn passes. */
   const [revealedFor, setRevealedFor] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const desktop = useDesktop();
 
   const actor = hand.toAct >= 0 ? hand.players[hand.toAct] : null;
   const isBot = (id: string) => settings.bots[Number(id.slice(1))] === true;
@@ -145,6 +147,7 @@ export function GameScreen({ settings, onQuit }: { settings: GameSettings; onQui
           maxHeight={height}
           nextLevelAt={level?.nextLevelAt}
           avatars={avatars}
+          wide={desktop}
         />
       )}
       bottom={
@@ -154,7 +157,12 @@ export function GameScreen({ settings, onQuit }: { settings: GameSettings; onQui
               {mine && (
                 <View style={styles.cards}>
                   {mine.hole.map((c) => (
-                    <PlayingCard key={c} card={c} width={mine.hole.length > 2 ? 30 : 42} />
+                    <PlayingCard
+                      key={c}
+                      card={c}
+                      // As big as in the action bar, so the cards keep their size from turn to turn.
+                      width={(mine.hole.length > 2 ? 30 : 42) * (desktop ? 1.43 : 1)}
+                    />
                   ))}
                 </View>
               )}
