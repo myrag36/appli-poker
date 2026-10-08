@@ -209,3 +209,42 @@ test('tournaments: valid games only, and results once a table ends', () => {
   assert.equal(results?.length, 1);
   assert.equal(results![0].userId, 'a');
 });
+
+test('puissance4: a robot takes the empty seat, rounds pause, the match ends with experience', () => {
+  const { bots, snapshot } = startGame(
+    room({ game: 'puissance4', options: cleanOptions('puissance4', { rounds: 2 }) }),
+    [player('a', 0)],
+    'a',
+    newId,
+    rng,
+    NOW,
+  );
+  assert.equal(bots.length, 1);
+  assert.equal(bots[0].seat, 1);
+  assert.deepEqual(snapshot.public.actors, ['a']);
+  const full = [player('a', 0), player('b', 1)];
+  assert.throws(() => checkJoin(room({ game: 'puissance4' }), full, 'c', 'C'), /pleine/);
+  /** Red drops in the first free column from the center; the robot answers on its timeout. */
+  const step = (s: typeof snapshot) => {
+    if (s.public.actors[0] !== 'a') return playGameTimeout(s.secret, rng, s.secret.deadline!);
+    const board = (s.public.view as { game: { board: unknown[][] } }).game.board;
+    const col = [3, 2, 4, 1, 5, 0, 6].find((c) => board[c].includes(null))!;
+    return playGameMove(s.secret, 'a', { type: 'drop', col }, rng, NOW);
+  };
+  let s = snapshot;
+  for (let i = 0; i < 60 && !s.public.betweenRounds; i++) s = step(s);
+  assert.ok(s.public.betweenRounds);
+  assert.throws(() => playGameMove(s.secret, 'a', { type: 'drop', col: 1 }, rng, NOW), /pas ton tour/);
+  s = playGameMove(s.secret, 'a', { type: 'next' }, rng, NOW);
+  // The other player starts the second round: the robot.
+  assert.deepEqual(s.public.actors, [bots[0].user_id]);
+  let before = s;
+  for (let i = 0; i < 60 && !s.public.over; i++) {
+    before = s;
+    s = step(s);
+  }
+  assert.ok(s.public.over);
+  const awards = progressAwards(before.secret, s);
+  assert.equal(awards.length, 1);
+  assert.equal(awards[0].userId, 'a');
+});
