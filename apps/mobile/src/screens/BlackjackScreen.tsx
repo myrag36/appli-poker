@@ -44,6 +44,7 @@ import { sounds } from '../feedback';
 import { deviceRng } from '../rng';
 import { t, tn } from '../i18n';
 import { colors, gradients, shadow, theme } from '../theme';
+import { COLUMN_MAX_WIDTH, useDesktop } from '../layout';
 
 interface Settings {
   names: string[];
@@ -167,6 +168,7 @@ function BlackjackSetup({
   );
   const [stack, setStack] = useState(initial?.stack ?? 1000);
   const [picking, setPicking] = useState<number | null>(null);
+  const desktop = useDesktop();
 
   const cleaned = names.map((n, i) => n.trim() || t('Joueur {n}', { n: i + 1 }));
   const duplicate = new Set(cleaned.map((n) => n.toLowerCase())).size !== cleaned.length;
@@ -182,7 +184,10 @@ function BlackjackSetup({
   }
 
   return (
-    <ScrollView contentContainerStyle={setup.container} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      contentContainerStyle={[setup.container, desktop && setup.column]}
+      keyboardShouldPersistTaps="handled"
+    >
       <View style={setup.hero}>
         <View style={setup.heroCards}>
           <View style={setup.heroCardLeft}>
@@ -297,6 +302,8 @@ function BlackjackSetup({
 
 const setup = StyleSheet.create({
   container: { padding: 20, paddingTop: 40, paddingBottom: 40 },
+  /** On a computer, forms and results stay a readable column in the middle of the window. */
+  column: { width: '100%', maxWidth: COLUMN_MAX_WIDTH, alignSelf: 'center' },
   hero: { alignItems: 'center', marginBottom: 6 },
   heroCards: { flexDirection: 'row', height: 80, marginBottom: 6 },
   heroCardLeft: { transform: [{ rotate: '-10deg' }, { translateX: 8 }] },
@@ -364,6 +371,7 @@ function BlackjackGame({
   const settled = game.phase === 'settled';
   const reveal = useDealerReveal(game);
   const revealDone = settled && reveal >= game.dealer.length;
+  const desktop = useDesktop();
 
   // Sounds: a card for every new card, chips for bets, a fanfare when a human wins.
   const cardCount =
@@ -522,7 +530,7 @@ function BlackjackGame({
           meId={solo ? humans[0].id : null}
         />
       )}
-      bottom={bottom}
+      bottom={<View style={desktop && ui.bottomDesktop}>{bottom}</View>}
     />
   );
 }
@@ -706,6 +714,8 @@ function TotalBadge({
 // Table
 
 const POD_HEIGHT = 150;
+/** On a computer the seats have room for bigger cards. */
+const POD_HEIGHT_LARGE = 196;
 /** Any card: drawn face down for the dealer's hole card, which online views leave out. */
 const FACE_DOWN: Card = 'As';
 
@@ -730,21 +740,28 @@ function BlackjackTable({
   /** Who is to act (online, several players bet at once); by default the engine's single actor. */
   actorIds?: string[];
 }) {
-  const w = Math.min(width, 460);
-  const h = Math.min(height, Math.round(w * 1.35));
+  const desktop = useDesktop();
+  // A phone has a tall table; a computer gets a wide semicircle with bigger cards.
+  const w = desktop ? Math.min(width, 1100, Math.round(height * 1.85)) : Math.min(width, 460);
+  const h = desktop ? Math.min(height, Math.round(w * 0.6)) : Math.min(height, Math.round(w * 1.35));
   const cx = w / 2;
   // Semicircle at the bottom, flat side at the dealer.
   const n = game.players.length;
-  const podW = Math.min(112, Math.floor((w - 16) / n) - 2);
+  const podW = Math.min(desktop ? 156 : 112, Math.floor((w - 16) / n) - 2);
+  const podH = desktop ? POD_HEIGHT_LARGE : POD_HEIGHT;
   // Too many seats for the arc: they sit in a tidy two-column list instead.
   const list = podW < 78;
-  const radius = list ? Math.min(90, w / 4) : Math.min(w / 2, Math.max(120, h - 200));
+  const radius = list
+    ? Math.min(90, w / 4)
+    : desktop
+      ? Math.min(w / 2, Math.max(160, h - 170))
+      : Math.min(w / 2, Math.max(120, h - 200));
   const arcY = h - radius;
   const rx = w / 2 - podW / 2 - 8;
-  const ry = radius - 44;
+  const ry = radius - (desktop ? 54 : 44);
   const dealerCard = list
     ? Math.max(34, Math.min(46, Math.floor(h / 11)))
-    : Math.max(38, Math.min(54, Math.floor(h / 9)));
+    : Math.max(38, Math.min(desktop ? 76 : 54, Math.floor(h / 9)));
   const mottoTop = 16 + 26 + dealerCard * 1.4 + (list ? 8 : 26);
   const listTop = mottoTop + 22;
   const rows = Math.ceil(n / 2);
@@ -783,7 +800,7 @@ function BlackjackTable({
       {/* The dealer, along the flat edge. */}
       <View style={tbl.dealer}>
         <View style={tbl.dealerLabelRow}>
-          <Text style={tbl.dealerLabel}>{t('Croupier')}</Text>
+          <Text style={[tbl.dealerLabel, desktop && tbl.dealerLabelLarge]}>{t('Croupier')}</Text>
           {game.dealer.length > 0 && (
             <TotalBadge
               cards={dealerHidden ? game.dealer.slice(0, 1) : dealerShown}
@@ -815,8 +832,14 @@ function BlackjackTable({
       </View>
 
       <View style={[tbl.motto, { top: mottoTop }]} pointerEvents="none">
-        <Text style={tbl.mottoMain}>{t('LE BLACKJACK PAIE 3 CONTRE 2')}</Text>
-        {!list && <Text style={tbl.mottoSub}>{t('Le croupier tire jusqu’à 16 et reste sur 17')}</Text>}
+        <Text style={[tbl.mottoMain, desktop && tbl.mottoMainLarge]}>
+          {t('LE BLACKJACK PAIE 3 CONTRE 2')}
+        </Text>
+        {!list && (
+          <Text style={[tbl.mottoSub, desktop && tbl.mottoSubLarge]}>
+            {t('Le croupier tire jusqu’à 16 et reste sur 17')}
+          </Text>
+        )}
         {game.reshuffled && game.phase !== 'betting' && (
           <Appear key={`shuffle-${game.round}`}>
             <Text style={tbl.shuffle}>{t('🔀 Sabot remélangé')}</Text>
@@ -854,7 +877,11 @@ function BlackjackTable({
             <View
               key={p.id}
               pointerEvents="none"
-              style={[tbl.pod, { left: x - podW / 2, top: y - POD_HEIGHT + 26, width: podW }, out && tbl.out]}
+              style={[
+                tbl.pod,
+                { left: x - podW / 2, top: y - podH + (desktop ? 34 : 26), width: podW, height: podH },
+                out && tbl.out,
+              ]}
             >
               {seat &&
                 (seat.hands.length === 1 ? (
@@ -863,6 +890,7 @@ function BlackjackTable({
                     width={podW - 4}
                     focus={turn?.seat === seatIndex && turn.hand === 0}
                     showResult={showResults}
+                    large={desktop}
                   />
                 ) : (
                   <View style={tbl.splitRow}>
@@ -874,6 +902,7 @@ function BlackjackTable({
                         focus={turn?.seat === seatIndex && turn.hand === k}
                         showResult={showResults}
                         split
+                        large={desktop}
                       />
                     ))}
                   </View>
@@ -886,13 +915,16 @@ function BlackjackTable({
               {!seat && game.phase === 'betting' && pending === undefined && !out && (
                 <Text style={tbl.waiting}>{active ? t('Mise…') : ' '}</Text>
               )}
-              <View style={[tbl.plate, active && tbl.plateActive]}>
-                <AvatarBadge avatar={avatars[p.id]} size={podW < 56 ? 22 : 26} />
+              <View style={[tbl.plate, desktop && tbl.plateLarge, active && tbl.plateActive]}>
+                <AvatarBadge avatar={avatars[p.id]} size={desktop ? 34 : podW < 56 ? 22 : 26} />
                 <View style={tbl.plateText}>
-                  <Text style={[tbl.name, active && tbl.nameActive]} numberOfLines={1}>
+                  <Text
+                    style={[tbl.name, desktop && tbl.nameLarge, active && tbl.nameActive]}
+                    numberOfLines={1}
+                  >
                     {p.id === meId ? t('Toi') : p.name}
                   </Text>
-                  <Text style={tbl.stack} numberOfLines={1}>
+                  <Text style={[tbl.stack, desktop && tbl.stackLarge]} numberOfLines={1}>
                     {out ? t('Éliminé') : p.stack}
                   </Text>
                 </View>
@@ -1021,14 +1053,17 @@ function SeatHand({
   focus,
   showResult,
   split,
+  large,
 }: {
   hand: BjHand;
   width: number;
   focus: boolean;
   showResult: boolean;
   split?: boolean;
+  /** On a computer: bigger cards. */
+  large?: boolean;
 }) {
-  const cw = Math.max(20, Math.min(split ? 26 : 34, Math.floor(width * 0.48)));
+  const cw = Math.max(20, Math.min(split ? (large ? 40 : 26) : large ? 54 : 34, Math.floor(width * 0.48)));
   const result = showResult ? hand.result : null;
   return (
     <View style={[tbl.hand, focus && tbl.handFocus]}>
@@ -1103,6 +1138,12 @@ const tbl = StyleSheet.create({
     textTransform: 'uppercase',
   },
   dealerCards: { flexDirection: 'row', gap: 2 },
+  dealerLabelLarge: { fontSize: 14, letterSpacing: 2.5 },
+  mottoMainLarge: { fontSize: 14, letterSpacing: 2.4 },
+  mottoSubLarge: { fontSize: 13 },
+  plateLarge: { paddingRight: 10, paddingVertical: 3, borderRadius: 20, gap: 6 },
+  nameLarge: { fontSize: 14 },
+  stackLarge: { fontSize: 12 },
   motto: { position: 'absolute', left: 0, right: 0, alignItems: 'center', gap: 2 },
   mottoMain: { color: colors.gold, opacity: 0.55, fontSize: 11, fontWeight: '800', letterSpacing: 1.6 },
   mottoSub: { color: colors.muted, opacity: 0.7, fontSize: 10.5 },
@@ -1212,6 +1253,7 @@ const tbl = StyleSheet.create({
 });
 
 const ui = StyleSheet.create({
+  bottomDesktop: { width: '100%', maxWidth: 640, alignSelf: 'center' },
   panel: {
     padding: 10,
     borderRadius: 12,
@@ -1336,8 +1378,9 @@ function RankingView({
   children: ReactNode;
 }) {
   const rows = bjRanking(game);
+  const desktop = useDesktop();
   return (
-    <ScrollView contentContainerStyle={rank.container}>
+    <ScrollView contentContainerStyle={[rank.container, desktop && setup.column]}>
       <Text style={rank.title}>{t('Classement')}</Text>
       <Text style={rank.subtitle}>
         {tn(game.phase === 'settled' ? game.round : game.round - 1, 'Après {n} manche', 'Après {n} manches')}
@@ -1448,6 +1491,7 @@ export function BlackjackOnlineBoard({
   const revealDone = settled && reveal >= game.dealer.length;
   const [lastBet, setLastBet] = useState(50);
   const [ranking, setRanking] = useState(false);
+  const desktop = useDesktop();
   const name = (id: string) => seats.find((s) => s.id === id)?.name ?? '';
   const waitingFor = actors.filter((id) => id !== me?.id).map(name);
   const humanWait = actors.length > 0 && actors.every((id) => !seats.find((s) => s.id === id)?.bot);
@@ -1631,7 +1675,7 @@ export function BlackjackOnlineBoard({
           actorIds={actors}
         />
       )}
-      bottom={bottom}
+      bottom={<View style={desktop && ui.bottomDesktop}>{bottom}</View>}
     />
   );
 }

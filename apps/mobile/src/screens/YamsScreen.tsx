@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { type ReactElement, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
@@ -39,6 +39,7 @@ import type { OnlineBoardProps } from '../online-games/types';
 import { sounds } from '../feedback';
 import { deviceRng } from '../rng';
 import { colors, gradients, shadow, theme } from '../theme';
+import { COLUMN_MAX_WIDTH, useDesktop } from '../layout';
 import { t, tn } from '../i18n';
 
 /** How long a robot seems to think before each step (roll, keep a die, score), in ms. */
@@ -98,6 +99,7 @@ function YamsSetup({
   );
   const [bots, setBots] = useState(initial?.bots ?? [false, true]);
   const [picking, setPicking] = useState<number | null>(null);
+  const desktop = useDesktop();
 
   const cleaned = names.map((n, i) => n.trim() || t('Joueur {n}', { n: i + 1 }));
   const duplicate = new Set(cleaned).size !== cleaned.length;
@@ -113,7 +115,10 @@ function YamsSetup({
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.setup} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      contentContainerStyle={[styles.setup, desktop && styles.column]}
+      keyboardShouldPersistTaps="handled"
+    >
       <View style={styles.titleDice}>
         {[5, 6, 5].map((v, i) => (
           <View key={i} style={{ transform: [{ rotate: `${(i - 1) * 14}deg` }] }}>
@@ -230,6 +235,7 @@ function YamsGame({
   );
   const [confirmZero, setConfirmZero] = useState<YamsBox | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const desktop = useDesktop();
   const player = game.players[game.current];
   const humans = game.players.filter((p) => !p.bot).length;
   const botTurn = !game.finished && player.bot;
@@ -303,17 +309,28 @@ function YamsGame({
         </>
       }
       table={({ width, height }) => (
-        <Tray
+        <YamsTable
           game={game}
           width={width}
           height={height}
+          desktop={desktop}
           prompt={prompt}
           canHold={!botTurn && rolled && game.rollsLeft > 0}
           onToggle={(i) => play({ type: 'toggle', index: i })}
+          grid={(h) => (
+            <ScoreSheet
+              game={game}
+              avatars={settings.avatars}
+              height={h}
+              onPick={pick}
+              interactive={!botTurn}
+              selected={confirmZero}
+            />
+          )}
         />
       )}
       bottom={
-        <>
+        <View style={[styles.controls, desktop && styles.controlsDesktop]}>
           {error && <Text style={styles.errorLine}>{error}</Text>}
           {confirmZero ? (
             <View style={styles.confirm}>
@@ -355,8 +372,8 @@ function YamsGame({
               onPress={() => play({ type: 'roll' })}
             />
           )}
-          <ScoreGrid game={game} onPick={pick} interactive={!botTurn} selected={confirmZero} />
-        </>
+          {!desktop && <ScoreGrid game={game} onPick={pick} interactive={!botTurn} selected={confirmZero} />}
+        </View>
       }
     />
   );
@@ -377,6 +394,7 @@ export function YamsOnlineBoard({
   onLeave,
 }: OnlineBoardProps<YamsState>) {
   const [confirmZero, setConfirmZero] = useState<YamsBox | null>(null);
+  const desktop = useDesktop();
   const avatars = seats.map((s) => s.avatar);
   const player = game.players[game.current];
   const myTurn = !game.finished && game.current === mySeat;
@@ -428,17 +446,28 @@ export function YamsOnlineBoard({
         </>
       }
       table={({ width, height }) => (
-        <Tray
+        <YamsTable
           game={game}
           width={width}
           height={height}
+          desktop={desktop}
           prompt={prompt}
           canHold={myTurn && !busy && rolled && game.rollsLeft > 0}
           onToggle={(i) => onMove({ type: 'toggle', index: i })}
+          grid={(h) => (
+            <ScoreSheet
+              game={game}
+              avatars={avatars}
+              height={h}
+              onPick={pick}
+              interactive={myTurn}
+              selected={confirmZero}
+            />
+          )}
         />
       )}
       bottom={
-        <>
+        <View style={[styles.controls, desktop && styles.controlsDesktop]}>
           {error && <Text style={styles.errorLine}>{error}</Text>}
           {confirmZero ? (
             <View style={styles.confirm}>
@@ -480,8 +509,8 @@ export function YamsOnlineBoard({
               onPress={() => onMove({ type: 'roll' })}
             />
           )}
-          <ScoreGrid game={game} onPick={pick} interactive={myTurn} selected={confirmZero} />
-        </>
+          {!desktop && <ScoreGrid game={game} onPick={pick} interactive={myTurn} selected={confirmZero} />}
+        </View>
       }
     />
   );
@@ -522,6 +551,28 @@ function Scoreboard({ game, avatars }: { game: YamsState; avatars: Avatar[] }) {
   );
 }
 
+/** Width of the score sheet beside the dice, on a computer. */
+const SIDE_GRID_W = 340;
+
+/** The dice tray; on a computer the score sheet sits beside it instead of under the button. */
+function YamsTable({
+  desktop,
+  grid,
+  width,
+  height,
+  ...tray
+}: Parameters<typeof Tray>[0] & { desktop: boolean; grid: (height: number) => ReactElement }) {
+  if (!desktop) return <Tray {...tray} width={width} height={height} />;
+  const gap = 28;
+  const trayW = Math.min(720, width - SIDE_GRID_W - gap);
+  return (
+    <View style={[styles.desktopRow, { gap, height }]}>
+      <Tray {...tray} width={trayW} height={Math.min(height, Math.round(trayW * 0.68))} large />
+      <View style={{ width: SIDE_GRID_W }}>{grid(height)}</View>
+    </View>
+  );
+}
+
 function Tray({
   game,
   width,
@@ -529,6 +580,7 @@ function Tray({
   prompt,
   canHold,
   onToggle,
+  large,
 }: {
   game: YamsState;
   width: number;
@@ -536,10 +588,15 @@ function Tray({
   prompt: string;
   canHold: boolean;
   onToggle: (i: number) => void;
+  /** On a computer: a bigger tray with bigger dice. */
+  large?: boolean;
 }) {
-  const w = Math.min(width, 440);
-  const h = Math.min(height, 320);
-  const size = Math.max(34, Math.min(64, Math.floor((w - 70) / 5) - 6, Math.floor(h * 0.32)));
+  const w = Math.min(width, large ? 720 : 440);
+  const h = Math.min(height, large ? 490 : 320);
+  const size = Math.max(
+    34,
+    Math.min(large ? 96 : 64, Math.floor((w - 70) / 5) - (large ? 14 : 6), Math.floor(h * 0.32)),
+  );
   const last = game.lastScore;
   const lastName = last ? game.players[last.player].name : '';
   return (
@@ -550,9 +607,16 @@ function Tray({
         <View style={styles.feltGlow} />
         <View style={styles.feltLine} />
         {theme.feltMark && <Text style={[styles.feltMark, { fontSize: h * 0.5 }]}>{theme.feltMark}</Text>}
-        <View style={styles.rolls}>
+        <View style={[styles.rolls, large && styles.rollsLarge]}>
           {Array.from({ length: YAMS_ROLLS }, (_, i) => (
-            <View key={i} style={[styles.rollDot, i < YAMS_ROLLS - game.rollsLeft && styles.rollDotUsed]} />
+            <View
+              key={i}
+              style={[
+                styles.rollDot,
+                large && styles.rollDotLarge,
+                i < YAMS_ROLLS - game.rollsLeft && styles.rollDotUsed,
+              ]}
+            />
           ))}
         </View>
         <View style={[styles.dice, { gap: Math.max(6, size * 0.18) }]}>
@@ -568,12 +632,22 @@ function Tray({
             />
           ))}
         </View>
-        <Text style={styles.prompt} numberOfLines={1}>
+        <Text style={[styles.prompt, large && styles.promptLarge]} numberOfLines={1}>
           {prompt}
         </Text>
         {last && (
-          <FloatUp key={`${game.rollCount}-${last.player}-${last.box}`} style={styles.toast}>
-            <Text style={[styles.toastText, last.points === 0 && styles.toastZero]} numberOfLines={1}>
+          <FloatUp
+            key={`${game.rollCount}-${last.player}-${last.box}`}
+            style={[styles.toast, large && styles.toastLarge]}
+          >
+            <Text
+              style={[
+                styles.toastText,
+                large && styles.toastTextLarge,
+                last.points === 0 && styles.toastZero,
+              ]}
+              numberOfLines={1}
+            >
               {t('{name} : {points} en {box}', {
                 name: lastName,
                 points: last.points === 0 ? '0' : `+${last.points}`,
@@ -661,6 +735,120 @@ function ScoreGrid({
   );
 }
 
+/**
+ * On a computer: the whole score sheet beside the dice, one column per player. The column of the
+ * player to play previews what each open box would score, and a tap fills it.
+ */
+function ScoreSheet({
+  game,
+  avatars,
+  height,
+  onPick,
+  interactive,
+  selected,
+}: {
+  game: YamsState;
+  avatars: Avatar[];
+  height: number;
+  onPick: (b: YamsBox) => void;
+  interactive: boolean;
+  selected: YamsBox | null;
+}) {
+  const n = game.players.length;
+  // Header, 13 boxes, bonus and total: everything fits in the height of the table.
+  const rowH = Math.max(24, Math.min(34, Math.floor((height - 24) / 17)));
+  const rolled = game.rollsLeft < YAMS_ROLLS;
+  const colW = { width: Math.min(52, Math.floor((SIDE_GRID_W - 16 - 104) / n)) };
+  const head = (
+    <View style={[styles.sheetRow, { height: rowH + 6 }]}>
+      <Text style={styles.sheetTitle} numberOfLines={1}>
+        {t('Feuille de score')}
+      </Text>
+      {game.players.map((p, i) => (
+        <View
+          key={p.id}
+          style={[styles.sheetCol, colW, i === game.current && styles.sheetColActive]}
+          accessibilityLabel={p.name}
+        >
+          <AvatarBadge avatar={avatars[i]} size={Math.min(26, rowH)} />
+        </View>
+      ))}
+    </View>
+  );
+  const box = (b: YamsBox) => (
+    <View key={b} style={[styles.sheetRow, { height: rowH }]}>
+      <Text style={styles.sheetLabel} numberOfLines={1}>
+        {t(YAMS_BOX_LABELS[b])}
+      </Text>
+      {game.players.map((p, i) => {
+        const filled = p.scores[b];
+        const mine = i === game.current;
+        const potential = mine && rolled && filled === undefined ? yamsScoreBox(game.dice, b) : null;
+        return (
+          <Pressable
+            key={p.id}
+            accessibilityRole={potential !== null ? 'button' : undefined}
+            accessibilityLabel={`${t(YAMS_BOX_LABELS[b])} ${p.name} ${filled ?? potential ?? ''}`}
+            disabled={potential === null || !interactive}
+            onPress={() => onPick(b)}
+            style={({ hovered, pressed }: { hovered?: boolean; pressed: boolean }) => [
+              styles.sheetCol,
+              colW,
+              mine && styles.sheetColActive,
+              potential !== null && styles.sheetOpen,
+              potential !== null && potential > 0 && styles.cellGood,
+              selected === b && mine && styles.cellSelected,
+              potential !== null && interactive && hovered && styles.sheetHover,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text
+              style={[
+                styles.sheetValue,
+                filled !== undefined && styles.cellFilled,
+                potential !== null && (potential > 0 ? styles.cellPotential : styles.cellZero),
+              ]}
+            >
+              {filled !== undefined ? (filled === 0 ? '✕' : filled) : potential !== null ? potential : ''}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+  const sum = (
+    label: string,
+    value: (s: YamsState['players'][0]['scores']) => string | number,
+    strong?: boolean,
+  ) => (
+    <View style={[styles.sheetRow, styles.sheetSum, { height: rowH }]}>
+      <Text style={[styles.sheetLabel, styles.sheetSumLabel, strong && styles.sheetStrong]} numberOfLines={1}>
+        {label}
+      </Text>
+      {game.players.map((p, i) => (
+        <View key={p.id} style={[styles.sheetCol, colW, i === game.current && styles.sheetColActive]}>
+          <Text style={[styles.sheetValue, styles.cellFilled, strong && styles.sheetStrong]}>
+            {value(p.scores)}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+  return (
+    <View style={[styles.grid, styles.sheet, n > 4 && styles.sheetTight]}>
+      {head}
+      {YAMS_UPPER_BOXES.map(box)}
+      {sum(t('Bonus (≥ {n})', { n: YAMS_BONUS_THRESHOLD }), (sc) =>
+        yamsBonus(sc)
+          ? `+${YAMS_BONUS}`
+          : `${Math.min(yamsUpperTotal(sc), YAMS_BONUS_THRESHOLD)}/${YAMS_BONUS_THRESHOLD}`,
+      )}
+      {YAMS_LOWER_BOXES.map(box)}
+      {sum(t('Total'), (sc) => yamsTotal(sc), true)}
+    </View>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Results
 
@@ -680,6 +868,7 @@ function YamsResults({
   onHome: () => void;
   homeLabel?: string;
 }) {
+  const desktop = useDesktop();
   const ranking = yamsRanking(game);
   const winners = ranking.filter((r) => r.place === 1);
   // On this phone (not online), the game gives experience; a win counts if a person won.
@@ -717,7 +906,7 @@ function YamsResults({
     </View>
   );
   return (
-    <ScrollView contentContainerStyle={styles.results}>
+    <ScrollView contentContainerStyle={[styles.results, desktop && styles.column]}>
       <Appear>
         <Text style={styles.trophy}>🏆</Text>
         <Text style={styles.winner}>
@@ -772,6 +961,8 @@ function YamsResults({
 const styles = StyleSheet.create({
   // Setup
   setup: { padding: 20, paddingTop: 40, paddingBottom: 30 },
+  /** On a computer, forms and results stay a readable column in the middle of the window. */
+  column: { width: '100%', maxWidth: COLUMN_MAX_WIDTH, alignSelf: 'center' },
   titleDice: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginBottom: 6 },
   title: { color: colors.gold, fontSize: 34, fontWeight: '800', textAlign: 'center' },
   subtitle: { color: colors.muted, textAlign: 'center', marginBottom: 4 },
@@ -896,6 +1087,43 @@ const styles = StyleSheet.create({
   toastText: { color: colors.gold, fontWeight: '800', fontSize: 14 },
   toastZero: { color: colors.muted },
   errorLine: { color: colors.gold, textAlign: 'center', fontSize: 13 },
+  controls: { gap: 6 },
+  controlsDesktop: { width: '100%', maxWidth: 440, alignSelf: 'center' },
+  desktopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  promptLarge: { fontSize: 17, bottom: 22 },
+  toastLarge: { top: 44, paddingHorizontal: 16, paddingVertical: 7 },
+  toastTextLarge: { fontSize: 17 },
+  rollsLarge: { top: 22, gap: 9 },
+  rollDotLarge: { width: 13, height: 13, borderRadius: 7 },
+
+  sheet: { padding: 8 },
+  sheetTight: { paddingHorizontal: 4 },
+  sheetRow: { flexDirection: 'row', alignItems: 'stretch' },
+  sheetTitle: { flex: 1, color: colors.gold, fontWeight: '800', fontSize: 13, alignSelf: 'center' },
+  sheetLabel: {
+    flex: 1,
+    color: colors.text,
+    fontSize: 13,
+    fontWeight: '600',
+    alignSelf: 'center',
+    paddingLeft: 4,
+  },
+  sheetSum: { backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 6 },
+  sheetSumLabel: { color: colors.muted, fontSize: 12, fontWeight: '700' },
+  sheetStrong: { color: colors.gold, fontSize: 14, fontWeight: '900' },
+  sheetCol: {
+    width: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginVertical: 1,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  sheetColActive: { backgroundColor: 'rgba(255,255,255,0.07)' },
+  sheetOpen: { borderColor: 'rgba(255,255,255,0.18)', borderStyle: 'dashed', cursor: 'pointer' },
+  sheetHover: { backgroundColor: 'rgba(255, 213, 120, 0.22)' },
+  sheetValue: { color: colors.muted, fontSize: 14, fontWeight: '800' },
 
   confirm: {
     padding: 8,

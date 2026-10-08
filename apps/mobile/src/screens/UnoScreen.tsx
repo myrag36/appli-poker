@@ -47,6 +47,7 @@ import { GameCard, UNO_PAINT } from '../components/UnoCard';
 import { sounds } from '../feedback';
 import { deviceRng } from '../rng';
 import { colors, gradients, theme } from '../theme';
+import { useDesktop } from '../layout';
 import { t, tn } from '../i18n';
 
 /** How long a robot seems to think before playing, in ms. */
@@ -60,6 +61,9 @@ const botRng: Rng = (max) => Math.floor(Math.random() * max);
 
 const SEAT_W = 66;
 const SEAT_H = 74;
+/** On a computer the players around the table get bigger seats. */
+const SEAT_W_LARGE = 104;
+const SEAT_H_LARGE = 108;
 
 interface Texts {
   title: string;
@@ -402,6 +406,7 @@ function Game({
   const [choosing, setChoosing] = useState<Card | null>(null);
   const [finished, setFinished] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const desktop = useDesktop();
 
   const isBot = (i: number) => bots[i];
   const playing = state.phase === 'playing';
@@ -613,7 +618,10 @@ function Game({
       bottom={
         !playing ? null : (
           <View style={styles.bottom}>
-            <Text style={[styles.prompt, myTurn && styles.promptMine]} numberOfLines={1}>
+            <Text
+              style={[styles.prompt, desktop && styles.promptLarge, myTurn && styles.promptMine]}
+              numberOfLines={1}
+            >
               {prompt}
             </Text>
             <Hand
@@ -626,7 +634,7 @@ function Game({
               onTap={tap}
             />
             {error && <Text style={styles.error}>{error}</Text>}
-            <View style={styles.actions}>
+            <View style={[styles.actions, desktop && styles.actionsDesktop]}>
               <View style={styles.flex}>
                 <Button
                   compact
@@ -701,21 +709,29 @@ function TableView({
   onDraw: () => void;
   children?: ReactNode;
 }) {
-  const w = Math.min(width, 460);
+  const desktop = useDesktop();
+  // A phone has a tall oval table; a computer a wide one, with bigger seats and cards.
+  const w = desktop ? Math.min(width, 1080, Math.round(height * 1.8)) : Math.min(width, 460);
   const h = height;
+  const seatW = desktop ? SEAT_W_LARGE : SEAT_W;
+  const seatH = desktop ? SEAT_H_LARGE : SEAT_H;
   const n = state.players.length;
   const others = n - 1;
   const cx = w / 2;
   // The others sit on the upper half of an ellipse, in playing order from the left.
-  const cy = Math.round(h * 0.6);
-  const rx = w / 2 - SEAT_W / 2;
-  const ry = cy - SEAT_H / 2 - 2;
+  const cy = Math.round(h * (desktop ? 0.66 : 0.6));
+  const rx = w / 2 - seatW / 2 - (desktop ? 24 : 0);
+  const ry = cy - seatH / 2 - (desktop ? 22 : 2);
   const seat = (k: number) => {
     const angle = others === 1 ? Math.PI / 2 : Math.PI - ((k + 0.5) * Math.PI) / others;
     return { x: cx + rx * Math.cos(angle), y: cy - ry * Math.sin(angle) };
   };
-  const cardW = Math.max(52, Math.min(70, Math.floor(w / 6)));
-  const pileY = Math.round(Math.min(h - cardW * 1.4 - 60, Math.max(cy - cardW * 0.9, h * 0.34)));
+  const cardW = desktop
+    ? Math.max(60, Math.min(100, Math.floor(h / 6.6)))
+    : Math.max(52, Math.min(70, Math.floor(w / 6)));
+  const pileY = desktop
+    ? Math.round(Math.min(h - cardW * 1.4 - 128, cy - cardW * 0.85))
+    : Math.round(Math.min(h - cardW * 1.4 - 60, Math.max(cy - cardW * 0.9, h * 0.34)));
   const last = state.last;
   const top = unoTop(state);
   const under = state.discard.slice(-3, -1);
@@ -812,7 +828,10 @@ function TableView({
         {state.direction === 1 ? '↻' : '↺'}
       </Text>
 
-      <View pointerEvents="box-none" style={[styles.piles, { top: pileY, width: w }]}>
+      <View
+        pointerEvents="box-none"
+        style={[styles.piles, desktop && styles.pilesLarge, { top: pileY, width: w }]}
+      >
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t('Pioche, {n} cartes', { n: deckCount })}
@@ -834,7 +853,7 @@ function TableView({
           ) : (
             <View style={[styles.emptyPile, { width: cardW, height: cardW * 1.4 }]} />
           )}
-          <Text style={styles.deckCount}>{deckCount}</Text>
+          <Text style={[styles.deckCount, desktop && styles.deckCountLarge]}>{deckCount}</Text>
         </Pressable>
         <View style={[styles.discard, { width: cardW + 16, height: cardW * 1.4 }]}>
           {under.map((c, k) => (
@@ -853,13 +872,34 @@ function TableView({
           </Appear>
         </View>
       </View>
-      <View pointerEvents="none" style={[styles.under, { top: pileY + cardW * 1.4 + 8, width: w }]}>
+      <View
+        pointerEvents="none"
+        style={[
+          styles.under,
+          desktop && styles.underLarge,
+          { top: pileY + cardW * 1.4 + (desktop ? 14 : 8), width: w },
+        ]}
+      >
         <View style={styles.chips}>
-          <View style={[styles.colorChip, { borderColor: colorPaint(variant, state.color) }]}>
-            <View style={[styles.colorDot, { backgroundColor: colorPaint(variant, state.color) }]}>
+          <View
+            style={[
+              styles.colorChip,
+              desktop && styles.colorChipLarge,
+              { borderColor: colorPaint(variant, state.color) },
+            ]}
+          >
+            <View
+              style={[
+                styles.colorDot,
+                desktop && styles.colorDotLarge,
+                { backgroundColor: colorPaint(variant, state.color) },
+              ]}
+            >
               {variant === 'huit' && <Text style={styles.colorSuit}>{SUIT_SYMBOLS[state.color]}</Text>}
             </View>
-            <Text style={styles.colorText}>{colorLabel(variant, state.color)}</Text>
+            <Text style={[styles.colorText, desktop && styles.colorTextLarge]}>
+              {colorLabel(variant, state.color)}
+            </Text>
           </View>
           {state.pendingDraw > 0 && (
             <Appear from={6} style={styles.pendingChip}>
@@ -867,7 +907,7 @@ function TableView({
             </Appear>
           )}
         </View>
-        <Text style={styles.caption} numberOfLines={1}>
+        <Text style={[styles.caption, desktop && styles.captionLarge]} numberOfLines={1}>
           {caption}
         </Text>
       </View>
@@ -882,38 +922,64 @@ function TableView({
           <View
             key={p.id}
             pointerEvents="none"
-            style={[styles.seat, { left: x - SEAT_W / 2, top: y - SEAT_H / 2 }]}
+            style={[styles.seat, { left: x - seatW / 2, top: y - seatH / 2, width: seatW }]}
           >
-            <View style={[styles.avatarRing, active && styles.avatarActive]}>
-              <AvatarBadge avatar={avatars[i]} size={38} />
+            <View
+              style={[styles.avatarRing, desktop && styles.avatarRingLarge, active && styles.avatarActive]}
+            >
+              <AvatarBadge avatar={avatars[i]} size={desktop ? 58 : 38} />
             </View>
-            <View style={[styles.plate, active && styles.plateActive]}>
-              <Text style={styles.name} numberOfLines={1}>
+            <View
+              style={[
+                styles.plate,
+                desktop && styles.plateLarge,
+                { width: seatW },
+                active && styles.plateActive,
+              ]}
+            >
+              <Text style={[styles.name, desktop && styles.nameLarge]} numberOfLines={1}>
                 {bots[i] ? '' : '👤 '}
                 {p.name}
               </Text>
-              <Text style={[styles.cards, p.hand.length === 1 && styles.cardsLast]}>🂠 {p.hand.length}</Text>
+              {desktop ? (
+                <SeatFan variant={variant} count={p.hand.length} />
+              ) : (
+                <Text style={[styles.cards, p.hand.length === 1 && styles.cardsLast]}>🂠 {p.hand.length}</Text>
+              )}
             </View>
-            {state.target > 0 && <Text style={styles.seatScore}>{t('{n} pts', { n: p.score })}</Text>}
+            {state.target > 0 && (
+              <Text style={[styles.seatScore, desktop && styles.seatScoreLarge]}>
+                {t('{n} pts', { n: p.score })}
+              </Text>
+            )}
             {b && (
-              <Appear key={`${state.seq}-${b.text}`} from={6} style={styles.bubble}>
-                <Text style={[styles.bubbleText, b.hot && styles.bubbleHot]}>{b.text}</Text>
+              <Appear
+                key={`${state.seq}-${b.text}`}
+                from={6}
+                style={[styles.bubble, desktop && styles.bubbleLarge]}
+              >
+                <Text
+                  style={[styles.bubbleText, desktop && styles.bubbleTextLarge, b.hot && styles.bubbleHot]}
+                >
+                  {b.text}
+                </Text>
               </Appear>
             )}
           </View>
         );
       })}
 
-      <View pointerEvents="none" style={[styles.mePlate, { top: h - 30 }]}>
+      <View pointerEvents="none" style={[styles.mePlate, { top: h - (desktop ? 46 : 30) }]}>
         <View
           style={[
             styles.meRing,
+            desktop && styles.meRingLarge,
             state.current === viewer && state.phase === 'playing' && styles.avatarActive,
           ]}
         >
-          <AvatarBadge avatar={avatars[viewer]} size={22} />
+          <AvatarBadge avatar={avatars[viewer]} size={desktop ? 32 : 22} />
         </View>
-        <Text style={styles.meName} numberOfLines={1}>
+        <Text style={[styles.meName, desktop && styles.meNameLarge]} numberOfLines={1}>
           {state.players[viewer].name}
         </Text>
         {(() => {
@@ -927,6 +993,25 @@ function TableView({
       </View>
 
       {children}
+    </View>
+  );
+}
+
+/** On a computer: a small fan of face-down cards under a seat, with how many there are. */
+function SeatFan({ variant, count }: { variant: UnoVariant; count: number }) {
+  const shown = Math.min(count, 7);
+  const cw = 18;
+  const step = 7;
+  return (
+    <View style={styles.fanRow}>
+      <View style={{ width: shown ? cw + step * (shown - 1) : 0, height: Math.round(cw * 1.4) }}>
+        {Array.from({ length: shown }, (_, k) => (
+          <View key={k} style={{ position: 'absolute', left: k * step }}>
+            <GameCard variant={variant} width={cw} hidden />
+          </View>
+        ))}
+      </View>
+      <Text style={[styles.cards, styles.cardsLarge, count === 1 && styles.cardsLast]}>{count}</Text>
     </View>
   );
 }
@@ -955,10 +1040,12 @@ function Hand({
   active: boolean;
   onTap: (c: Card) => void;
 }) {
-  const { width } = useWindowDimensions();
-  const avail = Math.min(width, 480) - 24;
-  const cardW = cards.length > 14 ? 48 : 56;
-  const lift = 12;
+  const { width, height } = useWindowDimensions();
+  const desktop = useDesktop();
+  // On a computer the hand spreads over the controls area (760 px at most) with bigger cards.
+  const avail = Math.min(width, desktop ? 760 : 480) - 24;
+  const cardW = desktop ? (cards.length > 14 ? 62 : height < 820 ? 68 : 78) : cards.length > 14 ? 48 : 56;
+  const lift = desktop ? 16 : 12;
   // A long hand goes on two rows so every card stays easy to tap.
   const rows = cards.length > 16 ? 2 : 1;
   const perRow = Math.ceil(cards.length / rows);
@@ -989,7 +1076,11 @@ function Hand({
                   accessibilityState={{ disabled: !ok }}
                   disabled={!ok}
                   onPress={() => onTap(c)}
-                  style={[styles.handCard, { left: i * step, top: ok ? 0 : lift }]}
+                  style={({ hovered }: { hovered?: boolean; pressed: boolean }) => [
+                    styles.handCard,
+                    { left: i * step, top: ok ? (hovered ? -4 : 0) : lift },
+                    ok && desktop && styles.handCardDesktop,
+                  ]}
                 >
                   <View style={[ok && styles.cardOk, c === drawn && styles.cardNew]}>
                     <GameCard variant={variant} card={hidden ? undefined : c} width={cardW} hidden={hidden} />
@@ -1348,6 +1439,7 @@ function SheddingOnlineBoard({
   const viewer = watching ? 0 : mySeat;
   const [choosing, setChoosing] = useState<Card | null>(null);
   const [finished, setFinished] = useState(false);
+  const desktop = useDesktop();
   const playing = state.phase === 'playing';
   const canAct = !watching && !busy && actors.includes(seats[mySeat].id);
   const myTurn = canAct && playing && state.current === mySeat;
@@ -1499,7 +1591,10 @@ function SheddingOnlineBoard({
       bottom={
         !playing ? null : (
           <View style={styles.bottom}>
-            <Text style={[styles.prompt, myTurn && styles.promptMine]} numberOfLines={1}>
+            <Text
+              style={[styles.prompt, desktop && styles.promptLarge, myTurn && styles.promptMine]}
+              numberOfLines={1}
+            >
               {prompt}
             </Text>
             {watching ? (
@@ -1517,7 +1612,7 @@ function SheddingOnlineBoard({
             )}
             {error && <Text style={styles.error}>{error}</Text>}
             {!watching && (
-              <View style={styles.actions}>
+              <View style={[styles.actions, desktop && styles.actionsDesktop]}>
                 <View style={styles.flex}>
                   <Button
                     compact
@@ -1666,6 +1761,26 @@ const styles = StyleSheet.create({
   },
 
   piles: { position: 'absolute', left: 0, flexDirection: 'row', justifyContent: 'center', gap: 26 },
+  pilesLarge: { gap: 48 },
+  deckCountLarge: { fontSize: 13, minWidth: 32, top: -10, right: -10, paddingVertical: 2 },
+  underLarge: { gap: 8 },
+  colorChipLarge: { paddingLeft: 4, paddingRight: 14, paddingVertical: 4, borderRadius: 18, gap: 8 },
+  colorDotLarge: { width: 24, height: 24, borderRadius: 12 },
+  colorTextLarge: { fontSize: 15 },
+  captionLarge: { fontSize: 15, paddingHorizontal: 14, paddingVertical: 4, borderRadius: 14 },
+  avatarRingLarge: { borderRadius: 34, padding: 3 },
+  plateLarge: { marginTop: -8, borderRadius: 10, paddingHorizontal: 6, paddingVertical: 3, gap: 2 },
+  nameLarge: { fontSize: 14 },
+  cardsLarge: { fontSize: 13 },
+  fanRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  seatScoreLarge: { fontSize: 12, marginTop: 2 },
+  bubbleLarge: { top: -8, right: -6 },
+  bubbleTextLarge: { fontSize: 13, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10 },
+  meRingLarge: { borderRadius: 20, padding: 2 },
+  meNameLarge: { fontSize: 16, maxWidth: 220 },
+  promptLarge: { fontSize: 16 },
+  actionsDesktop: { width: '100%', maxWidth: 460, alignSelf: 'center' },
+  handCardDesktop: { cursor: 'pointer' },
   deck: { alignItems: 'center' },
   deckUnder: { position: 'absolute' },
   deckReady: { borderRadius: 8, boxShadow: `0 0 0 2px ${colors.gold}, 0 0 16px ${colors.gold}` },
