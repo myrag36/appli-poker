@@ -2,7 +2,17 @@ import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-export type DecorId = 'poker' | 'blackjack' | 'president' | 'yams' | 'belote';
+export type DecorId =
+  | 'poker'
+  | 'blackjack'
+  | 'president'
+  | 'yams'
+  | 'belote'
+  | 'puissance4'
+  | 'rami'
+  | 'uno'
+  | 'huit'
+  | 'tarot';
 
 interface Size {
   w: number;
@@ -391,12 +401,262 @@ function Belote({ w, h }: Size) {
   );
 }
 
+function Puissance4({ w, h }: Size) {
+  // The blue board, slightly tilted and still empty: the tokens of the card art fall into it.
+  const cols = 7;
+  const rows = 5;
+  const cell = Math.round((w * 0.92) / cols);
+  return (
+    <>
+      <LinearGradient colors={['#3a7bd5', '#22489c', '#101f4d']} style={StyleSheet.absoluteFill} />
+      <Pattern w={w} h={h} step={38} symbols={['●']} color="rgba(255,255,255,0.05)" size={12} />
+      <View
+        style={{
+          position: 'absolute',
+          left: w / 2 - (cols * cell) / 2,
+          top: h * 0.05,
+          width: cols * cell,
+          height: rows * cell,
+          padding: 4,
+          flexDirection: 'row',
+          borderRadius: 14,
+          backgroundColor: '#1f5fd1',
+          borderWidth: 2,
+          borderColor: '#5d93ff',
+          transform: [{ rotate: '-6deg' }],
+          boxShadow: '0 8px 18px rgba(0,0,0,0.5), inset 0 2px 4px rgba(255,255,255,0.35)',
+        }}
+      >
+        {Array.from({ length: cols }, (_, c) => (
+          <View key={c} style={{ flex: 1 }}>
+            {Array.from({ length: rows }, (_, r) => {
+              const size = cell * 0.7;
+              return (
+                <View key={r} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                  <View
+                    style={{
+                      width: size,
+                      height: size,
+                      borderRadius: size / 2,
+                      backgroundColor: 'rgba(6,18,50,0.8)',
+                      boxShadow: 'inset 0 3px 5px rgba(0,0,0,0.6)',
+                    }}
+                  />
+                </View>
+              );
+            })}
+          </View>
+        ))}
+      </View>
+      {/* Soft light on the board, so the tokens in front stand out. */}
+      <Glow x={w / 2} y={h * 0.3} size={w * 0.4} color="rgba(255,255,255,0.08)" />
+    </>
+  );
+}
+
+/** A tiny face-up card for the decors: rank and suit only. */
+function MiniCard({
+  x,
+  y,
+  label,
+  red,
+  rotate = 0,
+}: {
+  x: number;
+  y: number;
+  label: string;
+  red?: boolean;
+  rotate?: number;
+}) {
+  return (
+    <View style={[styles.mini, { left: x, top: y, transform: [{ rotate: `${rotate}deg` }] }]}>
+      <Text style={[styles.miniText, { color: red ? '#c1121f' : '#111' }]}>{label}</Text>
+    </View>
+  );
+}
+
+function Rami({ w, h }: Size) {
+  // Melds already laid down on a Provençal tablecloth, a cup of coffee beside them.
+  const melds: { cards: string[]; red: boolean; x: number; y: number; rotate: number }[] = [
+    { cards: ['5♣', '6♣', '7♣', '8♣'], red: false, x: 14, y: 22, rotate: -6 },
+    { cards: ['9♦', '10♦', 'J♦'], red: true, x: w * 0.5, y: h * 0.47, rotate: -3 },
+  ];
+  return (
+    <>
+      <LinearGradient colors={['#2f5fa8', '#1f437e', '#122849']} style={StyleSheet.absoluteFill} />
+      <Pattern w={w} h={h} step={38} symbols={['✿', '❀']} color="rgba(255,214,90,0.16)" size={16} />
+      <Pattern w={w} h={h} step={76} symbols={['•']} color="rgba(255,255,255,0.12)" size={10} />
+      {/* A border of the cloth, like on printed Provençal fabric. */}
+      <View style={[styles.clothBand, { top: h * 0.4, width: w }]} />
+      <Glow x={w / 2} y={h * 0.32} size={w * 0.45} color="rgba(255,230,160,0.10)" />
+      {melds.map((m, i) => (
+        <View
+          key={i}
+          style={{ position: 'absolute', left: m.x, top: m.y, transform: [{ rotate: `${m.rotate}deg` }] }}
+        >
+          {m.cards.map((c, j) => (
+            <MiniCard key={j} x={j * 19} y={0} label={c} red={m.red} />
+          ))}
+        </View>
+      ))}
+      {/* The coffee cup and its saucer, seen from above. */}
+      <View style={[styles.saucer, { left: w - 78, top: 18 }]}>
+        <View style={styles.cup}>
+          <View style={styles.coffee} />
+        </View>
+      </View>
+      <View style={[styles.handle, { left: w - 26, top: 50 }]} />
+    </>
+  );
+}
+
+function Uno({ w, h }: Size) {
+  const rand = random(11);
+  const paints = ['#e0312f', '#f6b81c', '#2f9e44', '#1f6fd1'];
+  return (
+    <>
+      <LinearGradient colors={['#2a1f5c', '#1a1440', '#0c0a22']} style={StyleSheet.absoluteFill} />
+      {/* Four big tilted ovals in the card colors, coming in from the corners. */}
+      {[
+        [-w * 0.25, -h * 0.08],
+        [w * 0.62, -h * 0.12],
+        [-w * 0.3, h * 0.42],
+        [w * 0.66, h * 0.38],
+      ].map(([x, y], i) => (
+        <View
+          key={i}
+          style={{
+            position: 'absolute',
+            left: x,
+            top: y,
+            width: w * 0.62,
+            height: w * 0.62,
+            borderRadius: w,
+            backgroundColor: paints[i],
+            opacity: 0.85,
+            transform: [{ rotate: '-28deg' }, { scaleY: 1.45 }],
+            boxShadow: `0 0 40px ${paints[i]}`,
+          }}
+        />
+      ))}
+      <Glow x={w / 2} y={h * 0.3} size={w * 0.5} color="rgba(255,255,255,0.10)" />
+      {/* Confetti of card symbols. */}
+      {Array.from({ length: 16 }, (_, i) => (
+        <Text
+          key={i}
+          style={{
+            position: 'absolute',
+            left: rand() * (w - 20),
+            top: rand() * h * 0.55,
+            fontSize: 12 + rand() * 12,
+            fontWeight: '900',
+            fontStyle: 'italic',
+            color: `rgba(255,255,255,${0.25 + rand() * 0.35})`,
+            transform: [{ rotate: `${(rand() - 0.5) * 50}deg` }],
+          }}
+        >
+          {['+2', '⇄', '⊘', '+4', '7', '★'][i % 6]}
+        </Text>
+      ))}
+    </>
+  );
+}
+
+function Huit({ w, h }: Size) {
+  const rand = random(8);
+  const square = 18;
+  const cols = Math.ceil(w / square);
+  return (
+    <>
+      <LinearGradient colors={['#0f5560', '#0b3a44', '#062027']} style={StyleSheet.absoluteFill} />
+      {/* A diner's checkerboard strip along the top. */}
+      {Array.from({ length: cols * 2 }, (_, i) => {
+        const r = Math.floor(i / cols);
+        const c = i % cols;
+        return (r + c) % 2 ? null : (
+          <View
+            key={i}
+            style={{
+              position: 'absolute',
+              left: c * square,
+              top: r * square,
+              width: square,
+              height: square,
+              backgroundColor: 'rgba(255,255,255,0.16)',
+            }}
+          />
+        );
+      })}
+      {/* Stars, red, white and blue. */}
+      {Array.from({ length: 18 }, (_, i) => (
+        <Text
+          key={i}
+          style={{
+            position: 'absolute',
+            left: rand() * (w - 16),
+            top: square * 2 + 6 + rand() * h * 0.5,
+            fontSize: 8 + rand() * 12,
+            color: ['rgba(255,90,95,0.55)', 'rgba(255,255,255,0.45)', 'rgba(110,170,255,0.55)'][i % 3],
+          }}
+        >
+          ★
+        </Text>
+      ))}
+      {/* A pink neon 8 on the wall. */}
+      <View style={[styles.neonRing, { left: w / 2 - 70, top: h * 0.1 }]} />
+      <Text style={[styles.neonEight, { top: h * 0.1 - 6, width: w }]}>8</Text>
+    </>
+  );
+}
+
+function Tarot({ w, h }: Size) {
+  const rand = random(21);
+  return (
+    <>
+      <LinearGradient colors={['#4a3485', '#261a57', '#0f0b2a']} style={StyleSheet.absoluteFill} />
+      {/* A starry night sky. */}
+      {Array.from({ length: 34 }, (_, i) => {
+        const size = 1.5 + rand() * 2.5;
+        return (
+          <View
+            key={i}
+            style={{
+              position: 'absolute',
+              left: rand() * w,
+              top: rand() * h * 0.6,
+              width: size,
+              height: size,
+              borderRadius: size,
+              backgroundColor: `rgba(255,240,200,${0.35 + rand() * 0.5})`,
+            }}
+          />
+        );
+      })}
+      <Glow x={w * 0.76} y={h * 0.15} size={w * 0.28} color="rgba(255,230,160,0.12)" />
+      {/* The crescent moon: a gold disc with a night-coloured one over it. */}
+      <View style={[styles.moon, { left: w * 0.68, top: h * 0.06 }]} />
+      <View style={[styles.moonShade, { left: w * 0.68 + 14, top: h * 0.06 - 6 }]} />
+      <Text style={[styles.arcane, { width: w, top: h * 0.02 }]}>XXI</Text>
+      {/* The laurel wreath of the 21, as on the old decks. */}
+      <View style={[styles.wreath, { left: w * 0.08, top: h * 0.08 }]}>
+        <Text style={styles.wreathStar}>✦</Text>
+      </View>
+      <Pattern w={w} h={h} step={58} symbols={['✦', '☾', '★']} color="rgba(232,199,102,0.07)" size={14} />
+    </>
+  );
+}
+
 const DECORS: Record<DecorId, (size: Size) => ReactNode> = {
   poker: Poker,
   blackjack: Blackjack,
   president: President,
   yams: Yams,
   belote: Belote,
+  puissance4: Puissance4,
+  rami: Rami,
+  uno: Uno,
+  huit: Huit,
+  tarot: Tarot,
 };
 
 /** The illustrated background of a game's card in the carousel. */
@@ -543,5 +803,115 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     boxShadow: '0 3px 6px rgba(0,0,0,0.35)',
   },
+  mini: {
+    position: 'absolute',
+    width: 26,
+    height: 36,
+    borderRadius: 3,
+    backgroundColor: '#fbf7ec',
+    borderWidth: 0.5,
+    borderColor: '#cfc5a8',
+    paddingLeft: 3,
+    paddingTop: 1,
+    boxShadow: '0 2px 3px rgba(0,0,0,0.45)',
+  },
+  miniText: { fontSize: 10, fontWeight: '800' },
+  clothBand: {
+    position: 'absolute',
+    left: 0,
+    height: 14,
+    backgroundColor: 'rgba(255,214,90,0.13)',
+    borderTopWidth: 1,
+    borderBottomWidth: 1,
+    borderColor: 'rgba(255,214,90,0.3)',
+  },
+  saucer: {
+    position: 'absolute',
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: '#f2eee4',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 4px 8px rgba(0,0,0,0.45)',
+  },
+  cup: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#ffffff',
+    borderWidth: 2,
+    borderColor: '#d9d2c2',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  coffee: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#4a2a14',
+    borderWidth: 2,
+    borderColor: '#7a4a26',
+  },
+  handle: {
+    position: 'absolute',
+    width: 16,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: '#fff',
+    transform: [{ rotate: '30deg' }],
+  },
   wine: { width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(110,10,35,0.85)' },
+  neonRing: {
+    position: 'absolute',
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    borderWidth: 3,
+    borderColor: 'rgba(255,120,200,0.8)',
+    boxShadow: '0 0 18px rgba(255,90,190,0.9), inset 0 0 18px rgba(255,90,190,0.6)',
+  },
+  neonEight: {
+    position: 'absolute',
+    left: 0,
+    textAlign: 'center',
+    fontSize: 130,
+    lineHeight: 150,
+    fontWeight: '200',
+    color: 'rgba(255,200,235,0.9)',
+    textShadowColor: 'rgba(255,60,180,1)',
+    textShadowRadius: 18,
+    textShadowOffset: { width: 0, height: 0 },
+  },
+  moon: {
+    position: 'absolute',
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: '#f3d77a',
+    boxShadow: '0 0 24px rgba(255,220,120,0.55)',
+  },
+  moonShade: { position: 'absolute', width: 56, height: 56, borderRadius: 28, backgroundColor: '#45307d' },
+  arcane: {
+    position: 'absolute',
+    left: 0,
+    textAlign: 'center',
+    fontSize: 96,
+    fontWeight: '900',
+    fontFamily: 'Georgia, "Times New Roman", serif',
+    color: 'rgba(232,199,102,0.10)',
+    letterSpacing: 6,
+  },
+  wreath: {
+    position: 'absolute',
+    width: 54,
+    height: 70,
+    borderRadius: 35,
+    borderWidth: 3,
+    borderColor: 'rgba(120,190,110,0.55)',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  wreathStar: { color: 'rgba(232,199,102,0.7)', fontSize: 20 },
 });

@@ -1,3 +1,4 @@
+import { ALL_EMOTES } from '@appli-poker/engine';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { HandView } from '@appli-poker/engine';
@@ -67,7 +68,8 @@ const BUBBLE_MS = 6000;
 const POLL_MS = 20_000;
 
 /** The emojis players can send at the table. */
-export const REACTIONS = ['👍', '😂', '🔥', '😱', '😭', '👏'];
+/** Reactions anyone may receive: the free ones and those sold in the shop. */
+export const REACTIONS = ALL_EMOTES;
 
 /** Live view of a room: refetched whenever the room, its players or my cards change. */
 export function useRoom(roomId: string, userId: string) {

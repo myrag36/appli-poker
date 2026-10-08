@@ -30,6 +30,11 @@ const GAME_LABELS: Partial<Record<ProgressGame, string>> = {
   president: 'de Président',
   yams: 'de Yams',
   belote: 'de belote',
+  puissance4: 'de Puissance 4',
+  rami: 'de rami',
+  uno: 'de Uno',
+  huit: 'de 8 américain',
+  tarot: 'de tarot',
 };
 
 const sum = (counts: Partial<Record<ProgressGame, number>> | undefined) =>

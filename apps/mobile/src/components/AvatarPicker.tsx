@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { Fragment, useEffect, useRef } from 'react';
 import { Animated, Easing, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AVATAR_COLORS, AVATAR_EMOJIS, REWARDS, type Avatar, ownedKey } from '@appli-poker/engine';
@@ -14,7 +14,7 @@ interface FrameLook {
   ring: Stops;
   /** Color of the halo around the ring. */
   glow?: string;
-  motion?: 'spin' | 'pulse' | 'flicker';
+  motion?: 'spin' | 'pulse' | 'flicker' | 'blink';
   /** Small shapes drawn on the ring. */
   gems?: string;
   crown?: boolean;
@@ -34,6 +34,38 @@ interface FrameLook {
   stars?: boolean;
   /** Ring stops with hard edges, like the cut faces of a gem. */
   facets?: boolean;
+  /** Emojis or glyphs set around the ring. */
+  ornaments?: readonly Ornament[];
+  /** The ring cut into wedges of these colors going round, like a buoy. */
+  segments?: readonly string[];
+  /** With `segments`: each wedge becomes a colored pencil with a sharpened tip. */
+  pencils?: boolean;
+  /** Fine grooves on the ring, like a record. */
+  grooves?: boolean;
+  /** Bulbs of these colors strung round the ring, blinking in turn (with the 'blink' motion). */
+  lights?: readonly string[];
+  /** Paper confetti of these colors scattered around the frame. */
+  confetti?: readonly string[];
+  /** Icicles hanging from the bottom of the ring. */
+  icicles?: boolean;
+  /** A shooting star streaking past the top of the frame. */
+  comet?: boolean;
+}
+
+/** One decoration on the ring: `a` is its angle in degrees (0 = right, 90 = bottom). */
+interface Ornament {
+  e: string;
+  a: number;
+  /** Size, as a share of the avatar size (0.26 by default). */
+  k?: number;
+  /** Distance from the center, as a share of the ring's radius (1 = on the ring). */
+  d?: number;
+  /** Tilt in degrees. */
+  r?: number;
+  /** Text color, for plain glyphs. */
+  color?: string;
+  /** Color of a soft glow around it. */
+  glow?: string;
 }
 
 const FRAMES: Record<string, FrameLook> = {
@@ -120,6 +152,124 @@ const FRAMES: Record<string, FrameLook> = {
     gems: '#f2fcff',
     sparkles: 'rgba(120, 210, 255, 1)',
   },
+  // ---- Seasonal frames, one per month ----
+  givre: {
+    ring: ['#ffffff', '#d9f4ff', '#7ccff5', '#ffffff', '#a6e2ff', '#3aa6e0'],
+    glow: 'rgba(170, 230, 255, 0.85)',
+    motion: 'pulse',
+    icicles: true,
+    ornaments: [
+      { e: '❄', a: -135, k: 0.3, color: '#ffffff', glow: 'rgba(80, 190, 255, 1)' },
+      { e: '❄', a: -60, k: 0.2, r: 20, color: '#ffffff', glow: 'rgba(80, 190, 255, 1)' },
+      { e: '❄', a: 10, k: 0.16, r: -15, color: '#ffffff', glow: 'rgba(80, 190, 255, 1)' },
+      { e: '✦', a: 165, k: 0.14, color: '#ffffff', glow: 'rgba(80, 190, 255, 1)' },
+    ],
+  },
+  carnaval: {
+    ring: ['#7b2cbf', '#ffc300', '#1fa34a'],
+    segments: Array.from({ length: 9 }, (_, i) => ['#7b2cbf', '#ffc300', '#1fa34a'][i % 3]),
+    glow: 'rgba(255, 195, 0, 0.6)',
+    confetti: ['#ff4fa3', '#ffd23f', '#2fb8ff', '#7cff6b', '#b06bff'],
+    ornaments: [{ e: '🎭', a: -45, k: 0.36, r: 15, d: 1.05 }],
+  },
+  printemps: {
+    ring: ['#e9ffc9', '#8ee05a', '#3f9e2c', '#b9f27a', '#2c7a1f'],
+    glow: 'rgba(150, 230, 90, 0.55)',
+    ornaments: [
+      { e: '🌷', a: 100, k: 0.3, d: 1.02 },
+      { e: '🌷', a: 135, k: 0.24, r: 18 },
+      { e: '🌷', a: 62, k: 0.24, r: -18 },
+      { e: '🌱', a: 160, k: 0.18, r: 25 },
+      { e: '🦋', a: -50, k: 0.24, d: 1.12, r: 12 },
+    ],
+  },
+  poisson: {
+    ring: ['#d8f6ff', '#5ec8ff', '#1f7fd6', '#9ce2ff', '#0e4f9e'],
+    glow: 'rgba(80, 190, 255, 0.6)',
+    bubbles: true,
+    ornaments: [
+      { e: '🐟', a: -55, k: 0.3, d: 1.08, r: -18 },
+      { e: '🐠', a: 125, k: 0.28, d: 1.05, r: 10 },
+      { e: '🐟', a: 72, k: 0.2, d: 1.08, r: 20 },
+    ],
+  },
+  fleurs: {
+    ring: ['#e4ffd0', '#8fd36b', '#4a9e3a', '#b7ea8f', '#2f7a28'],
+    glow: 'rgba(255, 170, 210, 0.6)',
+    ornaments: [
+      { e: '🌼', a: -168, k: 0.22, r: -30 },
+      { e: '🌸', a: -145, k: 0.26, r: -20 },
+      { e: '🌺', a: -118, k: 0.28, r: -10 },
+      { e: '🌼', a: -90, k: 0.32 },
+      { e: '🌺', a: -62, k: 0.28, r: 10 },
+      { e: '🌸', a: -35, k: 0.26, r: 20 },
+      { e: '🌼', a: -12, k: 0.22, r: 30 },
+      { e: '🍃', a: 150, k: 0.18, r: 30 },
+    ],
+  },
+  musique: {
+    ring: ['#0b0b0b', '#4a4a4a', '#0b0b0b', '#0b0b0b', '#555555', '#0b0b0b'],
+    glow: 'rgba(200, 80, 255, 0.6)',
+    motion: 'spin',
+    grooves: true,
+    ornaments: [
+      { e: '♪', a: -42, k: 0.3, d: 1.2, r: 12, color: '#ffffff', glow: 'rgba(220, 90, 255, 1)' },
+      { e: '♫', a: 205, k: 0.26, d: 1.2, r: -12, color: '#ffffff', glow: 'rgba(80, 200, 255, 1)' },
+    ],
+  },
+  plage: {
+    ring: ['#ffffff', '#f1f1f1'],
+    segments: ['#e8282b', '#ffffff', '#e8282b', '#ffffff', '#e8282b', '#ffffff', '#e8282b', '#ffffff'],
+    glow: 'rgba(255, 220, 120, 0.55)',
+    ornaments: [
+      { e: '☀️', a: -45, k: 0.28, d: 1.12 },
+      { e: '🐚', a: 140, k: 0.2, d: 1.08, r: -15 },
+    ],
+  },
+  filante: {
+    ring: ['#3b2a7a', '#0a0d33', '#1a1f5e', '#5a3fa0', '#0a0d33', '#3b2a7a'],
+    glow: 'rgba(120, 130, 255, 0.75)',
+    motion: 'spin',
+    stars: true,
+    comet: true,
+    ornaments: [{ e: '🌙', a: 140, k: 0.24, d: 1.06, r: -20 }],
+  },
+  ecolier: {
+    ring: ['#7a5534', '#4a2f1a'],
+    segments: ['#e63946', '#f4a261', '#ffd23f', '#52b788', '#2a9d8f', '#3a86ff', '#8338ec', '#ff70a6'],
+    pencils: true,
+    glow: 'rgba(255, 220, 150, 0.4)',
+  },
+  halloween: {
+    ring: ['#ffb347', '#ff7b00', '#c24d00'],
+    segments: Array.from({ length: 12 }, (_, i) => (i % 2 ? '#e8650a' : '#ff8f1f')),
+    glow: 'rgba(255, 120, 0, 0.8)',
+    motion: 'flicker',
+    ornaments: [
+      { e: '🎃', a: -90, k: 0.36, d: 1.05 },
+      { e: '🦇', a: -150, k: 0.22, d: 1.22, r: -15 },
+      { e: '🦇', a: -28, k: 0.19, d: 1.24, r: 15 },
+      { e: '🕸️', a: 135, k: 0.24, d: 1.02 },
+    ],
+  },
+  automne: {
+    ring: ['#ffd27a', '#ff8c2a', '#c2410c', '#ffb347', '#7c2d12'],
+    glow: 'rgba(255, 130, 40, 0.55)',
+    ornaments: [
+      { e: '🍁', a: -140, k: 0.3, r: -20 },
+      { e: '🍂', a: -55, k: 0.22, r: -30 },
+      { e: '🍁', a: 25, k: 0.24, r: 25 },
+      { e: '🍂', a: 105, k: 0.26, r: 40 },
+      { e: '🌰', a: 160, k: 0.18, d: 1.04 },
+    ],
+  },
+  noel: {
+    ring: ['#3aa856', '#14562a', '#0b3a1c', '#2f8f46', '#0f4a24'],
+    glow: 'rgba(255, 220, 120, 0.45)',
+    motion: 'blink',
+    lights: ['#ff3b3b', '#ffd23f', '#3bb2ff', '#ff7be5', '#7dff6b'],
+    ornaments: [{ e: '🎀', a: -90, k: 0.34, d: 1.02 }],
+  },
 };
 
 /** A faceted ring repeats every color twice, so each one keeps a flat band with hard edges. */
@@ -133,7 +283,7 @@ function facetLocations(n: number) {
   return out as unknown as readonly [number, number, ...number[]];
 }
 
-const DURATIONS = { spin: 6000, pulse: 1800, flicker: 1100 };
+const DURATIONS = { spin: 6000, pulse: 1800, flicker: 1100, blink: 1600 };
 
 /** One looping value from 0 to 1 for animated frames; nothing runs for static ones. */
 function useLoop(motion: FrameLook['motion']) {
@@ -243,9 +393,17 @@ export function AvatarBadge({ avatar, size = 44 }: { avatar: Avatar; size?: numb
             style={StyleSheet.absoluteFill}
           />
         )}
+        {look.segments && (
+          <Segments outer={outer} inner={disc / 2} colors={look.segments} pencils={look.pencils} />
+        )}
+        {look.grooves && size >= 30 && <Grooves outer={outer} inner={disc / 2} />}
         {/* A soft highlight on the top half makes the ring look rounded. */}
         <LinearGradient
-          colors={['rgba(255,255,255,0.55)', 'rgba(255,255,255,0)', 'rgba(0,0,0,0.18)']}
+          colors={[
+            look.segments ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.55)',
+            'rgba(255,255,255,0)',
+            'rgba(0,0,0,0.18)',
+          ]}
           locations={[0, 0.45, 1]}
           style={StyleSheet.absoluteFill}
         />
@@ -270,6 +428,13 @@ export function AvatarBadge({ avatar, size = 44 }: { avatar: Avatar; size?: numb
         <Text style={{ fontSize: disc * 0.6 }}>{avatar.emoji}</Text>
       </View>
       {look.frost && size >= 36 && <Frost size={size} />}
+      {look.icicles && size >= 30 && <Icicles size={size} radius={size / 2 + out} />}
+      {look.confetti && size >= 30 && <Confetti size={size} colors={look.confetti} />}
+      {look.lights && <Lights size={size} radius={(size + out - inset) / 2} colors={look.lights} t={t} />}
+      {look.comet && size >= 30 && <Comet size={size} t={t} />}
+      {look.ornaments && size >= 30 && (
+        <Ornaments size={size} radius={(size + out - inset) / 2} list={look.ornaments} />
+      )}
       {look.flames && size >= 30 && <Flames size={size} t={t} />}
       {look.bubbles && size >= 30 && <Bubbles size={size} />}
       {look.drips && size >= 30 && <Drips size={size} color={look.drips} />}
@@ -280,6 +445,397 @@ export function AvatarBadge({ avatar, size = 44 }: { avatar: Avatar; size?: numb
       {look.crown && <Crown size={size} />}
       {chip}
     </View>
+  );
+}
+
+/** A slice of ring of angular width `span` centered on angle `a`: a trapezoid made from borders. */
+function Wedge({
+  c,
+  a,
+  span,
+  r1,
+  r2,
+  color,
+}: {
+  c: number;
+  a: number;
+  span: number;
+  r1: number;
+  r2: number;
+  color: string;
+}) {
+  const tan = Math.tan(span / 2);
+  // The wide edge sits just outside the outer circle, the narrow one inside the inner circle.
+  const d1 = r1 / Math.cos(span / 2) + 1;
+  const d2 = Math.max(0, r2 * Math.cos(span / 2) - 1);
+  const h = d1 - d2;
+  const side = h * tan;
+  const mid = (d1 + d2) / 2;
+  return (
+    <View
+      pointerEvents="none"
+      style={[
+        styles.abs,
+        {
+          left: c + Math.cos(a) * mid - d1 * tan,
+          top: c + Math.sin(a) * mid - h / 2,
+          width: 2 * d1 * tan,
+          height: h,
+          borderTopWidth: h,
+          borderLeftWidth: side,
+          borderRightWidth: side,
+          borderTopColor: color,
+          borderLeftColor: 'transparent',
+          borderRightColor: 'transparent',
+          transform: [{ rotate: `${a + Math.PI / 2}rad` }],
+        },
+      ]}
+    />
+  );
+}
+
+/** A triangle lying along the ring at angle `a`, pointing round the ring (clockwise). */
+function Tip({
+  c,
+  a,
+  r,
+  len,
+  thick,
+  color,
+}: {
+  c: number;
+  a: number;
+  r: number;
+  len: number;
+  thick: number;
+  color: string;
+}) {
+  const x = c + Math.cos(a) * r - Math.sin(a) * (len / 2);
+  const y = c + Math.sin(a) * r + Math.cos(a) * (len / 2);
+  return (
+    <View
+      pointerEvents="none"
+      style={[
+        styles.abs,
+        {
+          left: x - len / 2,
+          top: y - thick / 2,
+          width: len,
+          height: thick,
+          borderLeftWidth: len,
+          borderTopWidth: thick / 2,
+          borderBottomWidth: thick / 2,
+          borderLeftColor: color,
+          borderTopColor: 'transparent',
+          borderBottomColor: 'transparent',
+          transform: [{ rotate: `${a + Math.PI / 2}rad` }],
+        },
+      ]}
+    />
+  );
+}
+
+/** The ring cut into colored wedges, or into a round of colored pencils. */
+function Segments({
+  outer,
+  inner,
+  colors,
+  pencils,
+}: {
+  outer: number;
+  inner: number;
+  colors: readonly string[];
+  pencils?: boolean;
+}) {
+  const c = outer / 2;
+  const n = colors.length;
+  const span = (Math.PI * 2) / n;
+  const start = -Math.PI / 2 - span / 2;
+  if (!pencils)
+    return (
+      <>
+        {colors.map((color, i) => (
+          <Wedge
+            key={i}
+            c={c}
+            a={start + (i + 0.5) * span}
+            span={span * 1.04}
+            r1={c}
+            r2={inner}
+            color={color}
+          />
+        ))}
+      </>
+    );
+  const body = span * 0.64;
+  const mid = (c + inner) / 2;
+  const thick = c - inner;
+  const len = mid * (span - body) * 0.95;
+  return (
+    <>
+      {colors.map((color, i) => {
+        const a0 = start + i * span;
+        return (
+          <Fragment key={i}>
+            <Wedge c={c} a={a0 + body / 2} span={body} r1={c} r2={inner} color={color} />
+            <Wedge c={c} a={a0 + body * 0.04} span={body * 0.08} r1={c} r2={inner} color="rgba(0,0,0,0.3)" />
+            <Tip c={c} a={a0 + body} r={mid} len={len} thick={thick * 0.96} color="#f6d3a0" />
+            <Tip
+              c={c}
+              a={a0 + body + (span - body) * 0.58}
+              r={mid}
+              len={len * 0.42}
+              thick={thick * 0.96 * 0.42}
+              color={color}
+            />
+          </Fragment>
+        );
+      })}
+    </>
+  );
+}
+
+/** Thin circles across the ring, like the grooves of a record. */
+function Grooves({ outer, inner }: { outer: number; inner: number }) {
+  const c = outer / 2;
+  return (
+    <>
+      {[0.2, 0.4, 0.6, 0.8].map((k) => {
+        const r = inner + (c - inner) * k;
+        return (
+          <View
+            key={k}
+            pointerEvents="none"
+            style={[
+              styles.abs,
+              styles.groove,
+              { left: c - r, top: c - r, width: r * 2, height: r * 2, borderRadius: r },
+            ]}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+/** Emojis and glyphs set around the ring. */
+function Ornaments({ size, radius, list }: { size: number; radius: number; list: readonly Ornament[] }) {
+  const c = size / 2;
+  return (
+    <>
+      {list.map((o, i) => {
+        const f = size * (o.k ?? 0.26);
+        const a = (o.a * Math.PI) / 180;
+        const r = radius * (o.d ?? 1);
+        return (
+          <Text
+            key={i}
+            pointerEvents="none"
+            style={[
+              styles.abs,
+              styles.centered,
+              {
+                left: c + Math.cos(a) * r - f * 0.6,
+                top: c + Math.sin(a) * r - f * 0.6,
+                width: f * 1.2,
+                fontSize: f,
+                lineHeight: f * 1.2,
+                color: o.color,
+                transform: [{ rotate: `${o.r ?? 0}deg` }],
+              },
+              o.glow
+                ? {
+                    textShadowColor: o.glow,
+                    textShadowRadius: f * 0.3,
+                    textShadowOffset: { width: 0, height: 0 },
+                  }
+                : null,
+            ]}
+          >
+            {o.e}
+          </Text>
+        );
+      })}
+    </>
+  );
+}
+
+/** A string of bulbs round the ring; every other one lights up in turn. */
+function Lights({
+  size,
+  radius,
+  colors,
+  t,
+}: {
+  size: number;
+  radius: number;
+  colors: readonly string[];
+  t: Animated.Value;
+}) {
+  const n = size >= 60 ? 14 : size >= 36 ? 10 : 8;
+  const d = Math.max(2.5, size * 0.085);
+  const c = size / 2;
+  return (
+    <>
+      {Array.from({ length: n }, (_, i) => {
+        const a = (i / n) * Math.PI * 2 - Math.PI / 2 + Math.PI / n;
+        const color = colors[i % colors.length];
+        return (
+          <Animated.View
+            key={i}
+            pointerEvents="none"
+            style={[
+              styles.abs,
+              styles.bulb,
+              {
+                left: c + Math.cos(a) * radius - d / 2,
+                top: c + Math.sin(a) * radius - (d * 1.25) / 2,
+                width: d,
+                height: d * 1.25,
+                borderRadius: d,
+                backgroundColor: color,
+                boxShadow: `0 0 ${d * 0.9}px ${d * 0.15}px ${color}`,
+                transform: [{ rotate: `${a + Math.PI / 2}rad` }],
+                opacity: t.interpolate({
+                  inputRange: [0, 0.45, 0.5, 0.95, 1],
+                  outputRange: i % 2 ? [1, 1, 0.3, 0.3, 1] : [0.3, 0.3, 1, 1, 0.3],
+                }),
+              },
+            ]}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+/** A few paper confetti flying around the frame. */
+function Confetti({ size, colors }: { size: number; colors: readonly string[] }) {
+  const spots = [
+    { x: -0.12, y: 0.12, r: 25, round: false },
+    { x: 0.1, y: -0.1, r: -40, round: true },
+    { x: 0.42, y: -0.16, r: 60, round: false },
+    { x: 1.04, y: 0.38, r: -20, round: true },
+    { x: 1.06, y: 0.7, r: 45, round: false },
+    { x: 0.82, y: 1.02, r: -60, round: true },
+    { x: 0.36, y: 1.06, r: 15, round: false },
+    { x: -0.12, y: 0.78, r: 70, round: true },
+    { x: -0.16, y: 0.46, r: -35, round: false },
+  ];
+  const w = size * 0.085;
+  return (
+    <>
+      {spots.map((p, i) => (
+        <View
+          key={i}
+          pointerEvents="none"
+          style={[
+            styles.abs,
+            {
+              left: size * p.x,
+              top: size * p.y,
+              width: p.round ? w * 0.7 : w,
+              height: p.round ? w * 0.7 : w * 0.45,
+              borderRadius: p.round ? w : 1,
+              backgroundColor: colors[i % colors.length],
+              transform: [{ rotate: `${p.r}deg` }],
+            },
+          ]}
+        />
+      ))}
+    </>
+  );
+}
+
+/** Icicles hanging from the bottom of the ring. */
+function Icicles({ size, radius }: { size: number; radius: number }) {
+  const c = size / 2;
+  const spots = [
+    { a: 52, k: 0.1 },
+    { a: 68, k: 0.16 },
+    { a: 82, k: 0.11 },
+    { a: 96, k: 0.2 },
+    { a: 110, k: 0.13 },
+    { a: 124, k: 0.17 },
+  ];
+  const w = size * 0.07;
+  return (
+    <>
+      {spots.map((s, i) => {
+        const a = (s.a * Math.PI) / 180;
+        return (
+          <View
+            key={i}
+            pointerEvents="none"
+            style={[
+              styles.abs,
+              styles.icicle,
+              {
+                left: c + Math.cos(a) * radius - w / 2,
+                top: c + Math.sin(a) * radius - size * 0.03,
+                borderLeftWidth: w / 2,
+                borderRightWidth: w / 2,
+                borderTopWidth: size * s.k,
+              },
+            ]}
+          />
+        );
+      })}
+    </>
+  );
+}
+
+/** A shooting star crossing the top right of the frame, with a fading trail. */
+function Comet({ size, t }: { size: number; t: Animated.Value }) {
+  const len = size * 0.75;
+  const th = Math.max(1.5, size * 0.05);
+  const sx = size * 0.98;
+  const sy = size * 0.06;
+  const back = (200 * Math.PI) / 180;
+  const f = size * 0.26;
+  return (
+    <>
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.abs,
+          {
+            left: sx + Math.cos(back) * (len / 2) - len / 2,
+            top: sy + Math.sin(back) * (len / 2) - th / 2,
+            width: len,
+            height: th,
+            opacity: t.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.75, 1, 0.75] }),
+            transform: [{ rotate: '20deg' }],
+          },
+        ]}
+      >
+        <LinearGradient
+          colors={['rgba(160,170,255,0)', 'rgba(200,210,255,0.6)', '#ffffff']}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={[StyleSheet.absoluteFill, { borderRadius: th }]}
+        />
+      </Animated.View>
+      <Animated.Text
+        pointerEvents="none"
+        style={[
+          styles.abs,
+          styles.centered,
+          styles.cometStar,
+          {
+            left: sx - f / 2,
+            top: sy - f * 0.6,
+            width: f,
+            fontSize: f,
+            lineHeight: f * 1.2,
+            textShadowRadius: f * 0.4,
+            transform: [{ scale: t.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.9, 1.15, 0.9] }) }],
+          },
+        ]}
+      >
+        ★
+      </Animated.Text>
+    </>
   );
 }
 
@@ -771,6 +1327,20 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 0 },
   },
   facetCross: { opacity: 0.5 },
+  groove: { borderWidth: 0.6, borderColor: 'rgba(255,255,255,0.14)' },
+  bulb: { borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.7)' },
+  icicle: {
+    width: 0,
+    height: 0,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderTopColor: 'rgba(225, 248, 255, 0.95)',
+  },
+  cometStar: {
+    color: '#fff8d6',
+    textShadowColor: 'rgba(255, 220, 120, 1)',
+    textShadowOffset: { width: 0, height: 0 },
+  },
   petal: {
     textShadowColor: 'rgba(255, 120, 180, 0.9)',
     textShadowRadius: 4,

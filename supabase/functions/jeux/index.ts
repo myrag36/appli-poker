@@ -10,6 +10,8 @@ import {
   type GameSnapshot,
   checkJoin,
   cleanOptions,
+  cleanTournamentGames,
+  cleanTournamentName,
   firstFreeGameSeat,
   gameDef,
   newGameBot,
@@ -17,6 +19,7 @@ import {
   playGameTimeout,
   progressAwards,
   startGame,
+  tournamentResults,
 } from './logic.ts';
 import { awardXp, unlockedEmojis } from '../_shared/xp.ts';
 
@@ -82,10 +85,17 @@ function avatarColumns(raw: unknown, seat: number, extra: string[]) {
 async function createRoom(userId: string, body: Record<string, unknown>) {
   const name = cleanName(body.name);
   const options = cleanOptions(body.game, body.options);
+  const tournament = body.tournamentId ? await tournamentTable(userId, String(body.tournamentId), body.game) : null;
   for (let attempt = 0; attempt < 5; attempt++) {
     const { data: room, error } = await admin
       .from('game_rooms')
-      .insert({ code: makeRoomCode(), game: body.game, host_id: userId, options })
+      .insert({
+        code: makeRoomCode(),
+        game: body.game,
+        host_id: userId,
+        options,
+        ...(tournament ? { tournament_id: tournament.id, tournament_round: tournament.round } : {}),
+      })
       .select('id, code')
       .single();
     if (error?.code === '23505') continue; // code already used, draw another
@@ -94,9 +104,79 @@ async function createRoom(userId: string, body: Record<string, unknown>) {
       .from('game_players')
       .insert({ room_id: room.id, user_id: userId, name, seat: 0, ...avatarColumns(body.avatar, 0, await unlockedEmojis(admin, userId)) });
     if (seatError) throw seatError;
+    if (tournament) {
+      const { error: linkError } = await admin
+        .from('tournaments')
+        .update({ status: 'playing', room_id: room.id, room_code: room.code })
+        .eq('id', tournament.id);
+      if (linkError) throw linkError;
+    }
     return { roomId: room.id, code: room.code };
   }
   throw new GameError('Impossible de créer la table, réessaie');
+}
+
+/** The tournament whose next table the host is opening, checked. */
+async function tournamentTable(userId: string, tournamentId: string, game: unknown) {
+  const { data: t, error } = await admin.from('tournaments').select('*').eq('id', tournamentId).maybeSingle();
+  if (error) throw error;
+  if (!t) throw new GameError('Tournoi introuvable');
+  if (t.host_id !== userId) throw new GameError('Seul l’organisateur lance les parties');
+  if (t.status === 'finished') throw new GameError('Ce tournoi est terminé');
+  if (t.games[t.round] !== game) throw new GameError('Ce n’est pas le jeu prévu pour cette manche');
+  return t as { id: string; round: number };
+}
+
+async function tournamentPlayer(userId: string, tournamentId: string, body: Record<string, unknown>) {
+  const avatar = cleanAvatar(body.avatar, defaultAvatar(0), await unlockedEmojis(admin, userId));
+  const { error } = await admin.from('tournament_players').upsert({
+    tournament_id: tournamentId,
+    user_id: userId,
+    name: cleanName(body.name),
+    avatar: avatar.emoji,
+    avatar_color: avatar.color,
+  });
+  if (error) throw error;
+}
+
+async function createTournament(userId: string, body: Record<string, unknown>) {
+  const games = cleanTournamentGames(body.games);
+  const name = cleanTournamentName(body.title);
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const { data, error } = await admin
+      .from('tournaments')
+      .insert({ code: makeRoomCode(), name, host_id: userId, games })
+      .select('id, code')
+      .single();
+    if (error?.code === '23505') continue;
+    if (error) throw error;
+    await tournamentPlayer(userId, data.id, body);
+    return { tournamentId: data.id, code: data.code };
+  }
+  throw new GameError('Impossible de créer le tournoi, réessaie');
+}
+
+async function joinTournament(userId: string, body: Record<string, unknown>) {
+  const code = String(body.code ?? '').trim().toUpperCase();
+  const { data: t, error } = await admin.from('tournaments').select('id, status').eq('code', code).maybeSingle();
+  if (error) throw error;
+  if (!t) throw new GameError('Aucun tournoi avec ce code');
+  const { count } = await admin
+    .from('tournament_players')
+    .select('user_id', { count: 'exact', head: true })
+    .eq('tournament_id', t.id);
+  const { data: already } = await admin
+    .from('tournament_players')
+    .select('user_id')
+    .eq('tournament_id', t.id)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (!already) {
+    if (t.status === 'finished') throw new GameError('Ce tournoi est terminé');
+    if ((count ?? 0) >= 8) throw new GameError('Ce tournoi est complet');
+  }
+  await tournamentPlayer(userId, t.id, body);
+  return { tournamentId: t.id };
 }
 
 async function joinRoom(userId: string, body: Record<string, unknown>) {
@@ -171,6 +251,11 @@ async function saveAndAward(room: GameRoomRow, before: GameSecret, after: GameSn
   await Promise.all(
     progressAwards(before, after).map((a) => awardXp(admin, a.userId, room.game, a.amount, a.finished)),
   );
+  const results = room.tournament_id ? tournamentResults(before, after) : null;
+  if (results) {
+    const { error } = await admin.rpc('tournament_round_done', { p_room: room.id, p_results: results });
+    if (error) console.error('tournoi non mis à jour', error);
+  }
   return saved;
 }
 
@@ -196,6 +281,10 @@ Deno.serve(async (req) => {
       case 'create':
         gameDef(body.game);
         return json(await createRoom(user.id, body));
+      case 'tournamentCreate':
+        return json(await createTournament(user.id, body));
+      case 'tournamentJoin':
+        return json(await joinTournament(user.id, body));
       case 'join':
         return json(await joinRoom(user.id, body));
       case 'addBot':

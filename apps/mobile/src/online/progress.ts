@@ -16,7 +16,7 @@ import {
   rewardsAtLevel,
 } from '@appli-poker/engine';
 import { setCardBack } from '../components/cardBacks';
-import { callProfile, ensureSignedIn, supabase } from './supabase';
+import { callProfile, ensureSignedIn, loadAvatar, loadName, supabase } from './supabase';
 
 export interface MyProgress {
   xp: number;
@@ -37,6 +37,8 @@ export interface MyProgress {
   achievements: string[];
   feats: string[];
   questsDone: number;
+  /** Monday of the week whose podium reward was taken. */
+  podiumClaimed: string | null;
 }
 
 /** Something to celebrate: experience just earned, maybe with a new level and its rewards. */
@@ -76,9 +78,10 @@ interface Row {
   achievements?: unknown;
   feats?: unknown;
   quests_done?: number;
+  podium_claimed?: string | null;
 }
 const COLUMNS =
-  'xp, equipped, games, coins, owned, stats_day, day_stats, quests_claimed, last_day, streak, best_streak, chests, achievements, feats, quests_done';
+  'xp, equipped, games, coins, owned, stats_day, day_stats, quests_claimed, last_day, streak, best_streak, chests, achievements, feats, quests_done, podium_claimed';
 
 /** The streak still counts if the last game was today or yesterday. */
 function liveStreak(lastDay: string | null | undefined, streak: number) {
@@ -108,6 +111,7 @@ function apply(row: Row | null) {
     achievements: cleanOwned(row?.achievements),
     feats: cleanOwned(row?.feats),
     questsDone: row?.quests_done ?? 0,
+    podiumClaimed: row?.podium_claimed ?? null,
   };
   // Experience earned since the last look: celebrate it (not on the first load). Coins
   // from a quest are shown where they are taken, so only those won while playing count.
@@ -138,10 +142,28 @@ export async function refreshProgress() {
   }
 }
 
+let myCode: string | null = null;
+
+/** Saves the name and avatar friends see, and gets my friend code. Never fails loudly. */
+export async function syncMe(): Promise<string | null> {
+  try {
+    const [name, avatar] = await Promise.all([loadName(), loadAvatar()]);
+    const r = await callProfile<{ code: string }>({
+      type: 'me',
+      ...(name ? { name, avatar: avatar ?? undefined } : {}),
+    });
+    myCode = r.code;
+  } catch {
+    // Offline: friends will see the old name for now.
+  }
+  return myCode;
+}
+
 /** Starts following my experience: loads it and listens for changes made by the game servers. */
 function start() {
   if (started) return;
   started = true;
+  syncMe();
   refreshProgress().then(() => {
     if (!userId) return;
     supabase
@@ -277,4 +299,44 @@ export function useProgressOf(ids: string[]): Record<string, OtherProgress> {
     };
   }, [key]);
   return map;
+}
+
+export interface FriendRow {
+  user_id: string;
+  name: string;
+  avatar: string | null;
+  avatar_color: string | null;
+  xp: number;
+  equipped: unknown;
+  owned: unknown;
+  week_xp: number;
+  week_wins: number;
+  streak: number;
+  last_week_xp: number;
+  me: boolean;
+}
+
+/** Me and my friends with this week's experience, best first. */
+export async function loadFriends(): Promise<FriendRow[]> {
+  await ensureSignedIn();
+  const { data, error } = await supabase.rpc('friends_board');
+  if (error) throw new Error('Pas de connexion au serveur');
+  return (data ?? []) as FriendRow[];
+}
+
+export async function addFriend(code: string) {
+  await callProfile({ type: 'addFriend', code });
+}
+
+export async function removeFriend(userId: string) {
+  await callProfile({ type: 'removeFriend', userId });
+}
+
+/** Takes last week's podium chest. */
+export async function claimPodium() {
+  try {
+    await callProfile({ type: 'podium' });
+  } finally {
+    await refreshProgress();
+  }
 }

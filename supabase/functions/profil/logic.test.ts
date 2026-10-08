@@ -5,6 +5,8 @@ import { GameError } from '../poker/logic.ts';
 import {
   chestContents,
   cleanFeat,
+  cleanFriendCode,
+  podiumChest,
   equip,
   finishedQuest,
   localGame,
@@ -37,7 +39,7 @@ test('a game on one phone also pays coins', () => {
 });
 
 test('only real shop items at their real price', () => {
-  assert.deepEqual(shopItem('frame', 'sakura'), { key: 'frame:sakura', price: 300 });
+  assert.deepEqual(shopItem('frame', 'sakura', 3), { key: 'frame:sakura', price: 300 });
   assert.throws(() => shopItem('frame', 'gold'), /introuvable/);
   assert.throws(() => shopItem('frame', 'nope'), /introuvable/);
 });
@@ -54,10 +56,10 @@ test('a quest pays only when finished, today', () => {
 
 test('a chest gives coins and maybe a shop item the player does not have', () => {
   const always = () => 0;
-  const got = chestContents('grand', [], always);
+  const got = chestContents('grand', [], always, 3);
   assert.equal(got.coins, 100);
   assert.equal(got.item, 'frame:sakura');
-  assert.equal(chestContents('grand', ['frame:sakura'], always).item, 'frame:lagoon');
+  assert.equal(chestContents('grand', ['frame:sakura'], always, 3).item, 'frame:lagoon');
   assert.equal(chestContents('normal', [], () => 0.99).item, null);
 });
 
@@ -67,4 +69,30 @@ test('achievements pay only once reached', () => {
   assert.throws(() => reachedAchievement('nope', {}), /inconnu/);
   assert.equal(reachedAchievement('feat-yams', { feats: ['yams'] }).id, 'feat-yams');
   assert.throws(() => cleanFeat('triche'), /inconnu/);
+});
+
+test('seasonal items are only for sale during their month', () => {
+  assert.deepEqual(shopItem('frame', 'halloween', 10), { key: 'frame:halloween', price: 600 });
+  assert.throws(() => shopItem('frame', 'halloween', 11), /plus en vente/);
+  assert.deepEqual(shopItem('emote', '🐔', 3), { key: 'emote:🐔', price: 150 });
+});
+
+test('friend codes are 6 letters or digits', () => {
+  assert.equal(cleanFriendCode(' k7p-q2m '), 'K7PQ2M');
+  assert.throws(() => cleanFriendCode('abc'), /6 caractères/);
+});
+
+test('last week podium among friends', () => {
+  const board = [
+    { user_id: 'a', xp: 500 },
+    { user_id: 'b', xp: 300 },
+    { user_id: 'c', xp: 200 },
+    { user_id: 'd', xp: 100 },
+    { user_id: 'e', xp: 0 },
+  ];
+  assert.equal(podiumChest('a', board), 'grand');
+  assert.equal(podiumChest('c', board), 'normal');
+  assert.equal(podiumChest('d', board), null);
+  assert.equal(podiumChest('e', board), null);
+  assert.equal(podiumChest('a', [{ user_id: 'a', xp: 900 }]), null);
 });

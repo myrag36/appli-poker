@@ -26,7 +26,7 @@ import { AchievementList, StreakCard } from '../components/Achievements';
 import { RewardPreview } from '../components/RewardPreview';
 import { TitleBadge } from '../components/TitleBadge';
 import { TopBar } from '../components/TopBar';
-import { equipReward, useMyProgress } from '../online/progress';
+import { equipReward, syncMe, useMyProgress } from '../online/progress';
 import { loadAvatar, loadName, saveAvatar, saveName } from '../online/supabase';
 import { colors, gradients } from '../theme';
 
@@ -36,6 +36,11 @@ const GAME_NAMES: Record<ProgressGame, string> = {
   president: '👑 Président',
   yams: '🎲 Yams',
   belote: '♠️ Belote',
+  puissance4: '🔴 Puissance 4',
+  rami: '🃏 Rami',
+  uno: '🌈 Uno',
+  huit: '🎱 8 américain',
+  tarot: '🌙 Tarot',
 };
 
 type Tab = keyof Equipped | 'avatar';
@@ -50,6 +55,14 @@ export function ProfileScreen({ onBack, onShop }: { onBack: () => void; onShop: 
   const [avatar, setAvatar] = useState<Avatar>(defaultAvatar(0));
   const [tab, setTab] = useState<Tab>('frame');
   const [error, setError] = useState<string | null>(null);
+
+  // Friends see my new name and avatar once I leave the profile.
+  useEffect(
+    () => () => {
+      syncMe();
+    },
+    [],
+  );
 
   useEffect(() => {
     loadName().then((n) => n && setName(n));
