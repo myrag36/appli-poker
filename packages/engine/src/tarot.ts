@@ -803,3 +803,31 @@ function lead(
   }
   return cheapest(legal);
 }
+
+// ---------------------------------------------------------------- Views
+
+export interface TarotView extends Omit<TarotState, 'hands' | 'chien' | 'ecart' | 'won' | 'adjust'> {
+  /** The viewer's own hand at their seat; the other seats (all of them for a spectator) are empty. */
+  hands: Card[][];
+  /** How many cards each seat holds. */
+  handCounts: number[];
+  /** The chien once it has been turned up (petite, garde, or the end of the deal), empty before. */
+  chien: Card[];
+  /** The whole écart for the taker; for the others only its trumps, until the end of the deal. */
+  ecart: Card[];
+}
+
+/** Removes what `seat` could not see at a real table (null: a spectator, who sees no hand at all). */
+export function tarotView(state: TarotState, seat: number | null): TarotView {
+  const { hands, chien, ecart, won: _won, adjust: _adjust, ...rest } = state;
+  const ended = state.phase === 'dealOver' || state.phase === 'gameOver';
+  // The chien is turned face up for a petite or a garde; a garde sans or contre keeps it hidden.
+  const turnedUp = state.contract === 'petite' || state.contract === 'garde';
+  return {
+    ...rest,
+    hands: hands.map((h, i) => (i === seat ? h.slice() : [])),
+    handCounts: hands.map((h) => h.length),
+    chien: ended || turnedUp ? chien.slice() : [],
+    ecart: ended || (seat !== null && seat === state.taker) ? ecart.slice() : ecart.filter(tarotIsTrump),
+  };
+}

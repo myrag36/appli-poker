@@ -175,6 +175,39 @@ test('belote: robots complete the table to four and only my own hand reaches me'
   assert.equal(pub.stock, undefined);
 });
 
+test('tarot: robots complete the table, the chien stays hidden, and the game reaches its end', () => {
+  let a = 42;
+  const seeded = (n: number) => {
+    a = (a * 1103515245 + 12345) % 2147483648;
+    return a % n;
+  };
+  assert.deepEqual(cleanOptions('tarot', {}), { deals: 4 });
+  assert.throws(() => cleanOptions('tarot', { deals: 3 }), GameError);
+  const { bots, snapshot } = startGame(
+    room({ game: 'tarot', options: { deals: 4 } }),
+    [player('a', 0)],
+    'a',
+    newId,
+    seeded,
+    NOW,
+  );
+  assert.equal(bots.length, 3);
+  assert.equal(snapshot.public.seats.length, 4);
+  let s = snapshot;
+  for (let i = 0; i < 2000 && !s.public.over; i++) {
+    const secret = s.secret.state as { phase: string; hands: string[][] };
+    const pub = s.public.view as { hands: string[][]; chien: string[]; won?: unknown };
+    assert.ok(pub.hands.every((h) => h.length === 0));
+    assert.equal(pub.won, undefined);
+    if (secret.phase === 'bidding') assert.deepEqual(pub.chien, []);
+    const mine = s.privates.a as { hands: string[][] };
+    assert.deepEqual(mine.hands[0], secret.hands[0]);
+    assert.deepEqual(mine.hands.slice(1), [[], [], []]);
+    s = playGameTimeout(s.secret, seeded, s.secret.deadline!);
+  }
+  assert.ok(s.public.over);
+});
+
 test('experience: a little each round, more at the end, and the winners get the bonus', () => {
   // A Yams game for one person and a robot, played to the end with timeouts.
   const { snapshot } = startGame(room(), [player('a', 0), player('r', 1, true)], 'a', newId, rng, NOW);

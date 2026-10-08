@@ -115,7 +115,9 @@ export default function App() {
         {screen.name === 'game' && screen.game === 'rami' && <RamiScreen onBack={games} />}
         {screen.name === 'game' && screen.game === 'uno' && <UnoScreen onBack={games} />}
         {screen.name === 'game' && screen.game === 'huit' && <HuitScreen onBack={games} />}
-        {screen.name === 'game' && screen.game === 'tarot' && <TarotScreen onBack={games} />}
+        {screen.name === 'game' && screen.game === 'tarot' && (
+          <TarotScreen onBack={games} onOnline={online('tarot')} />
+        )}
         {screen.name === 'game-online' && (
           <OnlineGameScreen
             key={screen.game}
