@@ -27,6 +27,7 @@ import { TournamentScreen } from './src/screens/TournamentScreen';
 import { ProgressToast } from './src/components/ProgressToast';
 import { type GameSettings, SetupScreen } from './src/screens/SetupScreen';
 import { colors } from './src/theme';
+import { t } from './src/i18n';
 
 /** Games that can also be played online, each player on their own phone. */
 
@@ -60,7 +61,7 @@ export default function App() {
       const userId = await ensureSignedIn();
       setScreen({ name: 'online-room', roomId, userId });
     } catch (e) {
-      Alert.alert('Connexion impossible', (e as Error).message);
+      Alert.alert(t('Connexion impossible'), (e as Error).message);
     }
   }
 

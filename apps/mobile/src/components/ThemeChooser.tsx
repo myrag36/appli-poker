@@ -3,6 +3,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensio
 import { LinearGradient } from 'expo-linear-gradient';
 import { Backdrop } from './Backdrop';
 import { PlayingCard } from './PlayingCard';
+import { t as tr } from '../i18n';
 import { THEMES, type Theme, type ThemeId, canChangeTheme, colors, setTheme, themeId } from '../theme';
 
 /** A small picture of the theme: its scenery with a table in the middle. */
@@ -67,7 +68,7 @@ export function ThemeChooser() {
     <>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel="Choisir l'ambiance"
+        accessibilityLabel={tr("Choisir l'ambiance")}
         onPress={() => setOpen(true)}
         style={({ pressed }) => [styles.button, pressed && styles.pressed]}
       >
@@ -75,20 +76,20 @@ export function ThemeChooser() {
           <ThemePreview id={themeId} width={44} height={44} />
         </View>
         <View style={styles.buttonBody}>
-          <Text style={styles.buttonLabel}>Ambiance</Text>
-          <Text style={styles.buttonName}>{current.name}</Text>
+          <Text style={styles.buttonLabel}>{tr('Ambiance')}</Text>
+          <Text style={styles.buttonName}>{tr(current.name)}</Text>
         </View>
-        <Text style={styles.buttonAction}>Changer ›</Text>
+        <Text style={styles.buttonAction}>{tr('Changer ›')}</Text>
       </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
         <Pressable style={styles.overlay} onPress={() => setOpen(false)}>
           <Pressable style={[styles.sheet, { width: sheetW }]} onPress={() => {}}>
             <View style={styles.header}>
-              <Text style={styles.title}>Choisis ton ambiance</Text>
+              <Text style={styles.title}>{tr('Choisis ton ambiance')}</Text>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Fermer"
+                accessibilityLabel={tr('Fermer')}
                 onPress={() => setOpen(false)}
                 hitSlop={10}
                 style={styles.close}
@@ -105,7 +106,7 @@ export function ThemeChooser() {
                     key={id}
                     accessibilityRole="button"
                     accessibilityState={{ selected: active }}
-                    accessibilityLabel={`Ambiance ${t.name}`}
+                    accessibilityLabel={tr('Ambiance {name}', { name: tr(t.name) })}
                     onPress={() => (active ? setOpen(false) : setTheme(id))}
                     style={({ pressed }) => [
                       styles.card,
@@ -116,11 +117,11 @@ export function ThemeChooser() {
                     <ThemePreview id={id} width={cardW - 4} height={previewH} />
                     <View style={[styles.cardBody, { backgroundColor: t.colors.background }]}>
                       <Text style={[styles.cardName, { color: t.colors.gold }]}>
-                        {t.name}
+                        {tr(t.name)}
                         {active ? '  ✓' : ''}
                       </Text>
                       <Text style={[styles.cardTagline, { color: t.colors.muted }]} numberOfLines={2}>
-                        {t.tagline}
+                        {tr(t.tagline)}
                       </Text>
                     </View>
                   </Pressable>

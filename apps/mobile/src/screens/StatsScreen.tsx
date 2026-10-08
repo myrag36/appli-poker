@@ -7,15 +7,12 @@ import { Button } from '../components/Button';
 import { TopBar } from '../components/TopBar';
 import { type PlayerStats, loadAvatar, loadStats } from '../online/supabase';
 import { colors, shadow } from '../theme';
+import { t, tn } from '../i18n';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
 function avatarOf(p: PlayerStats, i: number): Avatar {
-  return cleanAvatar(
-    { emoji: p.avatar, color: p.avatar_color },
-    defaultAvatar(i),
-    ALL_AVATAR_EMOJIS,
-  );
+  return cleanAvatar({ emoji: p.avatar, color: p.avatar_color }, defaultAvatar(i), ALL_AVATAR_EMOJIS);
 }
 
 function signed(n: number) {
@@ -73,13 +70,13 @@ export function StatsScreen({ onBack }: { onBack: () => void }) {
       ]}
     >
       <TopBar onBack={onBack} />
-      <Text style={styles.title}>Mes statistiques</Text>
+      <Text style={styles.title}>{t('Mes statistiques')}</Text>
 
       {!stats && !error && <ActivityIndicator color={colors.gold} style={styles.loading} />}
       {error && (
         <View style={styles.errorBox}>
           <Text style={styles.error}>{error}</Text>
-          <Button label="Réessayer" variant="secondary" onPress={load} />
+          <Button label={t('Réessayer')} variant="secondary" onPress={load} />
         </View>
       )}
 
@@ -87,26 +84,30 @@ export function StatsScreen({ onBack }: { onBack: () => void }) {
         <>
           <View style={styles.me}>
             <AvatarBadge avatar={myAvatar ?? avatarOf(me, 0)} size={64} />
-            <Text style={styles.meName}>{me.hands_played > 0 || me.name !== 'Joueur' ? me.name : 'Toi'}</Text>
+            <Text style={styles.meName}>
+              {me.hands_played > 0 || me.name !== 'Joueur' ? me.name : t('Toi')}
+            </Text>
           </View>
 
           {me.hands_played === 0 ? (
             <Text style={styles.empty}>
-              Joue une partie en ligne avec tes amis : tes résultats et votre classement apparaîtront ici.
+              {t(
+                'Joue une partie en ligne avec tes amis : tes résultats et votre classement apparaîtront ici.',
+              )}
             </Text>
           ) : (
             <View style={styles.grid}>
-              <Tile icon="🃏" label="Mains jouées" value={`${me.hands_played}`} />
+              <Tile icon="🃏" label={t('Mains jouées')} value={`${me.hands_played}`} />
               <Tile
                 icon="✋"
-                label="Mains gagnées"
+                label={t('Mains gagnées')}
                 value={`${me.hands_won}`}
                 detail={`${Math.round((me.hands_won / me.hands_played) * 100)} %`}
               />
-              <Tile icon={me.net >= 0 ? '📈' : '📉'} label="Gains nets" value={signed(me.net)} />
-              <Tile icon="💰" label="Plus gros pot" value={`${me.best_pot}`} />
-              <Tile icon="🎲" label="Parties jouées" value={`${me.games_played}`} />
-              <Tile icon="🏆" label="Parties gagnées" value={`${me.games_won}`} />
+              <Tile icon={me.net >= 0 ? '📈' : '📉'} label={t('Gains nets')} value={signed(me.net)} />
+              <Tile icon="💰" label={t('Plus gros pot')} value={`${me.best_pot}`} />
+              <Tile icon="🎲" label={t('Parties jouées')} value={`${me.games_played}`} />
+              <Tile icon="🏆" label={t('Parties gagnées')} value={`${me.games_won}`} />
             </View>
           )}
         </>
@@ -114,8 +115,8 @@ export function StatsScreen({ onBack }: { onBack: () => void }) {
 
       {friends.length > 1 && (
         <View style={styles.board}>
-          <Text style={styles.boardTitle}>Classement entre amis</Text>
-          <Text style={styles.boardHint}>Par gains nets, avec tous ceux contre qui tu as joué.</Text>
+          <Text style={styles.boardTitle}>{t('Classement entre amis')}</Text>
+          <Text style={styles.boardHint}>{t('Par gains nets, avec tous ceux contre qui tu as joué.')}</Text>
           {friends.map((p, i) => (
             <View key={p.user_id} style={[styles.row, p.is_me && styles.rowMe]}>
               <Text style={styles.rank}>{MEDALS[i] ?? `${i + 1}.`}</Text>
@@ -123,11 +124,11 @@ export function StatsScreen({ onBack }: { onBack: () => void }) {
               <View style={styles.rowBody}>
                 <Text style={styles.rowName} numberOfLines={1}>
                   {p.name}
-                  {p.is_me ? ' (toi)' : ''}
+                  {p.is_me ? t(' (toi)') : ''}
                 </Text>
                 <Text style={styles.rowDetail}>
-                  {p.hands_played} mains · {p.games_won} partie{p.games_won > 1 ? 's' : ''} gagnée
-                  {p.games_won > 1 ? 's' : ''}
+                  {tn(p.hands_played, '{n} main', '{n} mains')} ·{' '}
+                  {tn(p.games_won, '{n} partie gagnée', '{n} parties gagnées')}
                 </Text>
               </View>
               <Text style={[styles.net, p.net < 0 && styles.netLoss]}>{signed(p.net)}</Text>
@@ -138,7 +139,9 @@ export function StatsScreen({ onBack }: { onBack: () => void }) {
 
       {stats && (
         <Text style={styles.note}>
-          Seules les parties en ligne comptent. Tes statistiques sont liées à ce téléphone (ou ce navigateur).
+          {t(
+            'Seules les parties en ligne comptent. Tes statistiques sont liées à ce téléphone (ou ce navigateur).',
+          )}
         </Text>
       )}
     </ScrollView>

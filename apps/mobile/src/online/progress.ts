@@ -16,6 +16,7 @@ import {
   rewardsAtLevel,
 } from '@appli-poker/engine';
 import { setCardBack } from '../components/cardBacks';
+import { t } from '../i18n';
 import { callProfile, ensureSignedIn, loadAvatar, loadName, supabase } from './supabase';
 
 export interface MyProgress {
@@ -320,7 +321,7 @@ export interface FriendRow {
 export async function loadFriends(): Promise<FriendRow[]> {
   await ensureSignedIn();
   const { data, error } = await supabase.rpc('friends_board');
-  if (error) throw new Error('Pas de connexion au serveur');
+  if (error) throw new Error(t('Pas de connexion au serveur'));
   return (data ?? []) as FriendRow[];
 }
 
