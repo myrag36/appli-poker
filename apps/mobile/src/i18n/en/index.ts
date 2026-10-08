@@ -12,6 +12,7 @@ import puissance4 from './puissance4';
 import ramiEnLigne from './ramiEnLigne';
 import defi from './defi';
 import tarotEnLigne from './tarotEnLigne';
+import unoEnLigne from './uno-en-ligne';
 
 export const EN: Record<string, string> = {
   ...accueil,
@@ -27,4 +28,5 @@ export const EN: Record<string, string> = {
   ...ramiEnLigne,
   ...defi,
   ...tarotEnLigne,
+  ...unoEnLigne,
 };

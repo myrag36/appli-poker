@@ -209,6 +209,44 @@ test('tarot: robots complete the table, the chien stays hidden, and the game rea
 });
 
 
+
+test('uno and 8 américain: a robot fills the table to two, hidden hands stay hidden, games end', () => {
+  let seed = 11;
+  const random = (n: number) => {
+    seed = (seed * 1103515245 + 12345) % 2147483648;
+    return seed % n;
+  };
+  for (const game of ['uno', 'huit'] as const) {
+    assert.throws(() => cleanOptions(game, { target: 42 }), GameError);
+    const { bots, snapshot } = startGame(
+      room({ game, options: cleanOptions(game, { target: 0 }) }),
+      [player('a', 0)],
+      'a',
+      newId,
+      random,
+      NOW,
+    );
+    assert.equal(bots.length, 1);
+    assert.equal(snapshot.public.seats.length, 2);
+    type View = { players: { hand: string[] }[]; deck: string[]; deckCount: number };
+    const mine = snapshot.privates.a as View;
+    assert.equal(mine.players[0].hand.length, 7);
+    assert.ok(mine.players[0].hand.every((c) => c !== '??'));
+    assert.ok(mine.players[1].hand.every((c) => c === '??'));
+    assert.deepEqual(mine.deck, []);
+    assert.ok(mine.deckCount > 0);
+    const pub = snapshot.public.view as View;
+    assert.ok(pub.players.every((p) => p.hand.every((c) => c === '??')));
+    // Nobody but the actors may move.
+    if (!snapshot.public.actors.includes('a'))
+      assert.throws(() => playGameMove(snapshot.secret, 'a', { type: 'draw' }, random, NOW), /pas ton tour/);
+    let s = snapshot;
+    for (let i = 0; i < 3000 && !s.public.over; i++)
+      s = playGameTimeout(s.secret, random, s.secret.deadline!);
+    assert.ok(s.public.over);
+  }
+});
+
 test('rami: a robot joins a player alone, hands and stock stay secret, a slow player is played for', () => {
   assert.deepEqual(cleanOptions('rami', undefined), { target: 300 });
   assert.throws(() => cleanOptions('rami', { target: 1000 }), GameError);

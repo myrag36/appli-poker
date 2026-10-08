@@ -6,6 +6,7 @@ import { Puissance4OnlineBoard, Puissance4OnlineOptions } from '../screens/Puiss
 import { RamiOnlineBoard, RamiOnlineOptions } from '../screens/RamiScreen';
 import { YamsOnlineBoard } from '../screens/YamsScreen';
 import { TarotOnlineBoard, TarotOnlineOptions } from '../screens/TarotScreen';
+import { HuitOnlineBoard, HuitOnlineOptions, UnoOnlineBoard, UnoOnlineOptions } from '../screens/UnoScreen';
 import { t } from '../i18n';
 import type { OnlineGameUi } from './types';
 
@@ -65,5 +66,21 @@ export const ONLINE_UI: Record<OnlineGameId, OnlineGameUi> = {
     Board: TarotOnlineBoard,
     Options: TarotOnlineOptions,
     defaultOptions: { deals: 4 },
+  },
+  uno: {
+    title: 'Uno',
+    emoji: '🎨',
+    players: t('2 à 6 joueurs, un robot complète si tu es seul'),
+    Board: UnoOnlineBoard,
+    Options: UnoOnlineOptions,
+    defaultOptions: { target: 200 },
+  },
+  huit: {
+    title: t('8 américain'),
+    emoji: '🎱',
+    players: t('2 à 6 joueurs, un robot complète si tu es seul'),
+    Board: HuitOnlineBoard,
+    Options: HuitOnlineOptions,
+    defaultOptions: { target: 100 },
   },
 };
