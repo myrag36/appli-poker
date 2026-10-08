@@ -20,6 +20,7 @@ import { HandSummary } from '../components/HandSummary';
 import { Panel, PanelText } from '../components/Panel';
 import { PlayingCard } from '../components/PlayingCard';
 import { Ranking } from '../components/Ranking';
+import { RematchPanel } from '../components/RematchPanel';
 import { Table } from '../components/Table';
 import { TopBar } from '../components/TopBar';
 import { TurnTimer } from '../components/TurnTimer';
@@ -36,9 +37,11 @@ interface Props {
   roomId: string;
   userId: string;
   onLeave: () => void;
+  /** Goes to another table: the rematch of this one. */
+  onSwitch: (roomId: string) => void;
 }
 
-export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
+export function OnlineRoomScreen({ roomId, userId, onLeave, onSwitch }: Props) {
   const {
     room,
     players,
@@ -240,6 +243,14 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
       code: room!.code,
       avatar: cleanAvatar(avatar ?? defaultAvatar(players.length), defaultAvatar(players.length), UNLOCKABLE),
     });
+  }
+
+  /** Opens or joins the rematch table, then goes there. */
+  async function rematch() {
+    const { roomId: next } = await callServer<{ roomId: string }>({ type: 'rematch', roomId });
+    const me = players.find((p) => p.user_id === userId);
+    if (me) await saveLastRoom({ roomId: next, name: me.name });
+    onSwitch(next);
   }
 
   const invite = () =>
@@ -498,6 +509,9 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
                       .filter((p) => p.stack > 0 || p.place !== null)
                       .map((p) => ({ name: p.name, place: p.stack > 0 ? 1 : (p.place ?? players.length) }))}
                   />
+                  {!isSpectator && (
+                    <RematchPanel bare rematch={room.rematch} meId={userId} onRematch={rematch} />
+                  )}
                 </>
               ) : isHost ? (
                 <Button

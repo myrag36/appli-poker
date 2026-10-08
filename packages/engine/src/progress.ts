@@ -255,7 +255,7 @@ export function forSale(item: Reward, month: number): boolean {
 }
 
 /** Reactions everyone has, and those bought in the shop. */
-export const FREE_EMOTES = ['👍', '😂', '🔥', '😱', '😭', '👏'];
+export const FREE_EMOTES = ['😂', '🔥', '😱', '👏', '😡', '🤝', '👍', '😭'];
 export const ALL_EMOTES = [...FREE_EMOTES, ...REWARDS.filter((x) => x.kind === 'emote').map((x) => x.id)];
 export function emotesFor(owned: readonly string[]): string[] {
   return [

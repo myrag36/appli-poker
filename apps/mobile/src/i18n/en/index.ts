@@ -13,6 +13,7 @@ import ramiEnLigne from './ramiEnLigne';
 import defi from './defi';
 import tarotEnLigne from './tarotEnLigne';
 import unoEnLigne from './uno-en-ligne';
+import revanche from './revanche';
 
 export const EN: Record<string, string> = {
   ...accueil,
@@ -29,4 +30,5 @@ export const EN: Record<string, string> = {
   ...defi,
   ...tarotEnLigne,
   ...unoEnLigne,
+  ...revanche,
 };

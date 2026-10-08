@@ -1,9 +1,13 @@
 import type { ComponentType } from 'react';
-import type { Avatar, OnlineSeat } from '@appli-poker/engine';
+import type { OnlineSeat } from '@appli-poker/engine';
+import type { SeatAvatar } from '../components/AvatarPicker';
 
-/** A seat at an online table, with the avatar its player chose. */
+/**
+ * A seat at an online table, with the avatar its player chose. The avatar also carries the
+ * player's latest emoji reaction, which `AvatarBadge` shows wherever the board draws it.
+ */
 export interface BoardSeat extends OnlineSeat {
-  avatar: Avatar;
+  avatar: SeatAvatar;
 }
 
 /** What the online table screen gives each game's board once the game has started. */

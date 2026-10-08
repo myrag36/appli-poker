@@ -7,6 +7,8 @@ import {
   BOT_MS,
   TURN_MS,
   checkJoin,
+  gameRematch,
+  gameRematchJoin,
   cleanOptions,
   cleanTournamentGames,
   cleanTournamentName,
@@ -354,4 +356,54 @@ test('puissance4: a robot takes the empty seat, rounds pause, the match ends wit
   const awards = progressAwards(before.secret, s);
   assert.equal(awards.length, 1);
   assert.equal(awards[0].userId, 'a');
+});
+
+test('revanche: once the game is over, a new table with the asker, the robots and old seats', () => {
+  const seated = [
+    { ...player('a', 0), avatar: '🦊', avatar_color: '#f00' },
+    { ...player('r', 1, true), avatar: '🤖', avatar_color: '#0f0' },
+    { ...player('b', 2), avatar: null, avatar_color: null },
+  ];
+  const finished = room({ options: { x: 1 }, status: 'playing' });
+  const { snapshot } = startGame(room(), seated, 'a', newId, rng, NOW);
+  assert.throws(() => gameRematch(finished, snapshot.secret, seated, 'b'), /pas finie/);
+  assert.throws(() => gameRematch(finished, null, seated, 'b'), /pas finie/);
+  let s = snapshot;
+  for (let i = 0; i < 5000 && !s.public.over; i++) s = playGameTimeout(s.secret, rng, s.secret.deadline!);
+  assert.ok(s.public.over);
+  assert.throws(() => gameRematch(finished, s.secret, seated, 'z'), /pas à cette table/);
+  assert.throws(() => gameRematch(finished, s.secret, seated, 'r'), /pas à cette table/);
+  assert.throws(() => gameRematch({ ...finished, tournament_id: 't' }, s.secret, seated, 'b'), /tournoi/);
+
+  const plan = gameRematch(finished, s.secret, seated, 'b');
+  assert.deepEqual(plan.room, { game: 'yams', host_id: 'b', options: { x: 1 } });
+  assert.deepEqual(
+    plan.players.map((p) => [p.user_id, p.seat, p.is_bot, p.avatar]),
+    [
+      ['r', 1, true, '🤖'],
+      ['b', 2, false, null],
+    ],
+  );
+
+  // The others follow with one tap, back in their old seat if it is still free.
+  const next = room({ id: 'next', host_id: 'b' });
+  const there = plan.players.map((p) => ({
+    user_id: p.user_id,
+    name: p.name,
+    seat: p.seat,
+    is_bot: p.is_bot,
+  }));
+  assert.deepEqual(gameRematchJoin(next, there, seated, 'a'), {
+    room_id: 'next',
+    user_id: 'a',
+    name: 'A',
+    seat: 0,
+    is_bot: false,
+    avatar: '🦊',
+    avatar_color: '#f00',
+  });
+  assert.equal(gameRematchJoin(next, [...there, player('a', 0)], seated, 'a'), null);
+  assert.equal(gameRematchJoin(next, [...there, player('x', 0)], seated, 'a')!.seat, 3);
+  assert.throws(() => gameRematchJoin(next, there, seated, 'z'), /pas à cette table/);
+  assert.throws(() => gameRematchJoin({ ...next, status: 'playing' }, there, seated, 'a'), /commencé/);
 });

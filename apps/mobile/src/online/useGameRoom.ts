@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { OnlineGameId, OnlineSeat } from '@appli-poker/engine';
+import type { RealtimeChannel } from '@supabase/supabase-js';
+import { ALL_EMOTES, type OnlineGameId, type OnlineSeat } from '@appli-poker/engine';
 import { callGames, supabase } from './supabase';
 import { t } from '../i18n';
 
@@ -25,6 +26,8 @@ export interface GameRoom {
   status: 'lobby' | 'playing';
   version: number;
   public_state: GamePublicState | null;
+  /** The table opened for a rematch once this game is over, and who asked for it. */
+  rematch?: { roomId: string; code: string; byId: string; by: string } | null;
 }
 
 export interface GamePlayer {
@@ -38,6 +41,13 @@ export interface GamePlayer {
 
 /** How often the table is reloaded in case a realtime event was missed. */
 const POLL_MS = 15_000;
+/** How long a reaction floats above its sender's seat. */
+const REACTION_MS = 3_000;
+/** Shortest gap between two of my reactions, so nobody floods the table. */
+const REACTION_GAP_MS = 800;
+
+/** The last emoji each player sent; `key` changes with every reaction so it animates again. */
+export type GameReactions = Record<string, { emoji: string; key: number }>;
 
 /** Live view of an online table: refetched whenever the table, its players or my own view change. */
 export function useGameRoom(roomId: string, userId: string) {
@@ -52,6 +62,33 @@ export function useGameRoom(roomId: string, userId: string) {
   const loaded = useRef(false);
   const latestRequest = useRef(0);
   const lastTick = useRef(0);
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const [reactions, setReactions] = useState<GameReactions>({});
+  const lastReaction = useRef(0);
+
+  const showReaction = useCallback((from: string, emoji: string) => {
+    const key = Date.now() + Math.random();
+    setReactions((r) => ({ ...r, [from]: { emoji, key } }));
+    setTimeout(() => {
+      setReactions((r) => {
+        if (r[from]?.key !== key) return r;
+        const { [from]: _gone, ...rest } = r;
+        return rest;
+      });
+    }, REACTION_MS);
+  }, []);
+
+  /** Emoji reactions go straight to the other phones over Realtime, without the game server. */
+  const sendReaction = useCallback(
+    (emoji: string) => {
+      const ts = Date.now();
+      if (ts - lastReaction.current < REACTION_GAP_MS) return;
+      lastReaction.current = ts;
+      showReaction(userId, emoji);
+      channelRef.current?.send({ type: 'broadcast', event: 'reaction', payload: { from: userId, emoji } });
+    },
+    [userId, showReaction],
+  );
 
   const refresh = useCallback(async () => {
     const request = ++latestRequest.current;
@@ -106,16 +143,24 @@ export function useGameRoom(roomId: string, userId: string) {
         { event: '*', schema: 'public', table: 'game_private', filter: `room_id=eq.${roomId}` },
         refresh,
       )
+      .on('broadcast', { event: 'reaction' }, ({ payload }) => {
+        const { from, emoji } = (payload ?? {}) as { from?: unknown; emoji?: unknown };
+        if (typeof from === 'string' && typeof emoji === 'string' && ALL_EMOTES.includes(emoji)) {
+          showReaction(from, emoji);
+        }
+      })
       .subscribe((status) => {
         // Catch up on anything missed while the connection was down.
         if (status === 'SUBSCRIBED') refresh();
       });
+    channelRef.current = channel;
     const poll = setInterval(refresh, POLL_MS);
     return () => {
       clearInterval(poll);
+      channelRef.current = null;
       supabase.removeChannel(channel);
     };
-  }, [roomId, refresh]);
+  }, [roomId, refresh, showReaction]);
 
   const deadline = room?.public_state?.deadline ?? null;
 
@@ -138,5 +183,5 @@ export function useGameRoom(roomId: string, userId: string) {
       });
   }, [deadline, now, roomId, refresh]);
 
-  return { room, players, myView, error, removed, refresh, now };
+  return { room, players, myView, error, removed, refresh, now, reactions, sendReaction };
 }

@@ -167,7 +167,14 @@ export default function App() {
           />
         )}
         {screen.name === 'online-room' && (
-          <OnlineRoomScreen roomId={screen.roomId} userId={screen.userId} onLeave={home} />
+          <OnlineRoomScreen
+            // A rematch moves everyone to a new table: start that one afresh.
+            key={screen.roomId}
+            roomId={screen.roomId}
+            userId={screen.userId}
+            onLeave={home}
+            onSwitch={openRoom}
+          />
         )}
         {screen.name === 'stats' && <StatsScreen onBack={home} />}
         <ProgressToast />

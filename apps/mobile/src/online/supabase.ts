@@ -51,7 +51,8 @@ type Request =
   | { type: 'pause'; roomId: string; paused: boolean }
   | { type: 'remove'; roomId: string; userId: string }
   | { type: 'addBot'; roomId: string }
-  | { type: 'watch'; name: string; code: string };
+  | { type: 'watch'; name: string; code: string }
+  | { type: 'rematch'; roomId: string };
 
 /** Calls the poker server and turns its error replies into readable messages. */
 export function callServer<T>(body: Request): Promise<T> {
@@ -70,7 +71,7 @@ type GamesRequest =
   | { type: 'tournamentCreate'; title: string; games: OnlineGameId[]; name: string; avatar: Avatar }
   | { type: 'tournamentJoin'; code: string; name: string; avatar: Avatar }
   | { type: 'join'; game: OnlineGameId; name: string; code: string; avatar: Avatar }
-  | { type: 'addBot' | 'start' | 'tick'; roomId: string }
+  | { type: 'addBot' | 'start' | 'tick' | 'rematch'; roomId: string }
   | { type: 'remove'; roomId: string; userId: string }
   | { type: 'move'; roomId: string; move: unknown };
 

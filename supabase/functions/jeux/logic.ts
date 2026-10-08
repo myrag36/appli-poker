@@ -12,7 +12,9 @@ import {
   XP_WIN,
   isOnlineGame,
 } from '../_shared/engine/index.ts';
-import { GameError } from '../poker/logic.ts';
+import { GameError, type Rematch, rematchSeat } from '../poker/logic.ts';
+
+export type { Rematch };
 
 /** How long a person has to play before the server plays for them. */
 export const TURN_MS = 60_000;
@@ -30,6 +32,8 @@ export interface GameRoomRow {
   status: 'lobby' | 'playing';
   version: number;
   tournament_id?: string | null;
+  /** Set once someone asked for a rematch of this finished game. */
+  rematch?: Rematch | null;
 }
 
 export interface GamePlayerRow {
@@ -231,6 +235,57 @@ export function progressAwards(before: GameSecret, after: GameSnapshot) {
   return [];
 }
 
+/** A player row with its avatar, as copied to the rematch table. */
+export type SeatedGamePlayerRow = GamePlayerRow & { avatar: string | null; avatar_color: string | null };
+
+function rematchRow(p: SeatedGamePlayerRow, seat: number) {
+  return {
+    user_id: p.user_id,
+    name: p.name,
+    seat,
+    is_bot: p.is_bot,
+    avatar: p.avatar,
+    avatar_color: p.avatar_color,
+  };
+}
+
+/**
+ * The rematch table a player asks for once the game is over: same game and options, the
+ * asker as host, and the asker and the robots already seated in their old seats.
+ */
+export function gameRematch(
+  room: GameRoomRow,
+  secret: GameSecret | null,
+  players: SeatedGamePlayerRow[],
+  userId: string,
+) {
+  if (room.tournament_id) throw new GameError('Pas de revanche pendant un tournoi');
+  const me = players.find((p) => p.user_id === userId);
+  if (!me || me.is_bot) throw new GameError("Tu n'es pas à cette table");
+  if (!secret || !gameDef(secret.game).over(secret.state)) throw new GameError('La partie n’est pas finie');
+  return {
+    room: { game: room.game, host_id: userId, options: room.options },
+    players: players.filter((p) => p.is_bot || p.user_id === userId).map((p) => rematchRow(p, p.seat)),
+  };
+}
+
+/**
+ * Seats a player of the finished game at its rematch table (their old seat if free), or
+ * returns null when they already sit there.
+ */
+export function gameRematchJoin(
+  rematch: GameRoomRow,
+  rematchPlayers: GamePlayerRow[],
+  oldPlayers: SeatedGamePlayerRow[],
+  userId: string,
+) {
+  const me = oldPlayers.find((p) => p.user_id === userId);
+  if (!me || me.is_bot) throw new GameError("Tu n'es pas à cette table");
+  if (rematchPlayers.some((p) => p.user_id === userId)) return null;
+  checkJoin(rematch, rematchPlayers, userId, me.name);
+  return { room_id: rematch.id, ...rematchRow(me, rematchSeat(me.seat, rematchPlayers, 8)) };
+}
+
 /** The games of a tournament: 1 to 8 online games, in the order they will be played. */
 export function cleanTournamentGames(raw: unknown): OnlineGameId[] {
   const games = Array.isArray(raw) ? raw.filter((g): g is OnlineGameId => isOnlineGame(g)) : [];
@@ -239,12 +294,17 @@ export function cleanTournamentGames(raw: unknown): OnlineGameId[] {
 }
 
 export function cleanTournamentName(raw: unknown): string {
-  const name = String(raw ?? '').trim().slice(0, 30);
+  const name = String(raw ?? '')
+    .trim()
+    .slice(0, 30);
   return name || 'Tournoi entre amis';
 }
 
 /** Who won and who played a tournament table that just ended, or null while it goes on. */
-export function tournamentResults(before: GameSecret, after: GameSnapshot): { userId: string; won: boolean }[] | null {
+export function tournamentResults(
+  before: GameSecret,
+  after: GameSnapshot,
+): { userId: string; won: boolean }[] | null {
   const finished = progressAwards(before, after).filter((a) => a.finished);
   if (finished.length === 0) return null;
   return finished.map((a) => ({ userId: a.userId, won: a.finished!.won }));
