@@ -114,7 +114,7 @@ export function Tutorial({ visible, onClose }: { visible: boolean; onClose: () =
   const slides: Slide[] = [
     {
       visual: <Fan />,
-      title: t('Bienvenue à la table !'),
+      title: t('Bienvenue à La Tablée !'),
       text: t(
         'Poker, belote, tarot, Uno, Yams… 10 jeux à partager entre amis, en ligne ou sur un seul téléphone.',
       ),

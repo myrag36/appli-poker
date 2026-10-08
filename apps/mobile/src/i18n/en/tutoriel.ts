@@ -5,7 +5,7 @@ export default {
   XP: 'XP',
   Pièces: 'Coins',
   Coffres: 'Chests',
-  'Bienvenue à la table !': 'Welcome to the table!',
+  'Bienvenue à La Tablée !': 'Welcome to La Tablée!',
   'Poker, belote, tarot, Uno, Yams… 10 jeux à partager entre amis, en ligne ou sur un seul téléphone.':
     'Poker, Belote, Tarot, Uno, Yams… 10 games to share with friends, online or on a single phone.',
   'Choisis ton jeu': 'Pick your game',
