@@ -38,6 +38,7 @@ import { ONLINE_UI } from '../online-games';
 import type { OnlineGameId } from '@appli-poker/engine';
 import { sounds } from '../feedback';
 import { t, tn } from '../i18n';
+import { useDesktop } from '../layout';
 import { colors, gradients } from '../theme';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
@@ -60,7 +61,9 @@ export function FriendsScreen({
 }) {
   const progress = useMyProgress();
   const { width: screenW } = useWindowDimensions();
-  const width = Math.min(screenW, 520);
+  const desktop = useDesktop();
+  // On a computer: my code and invitations on the left, the ranking of the week on the right.
+  const width = desktop ? Math.min(screenW - 64, DESK_WIDTH) : Math.min(screenW, 520);
   const [code, setCode] = useState<string | null>(null);
   const [rows, setRows] = useState<FriendRow[] | null>(null);
   const [typed, setTyped] = useState('');
@@ -140,12 +143,8 @@ export function FriendsScreen({
   const podiumReady = chest !== null && progress?.podiumClaimed !== weekStart();
   const friends = (rows ?? []).filter((r) => !r.me);
 
-  return (
-    <ScrollView contentContainerStyle={[styles.container, { width }]} keyboardShouldPersistTaps="handled">
-      <TopBar onBack={onBack} backLabel={t('← Jeux')}>
-        <Text style={styles.topTitle}>{t('Amis')}</Text>
-      </TopBar>
-
+  const mine = (
+    <>
       <LinearGradient colors={['#1d3b6b', '#0f2140']} style={styles.codeCard}>
         <Text style={styles.codeLabel}>{t('Mon code ami')}</Text>
         {code ? (
@@ -251,8 +250,12 @@ export function FriendsScreen({
           </LinearGradient>
         </Pressable>
       )}
+    </>
+  );
 
-      <View style={styles.sectionRow}>
+  const ranking = (
+    <>
+      <View style={[styles.sectionRow, desktop && styles.sectionRowDesktop]}>
         <Text style={styles.section}>{t('Classement de la semaine')}</Text>
         <Text style={styles.reset}>{tn(daysToMonday(), 'Fin dans {n} jour', 'Fin dans {n} jours')}</Text>
       </View>
@@ -301,9 +304,35 @@ export function FriendsScreen({
         </View>
       )}
       {friends.length > 0 && <Text style={styles.tip}>{t('Appui long sur un ami pour le retirer.')}</Text>}
+    </>
+  );
+
+  return (
+    <ScrollView
+      contentContainerStyle={[styles.container, desktop && styles.containerDesktop, { width }]}
+      keyboardShouldPersistTaps="handled"
+    >
+      <TopBar onBack={onBack} backLabel={t('← Jeux')}>
+        <Text style={styles.topTitle}>{t('Amis')}</Text>
+      </TopBar>
+      {desktop ? (
+        <View style={styles.columns}>
+          <View style={{ width: DESK_LEFT }}>{mine}</View>
+          <View style={styles.right}>{ranking}</View>
+        </View>
+      ) : (
+        <>
+          {mine}
+          {ranking}
+        </>
+      )}
     </ScrollView>
   );
 }
+
+/** Desktop page width and its left column. */
+const DESK_WIDTH = 1040;
+const DESK_LEFT = 400;
 
 function Row({ row, place, onLongPress }: { row: FriendRow; place: number; onLongPress: () => void }) {
   const level = levelFromXp(row.xp);
@@ -343,6 +372,10 @@ function Row({ row, place, onLongPress }: { row: FriendRow; place: number; onLon
 
 const styles = StyleSheet.create({
   container: { alignSelf: 'center', padding: 16, paddingTop: 12, paddingBottom: 40 },
+  containerDesktop: { paddingHorizontal: 0, paddingTop: 24, paddingBottom: 56 },
+  columns: { flexDirection: 'row', alignItems: 'flex-start', gap: 32, marginTop: 8 },
+  right: { flex: 1, minWidth: 0 },
+  sectionRowDesktop: { marginTop: 4 },
   topTitle: { color: colors.text, fontSize: 17, fontWeight: '800' },
   codeCard: {
     marginTop: 8,

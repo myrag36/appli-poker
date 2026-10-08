@@ -12,6 +12,7 @@ import {
   Animated,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -36,6 +37,7 @@ import { UnoCard } from '../components/UnoCard';
 import { TarotCard } from '../components/TarotCard';
 import { colors, gradients, shadow } from '../theme';
 import { LANGS, lang, setLang, t } from '../i18n';
+import { PAGE_MAX_WIDTH, useDesktop } from '../layout';
 
 export type GameId =
   | 'poker'
@@ -231,6 +233,7 @@ export function GamesScreen({
   const insets = useSafeAreaInsets();
   const [tutorial, setTutorial] = useState(tutorialPending);
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const desktop = useDesktop();
   const cardHeight = Math.max(300, Math.min(CARD_HEIGHT, screenHeight - 520));
   const viewWidth = Math.min(screenWidth, 520);
   const cardWidth = Math.round(viewWidth * 0.76);
@@ -248,6 +251,22 @@ export function GamesScreen({
   function goTo(i: number) {
     list.current?.scrollTo({ x: i * step, animated: true });
     setIndex(i);
+  }
+
+  if (desktop) {
+    return (
+      <DesktopGames
+        canResume={canResume}
+        onPlay={onPlay}
+        onResume={onResume}
+        onProfile={onProfile}
+        onShop={onShop}
+        onFriends={onFriends}
+        onTournaments={onTournaments}
+        tutorial={tutorial}
+        onTutorialClose={() => setTutorial(false)}
+      />
+    );
   }
 
   return (
@@ -374,6 +393,174 @@ export function GamesScreen({
   );
 }
 
+/** Props of the desktop home: the games screen's own, plus the tutorial it owns. */
+interface DesktopProps extends Props {
+  tutorial: boolean;
+  onTutorialClose: () => void;
+}
+
+type PressState = { pressed: boolean; hovered?: boolean };
+
+/** Smooth hover movement on the web (ignored elsewhere). */
+const HOVER_TRANSITION =
+  Platform.OS === 'web'
+    ? ({ transitionProperty: 'transform, box-shadow, border-color', transitionDuration: '160ms' } as object)
+    : null;
+
+const DESK_PAD = 32;
+const DESK_GAP = 18;
+
+/**
+ * The home on a computer: a top bar, the challenge and social buttons in a row,
+ * then every game at once in a grid instead of the phone's one-card carousel.
+ */
+function DesktopGames({
+  canResume,
+  onPlay,
+  onResume,
+  onProfile,
+  onShop,
+  onFriends,
+  onTournaments,
+  tutorial,
+  onTutorialClose,
+}: DesktopProps) {
+  const { width: screenWidth, height: screenHeight } = useWindowDimensions();
+  const pageWidth = Math.min(screenWidth, PAGE_MAX_WIDTH) - 2 * DESK_PAD;
+  const columns = pageWidth >= 1100 ? 5 : 4;
+  const cardWidth = Math.floor((pageWidth - (columns - 1) * DESK_GAP) / columns);
+  const cardHeight = Math.round(Math.max(250, Math.min(cardWidth * 1.3, (screenHeight - 250) / 2)));
+  const hoverable =
+    (extra?: object) =>
+    ({ pressed, hovered }: PressState) => [
+      desk.action,
+      extra,
+      HOVER_TRANSITION,
+      hovered && desk.actionHover,
+      pressed && styles.pressed,
+    ];
+
+  return (
+    <View style={desk.root}>
+      <ScrollView contentContainerStyle={desk.scroll}>
+        <View style={[desk.page, { width: pageWidth }]}>
+          <View style={desk.top}>
+            <View style={desk.brand}>
+              <Text style={desk.logo}>La Tablée</Text>
+              <Text style={desk.tagline}>{t('10 jeux de cartes et de dés à partager entre amis')}</Text>
+            </View>
+            <View style={desk.chips}>
+              <ProfileChip onPress={onProfile} />
+              <CoinsChip onPress={onShop} />
+              <LangChip />
+            </View>
+          </View>
+
+          <View style={desk.strip}>
+            <DailyChallenge width={Math.min(580, Math.round(pageWidth * 0.5))} />
+            <View style={desk.actions}>
+              {canResume && (
+                <Pressable accessibilityRole="button" onPress={onResume} style={hoverable(desk.resume)}>
+                  <Text style={styles.resumeText}>{t('▶ Reprendre ma table de poker')}</Text>
+                </Pressable>
+              )}
+              <Pressable accessibilityRole="button" onPress={onFriends} style={hoverable()}>
+                <Text style={desk.actionText}>{t('👥 Amis')}</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" onPress={onTournaments} style={hoverable()}>
+                <Text style={desk.actionText}>{t('🏆 Tournois')}</Text>
+              </Pressable>
+              <SeasonPill onPress={onShop} style={hoverable()} />
+            </View>
+          </View>
+
+          <Text style={desk.heading}>{t('Choisis ton jeu')}</Text>
+          <View style={desk.grid}>
+            {GAMES.map((game) => (
+              <DesktopCard
+                key={game.id}
+                game={game}
+                width={cardWidth}
+                height={cardHeight}
+                onPress={() => game.ready && onPlay(game.id)}
+              />
+            ))}
+          </View>
+
+          <View style={desk.theme}>
+            <ThemeChooser />
+          </View>
+        </View>
+      </ScrollView>
+      {!tutorial && <InstallBanner />}
+      <Tutorial visible={tutorial} onClose={onTutorialClose} />
+    </View>
+  );
+}
+
+/** One game of the desktop grid: its scenery, cards, name, players and a Play button. Lifts on hover. */
+function DesktopCard({
+  game,
+  width,
+  height,
+  onPress,
+}: {
+  game: Game;
+  width: number;
+  height: number;
+  onPress: () => void;
+}) {
+  // Short cards (small windows) drop the tagline; the cards and dice shrink to the room left above the name.
+  const tagline = height >= 280;
+  const artScale = Math.min(1, width / 290, (height - (tagline ? 190 : 140)) / 125);
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={
+        game.ready ? t('Jouer : {game}', { game: game.title }) : t('{game}, bientôt', { game: game.title })
+      }
+      onPress={onPress}
+      style={({ pressed, hovered }: PressState) => [
+        styles.card,
+        desk.card,
+        { width, height },
+        HOVER_TRANSITION,
+        hovered && desk.cardHover,
+        pressed && desk.cardPressed,
+      ]}
+    >
+      {({ hovered }: PressState) => (
+        <>
+          <GameDecor id={game.id} width={width} height={height} />
+          <View style={styles.artBox}>
+            <View style={[{ transform: [{ scale: artScale * (hovered ? 1.06 : 1) }] }, HOVER_TRANSITION]}>
+              <Art game={game} />
+            </View>
+          </View>
+          <Text style={desk.cardTitle} numberOfLines={1}>
+            {game.title}
+          </Text>
+          <Text style={styles.cardPlayers}>{game.players}</Text>
+          {tagline && (
+            <Text style={desk.cardText} numberOfLines={2}>
+              {game.tagline}
+            </Text>
+          )}
+          {game.ready ? (
+            <LinearGradient colors={gradients.gold} style={[desk.play, hovered && desk.playHover]}>
+              <Text style={desk.playText}>{t('Jouer')}</Text>
+            </LinearGradient>
+          ) : (
+            <View style={[styles.soon, desk.play]}>
+              <Text style={styles.soonText}>{t('Bientôt')}</Text>
+            </View>
+          )}
+        </>
+      )}
+    </Pressable>
+  );
+}
+
 /** My avatar, level and progress bar; opens my profile. */
 function ProfileChip({ onPress }: { onPress: () => void }) {
   const progress = useMyProgress();
@@ -459,22 +646,33 @@ function LangChip() {
 }
 
 /** The season of the month, with its limited items in the shop. */
-function SeasonPill({ onPress }: { onPress: () => void }) {
+function SeasonPill({
+  onPress,
+  style,
+}: {
+  onPress: () => void;
+  /** The desktop home's bigger button style, with hover. */
+  style?: (state: PressState) => unknown;
+}) {
   const season = seasonOf();
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={t('Saison {name}, articles limités à la boutique', { name: t(season.name) })}
       onPress={onPress}
-      style={({ pressed }) => [styles.socialButton, pressed && styles.pressed]}
+      style={(state: PressState) =>
+        style ? (style(state) as object) : [styles.socialButton, state.pressed && styles.pressed]
+      }
     >
       <LinearGradient
         colors={season.colors}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={[StyleSheet.absoluteFill, { borderRadius: 18 }]}
+        style={[StyleSheet.absoluteFill, { borderRadius: style ? 22 : 18 }]}
       />
-      <Text style={styles.socialText}>{t('{emoji} Saison', { emoji: season.emoji })}</Text>
+      <Text style={style ? desk.actionText : styles.socialText}>
+        {t('{emoji} Saison', { emoji: season.emoji })}
+      </Text>
     </Pressable>
   );
 }
@@ -600,4 +798,58 @@ const styles = StyleSheet.create({
   dots: { flexDirection: 'row', gap: 8, marginTop: 18 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.25)' },
   dotActive: { width: 22, backgroundColor: colors.gold },
+});
+
+/** The desktop home (see DesktopGames). */
+const desk = StyleSheet.create({
+  root: { flex: 1 },
+  scroll: { flexGrow: 1, alignItems: 'center', paddingTop: 28, paddingBottom: 40 },
+  page: { gap: 0 },
+  top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 24 },
+  brand: { flexShrink: 1 },
+  logo: { color: colors.gold, fontSize: 40, fontWeight: '900', letterSpacing: 0.5 },
+  tagline: { color: colors.muted, fontSize: 15, fontWeight: '600', marginTop: 2 },
+  chips: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  strip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 20,
+    marginTop: 12,
+  },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 },
+  action: {
+    height: 48,
+    paddingHorizontal: 20,
+    borderRadius: 24,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    backgroundColor: colors.glass,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    cursor: 'pointer',
+  },
+  actionHover: { transform: [{ translateY: -2 }], borderColor: colors.gold },
+  actionText: { color: colors.text, fontSize: 16, fontWeight: '800' },
+  resume: { backgroundColor: colors.gold, borderColor: colors.goldBorder },
+  heading: { color: colors.text, fontSize: 22, fontWeight: '900', marginTop: 30, marginBottom: 14 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: DESK_GAP },
+  card: {
+    padding: 16,
+    borderRadius: 20,
+    cursor: 'pointer',
+    boxShadow: '0 6px 16px rgba(0,0,0,0.4)',
+  },
+  cardHover: {
+    transform: [{ translateY: -8 }],
+    borderColor: colors.gold,
+    boxShadow: '0 18px 34px rgba(0,0,0,0.55)',
+  },
+  cardPressed: { transform: [{ translateY: -4 }, { scale: 0.98 }] },
+  cardTitle: { color: '#fff', fontSize: 26, fontWeight: '900' },
+  cardText: { color: 'rgba(255,255,255,0.8)', fontSize: 13, lineHeight: 18, marginTop: 6, minHeight: 36 },
+  play: { marginTop: 12, borderRadius: 12, paddingVertical: 10, alignItems: 'center' },
+  playHover: { boxShadow: '0 0 16px rgba(255,193,7,0.55)' },
+  playText: { color: colors.onGold, fontSize: 16, fontWeight: '900' },
+  theme: { width: 440, alignSelf: 'center', marginTop: 16 },
 });

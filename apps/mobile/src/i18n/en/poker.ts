@@ -400,5 +400,7 @@ const en: Record<string, string> = {
   'Succès inconnu': 'Unknown achievement',
   'Succès pas encore atteint': 'Achievement not reached yet',
   'Un code ami a 6 caractères': 'A friend code has 6 characters',
+  // Poker on a computer.
+  'Montant de la relance': 'Raise amount',
 };
 export default en;

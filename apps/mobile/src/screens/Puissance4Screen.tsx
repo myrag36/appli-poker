@@ -46,6 +46,7 @@ import { reportFeat, reportLocalGame, useFeat } from '../online/progress';
 import { deviceRng } from '../rng';
 import { PUISSANCE4_RULES } from '../rules';
 import { colors } from '../theme';
+import { COLUMN_MAX_WIDTH, useDesktop } from '../layout';
 import { t, tn } from '../i18n';
 
 const native = Platform.OS !== 'web';
@@ -123,6 +124,7 @@ function Setup({
     initial?.avatars ?? [defaultAvatar(0), defaultAvatar(1)],
   );
   const [picking, setPicking] = useState<0 | 1 | null>(null);
+  const desktop = useDesktop();
 
   const cleaned: [string, string] = [
     names[0].trim() || t('Joueur {n}', { n: 1 }),
@@ -172,7 +174,10 @@ function Setup({
   );
 
   return (
-    <ScrollView contentContainerStyle={styles.setup} keyboardShouldPersistTaps="handled">
+    <ScrollView
+      contentContainerStyle={[styles.setup, desktop && styles.column]}
+      keyboardShouldPersistTaps="handled"
+    >
       <View style={styles.titleTokens}>
         {([0, 1, 0] as P4Player[]).map((p, i) => (
           <Token key={i} player={p} size={34} style={{ transform: [{ translateY: i === 1 ? -6 : 0 }] }} />
@@ -244,6 +249,7 @@ function Match({
 }) {
   const [game, setGame] = useState<P4State>(() => p4NewGame(0));
   const [over, setOver] = useState(false);
+  const desktop = useDesktop();
   const finished = p4Finished(game);
   const isBot = (p: P4Player) => settings.vsBot && p === 1;
   const botTurn = !finished && isBot(game.current);
@@ -305,12 +311,14 @@ function Match({
           <TopBar onBack={onQuit} backLabel={t('← Quitter')}>
             <Text style={styles.round}>{t('Manche {n}', { n: game.round })}</Text>
           </TopBar>
-          <Scoreboard game={game} settings={settings} />
+          {!desktop && <Scoreboard game={game} settings={settings} />}
         </>
       }
       table={({ width, height }) => (
-        <Board
+        <BoardArea
+          desktop={desktop}
           game={game}
+          settings={settings}
           width={width}
           height={height}
           canPlay={!botTurn && !finished}
@@ -319,7 +327,7 @@ function Match({
         />
       )}
       bottom={
-        <View style={styles.bottomBox}>
+        <View style={[styles.bottomBox, desktop && styles.bottomDesktop]}>
           {finished ? (
             <View style={styles.buttons}>
               <View style={styles.flex}>
@@ -391,6 +399,68 @@ function Scoreboard({
         {game.draws > 0 && <Text style={styles.scoreDraws}>{tn(game.draws, '{n} nul', '{n} nuls')}</Text>}
       </View>
       {cell(1)}
+    </View>
+  );
+}
+
+/** Width of each player's card beside the board, on a computer. */
+const SIDE_W = 210;
+
+/** The board; on a computer it is big and centered, with each player's card on its side. */
+function BoardArea({
+  desktop,
+  settings,
+  subs,
+  width,
+  height,
+  ...board
+}: Parameters<typeof Board>[0] & { desktop: boolean; settings: Settings; subs?: [string, string] }) {
+  if (!desktop) return <Board {...board} width={width} height={height} />;
+  const gap = 32;
+  return (
+    <View style={[styles.desktopRow, { gap }]}>
+      <SidePlayer game={board.game} settings={settings} subs={subs} player={0} />
+      <Board {...board} width={Math.min(width - 2 * (SIDE_W + gap), 760)} height={height} large />
+      <SidePlayer game={board.game} settings={settings} subs={subs} player={1} />
+    </View>
+  );
+}
+
+/** A player's card beside the board: avatar, token color and the rounds won. */
+function SidePlayer({
+  game,
+  settings,
+  subs,
+  player: p,
+}: {
+  game: P4State;
+  settings: Settings;
+  subs?: [string, string];
+  player: P4Player;
+}) {
+  const finished = p4Finished(game);
+  const active = finished ? game.winner === p : game.current === p;
+  return (
+    <View style={[styles.side, active && styles.scoreActive]}>
+      <View>
+        <AvatarBadge avatar={settings.avatars[p]} size={64} />
+        <Token player={p} size={26} style={styles.sideToken} />
+      </View>
+      <Text style={[styles.sideName, active && styles.scoreNameActive]} numberOfLines={1}>
+        {settings.names[p]}
+      </Text>
+      <Text style={styles.sideSub} numberOfLines={1}>
+        {subs
+          ? subs[p]
+          : settings.vsBot && p === 1
+            ? t('Robot {level}', { level: t(P4_LEVEL_LABELS[settings.level]) })
+            : TOKEN_NAMES[p]}
+      </Text>
+      <Text style={[styles.sideScore, { color: TOKEN_COLORS[p].fill }]}>{game.scores[p]}</Text>
+      <Text style={styles.sideScoreLabel}>{tn(game.scores[p], 'manche gagnée', 'manches gagnées')}</Text>
+      {p === 1 && game.draws > 0 && (
+        <Text style={styles.sideDraws}>{tn(game.draws, '{n} nul', '{n} nuls')}</Text>
+      )}
     </View>
   );
 }
@@ -470,6 +540,7 @@ function Board({
   canPlay,
   onDrop,
   prompt,
+  large,
 }: {
   game: P4State;
   width: number;
@@ -477,13 +548,15 @@ function Board({
   canPlay: boolean;
   onDrop: (col: number) => void;
   prompt: string;
+  /** On a computer: bigger cells. */
+  large?: boolean;
 }) {
   const [aim, setAim] = useState(3);
-  const pad = 8;
-  const promptH = 34;
+  const pad = large ? 12 : 8;
+  const promptH = large ? 46 : 34;
   // One extra row of room above the board, where the next token waits.
   const cell = Math.floor(
-    Math.min(64, (width - 2 * pad - 4) / P4_COLS, (height - 2 * pad - promptH) / (P4_ROWS + 1)),
+    Math.min(large ? 96 : 64, (width - 2 * pad - 4) / P4_COLS, (height - 2 * pad - promptH) / (P4_ROWS + 1)),
   );
   const hole = Math.round(cell * 0.8);
   const inset = (cell - hole) / 2;
@@ -591,12 +664,21 @@ function Board({
             style={({ pressed }) => [
               styles.abs,
               { left: pad + c * cell, top: 0, width: cell, height: top + boardH },
+              large && styles.columnDesktop,
               pressed && styles.columnPressed,
             ]}
           />
         ))}
       </View>
-      <Text style={[styles.prompt, finished && styles.promptDone]} numberOfLines={1}>
+      <Text
+        style={[
+          styles.prompt,
+          large && styles.promptLarge,
+          finished && styles.promptDone,
+          finished && large && styles.promptDoneLarge,
+        ]}
+        numberOfLines={1}
+      >
         {prompt}
       </Text>
     </View>
@@ -622,6 +704,7 @@ function MatchResults({
   onHome: () => void;
   homeLabel?: string;
 }) {
+  const desktop = useDesktop();
   const [a, b] = game.scores;
   const winner: P4Player | null = a > b ? 0 : b > a ? 1 : null;
   const played = a + b + game.draws;
@@ -644,7 +727,7 @@ function MatchResults({
     </View>
   );
   return (
-    <ScrollView contentContainerStyle={styles.results}>
+    <ScrollView contentContainerStyle={[styles.results, desktop && styles.column]}>
       <Appear>
         <Text style={styles.trophy}>
           {winner === null ? '🤝' : settings.vsBot && winner === 1 ? '🤖' : '🏆'}
@@ -689,6 +772,7 @@ export function Puissance4OnlineBoard({
   onLeave,
 }: OnlineBoardProps<P4OnlineState>) {
   const game = view.game;
+  const desktop = useDesktop();
   const finished = p4Finished(game);
   const myTurn = !finished && game.current === mySeat;
   const seated = mySeat === 0 || mySeat === 1;
@@ -750,15 +834,18 @@ export function Puissance4OnlineBoard({
           <TopBar onBack={onLeave} backLabel={t('← Quitter')}>
             <Text style={styles.round}>{t('Manche {n}/{total}', { n: game.round, total: view.rounds })}</Text>
           </TopBar>
-          <Scoreboard game={game} settings={settings} subs={[sub(0), sub(1)]} />
+          {!desktop && <Scoreboard game={game} settings={settings} subs={[sub(0), sub(1)]} />}
           {deadline && !finished && current && !current.bot && (
             <TurnTimer deadline={deadline} now={now} name={myTurn ? t('Toi') : current.name} seconds={60} />
           )}
         </>
       }
       table={({ width, height }) => (
-        <Board
+        <BoardArea
+          desktop={desktop}
           game={game}
+          settings={settings}
+          subs={[sub(0), sub(1)]}
           width={width}
           height={height}
           canPlay={myTurn && !busy}
@@ -767,7 +854,7 @@ export function Puissance4OnlineBoard({
         />
       )}
       bottom={
-        <View style={styles.onlineBottom}>
+        <View style={[styles.onlineBottom, desktop && styles.bottomDesktop]}>
           {error && <Text style={styles.onlineError}>{error}</Text>}
           {betweenRounds ? (
             seated ? (
@@ -826,6 +913,8 @@ const styles = StyleSheet.create({
 
   // Setup
   setup: { padding: 20, paddingTop: 40, paddingBottom: 30 },
+  /** On a computer, forms and results stay a readable column in the middle of the window. */
+  column: { width: '100%', maxWidth: COLUMN_MAX_WIDTH, alignSelf: 'center' },
   titleTokens: { flexDirection: 'row', justifyContent: 'center', gap: 6, marginBottom: 8 },
   title: { color: colors.gold, fontSize: 34, fontWeight: '800', textAlign: 'center' },
   subtitle: { color: colors.muted, textAlign: 'center', marginBottom: 4 },
@@ -916,6 +1005,28 @@ const styles = StyleSheet.create({
   },
   promptDone: { color: colors.gold, fontSize: 18 },
   bottomBox: { height: 58, justifyContent: 'center' },
+  bottomDesktop: { width: '100%', maxWidth: 480, alignSelf: 'center' },
+  desktopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  columnDesktop: { cursor: 'pointer' },
+  promptLarge: { fontSize: 20, height: 30, marginTop: 14 },
+  promptDoneLarge: { fontSize: 22 },
+  side: {
+    width: SIDE_W,
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 22,
+    paddingHorizontal: 14,
+    borderRadius: 18,
+    backgroundColor: colors.glass,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+  },
+  sideToken: { position: 'absolute', right: -8, bottom: -4 },
+  sideName: { color: colors.text, fontSize: 18, fontWeight: '800', marginTop: 8, maxWidth: '100%' },
+  sideSub: { color: colors.muted, fontSize: 13, fontWeight: '600' },
+  sideScore: { fontSize: 56, fontWeight: '900', lineHeight: 64, marginTop: 6 },
+  sideScoreLabel: { color: colors.muted, fontSize: 12, fontWeight: '700' },
+  sideDraws: { color: colors.muted, fontSize: 12, fontWeight: '700', marginTop: 6 },
   buttons: { flexDirection: 'row', gap: 8 },
   help: { color: colors.muted, textAlign: 'center', fontSize: 13 },
   onlineOptions: { marginBottom: 12 },

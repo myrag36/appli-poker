@@ -35,6 +35,8 @@ interface Props {
   names: Record<string, string>;
   avatars: Record<string, Avatar>;
   onSend: (text: string) => Promise<void>;
+  /** On a computer: drawn in place, in a side panel next to the table, instead of a sheet. */
+  inline?: boolean;
 }
 
 function time(iso: string) {
@@ -42,8 +44,8 @@ function time(iso: string) {
   return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-/** The table's conversation, in a sheet that slides over the game. */
-export function ChatPanel({ visible, onClose, messages, meId, names, avatars, onSend }: Props) {
+/** The table's conversation, in a sheet that slides over the game (or in place, with `inline`). */
+export function ChatPanel({ visible, onClose, messages, meId, names, avatars, onSend, inline }: Props) {
   const insets = useSafeAreaInsets();
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -68,6 +70,85 @@ export function ChatPanel({ visible, onClose, messages, meId, names, avatars, on
     }
   }
 
+  const content = (
+    <>
+      <ScrollView ref={list} style={styles.list} contentContainerStyle={styles.listContent}>
+        {messages.length === 0 && (
+          <Text style={styles.empty}>{t('Pas encore de message. Dis bonjour à la table !')}</Text>
+        )}
+        {messages.map((m, i) => {
+          const mine = m.user_id === meId;
+          const sameAuthor = messages[i - 1]?.user_id === m.user_id;
+          return (
+            <View key={m.id} style={[styles.row, mine && styles.rowMine, sameAuthor && styles.rowFollow]}>
+              {!mine && (
+                <View style={styles.avatar}>
+                  {!sameAuthor && avatars[m.user_id] && <AvatarBadge avatar={avatars[m.user_id]} size={28} />}
+                </View>
+              )}
+              <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleOther]}>
+                {!mine && !sameAuthor && (
+                  <Text style={styles.author}>{names[m.user_id] ?? t('Ancien joueur')}</Text>
+                )}
+                <Text style={[styles.body, mine && styles.bodyMine]}>{m.body}</Text>
+                <Text style={[styles.time, mine && styles.timeMine]}>{time(m.created_at)}</Text>
+              </View>
+            </View>
+          );
+        })}
+      </ScrollView>
+
+      <ScrollView
+        horizontal={!inline}
+        showsHorizontalScrollIndicator={false}
+        style={styles.quickBar}
+        contentContainerStyle={[styles.quick, inline && styles.quickWrap]}
+      >
+        {QUICK.map((q) => (
+          <Pressable
+            key={q}
+            accessibilityRole="button"
+            disabled={sending}
+            onPress={() => send(q)}
+            style={({ pressed }) => [styles.chip, pressed && styles.pressed]}
+          >
+            <Text style={styles.chipText}>{q}</Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+
+      {error && <Text style={styles.error}>{error}</Text>}
+      <View style={styles.inputRow}>
+        <TextInput
+          value={text}
+          onChangeText={setText}
+          placeholder={t('Écris un message…')}
+          placeholderTextColor={colors.muted}
+          maxLength={MAX_MESSAGE_LENGTH}
+          returnKeyType="send"
+          onSubmitEditing={() => send(text)}
+          blurOnSubmit={false}
+          style={styles.input}
+        />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('Envoyer')}
+          disabled={sending || !text.trim()}
+          onPress={() => send(text)}
+          style={({ pressed }) => [
+            styles.send,
+            (sending || !text.trim()) && styles.sendDisabled,
+            pressed && styles.pressed,
+          ]}
+        >
+          <Text style={styles.sendText}>➤</Text>
+        </Pressable>
+      </View>
+    </>
+  );
+
+  if (inline) return <View style={styles.inline}>{content}</View>;
+
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.overlay}>
@@ -86,80 +167,7 @@ export function ChatPanel({ visible, onClose, messages, meId, names, avatars, on
             </Pressable>
           </View>
 
-          <ScrollView ref={list} style={styles.list} contentContainerStyle={styles.listContent}>
-            {messages.length === 0 && (
-              <Text style={styles.empty}>{t('Pas encore de message. Dis bonjour à la table !')}</Text>
-            )}
-            {messages.map((m, i) => {
-              const mine = m.user_id === meId;
-              const sameAuthor = messages[i - 1]?.user_id === m.user_id;
-              return (
-                <View key={m.id} style={[styles.row, mine && styles.rowMine, sameAuthor && styles.rowFollow]}>
-                  {!mine && (
-                    <View style={styles.avatar}>
-                      {!sameAuthor && avatars[m.user_id] && (
-                        <AvatarBadge avatar={avatars[m.user_id]} size={28} />
-                      )}
-                    </View>
-                  )}
-                  <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleOther]}>
-                    {!mine && !sameAuthor && (
-                      <Text style={styles.author}>{names[m.user_id] ?? t('Ancien joueur')}</Text>
-                    )}
-                    <Text style={[styles.body, mine && styles.bodyMine]}>{m.body}</Text>
-                    <Text style={[styles.time, mine && styles.timeMine]}>{time(m.created_at)}</Text>
-                  </View>
-                </View>
-              );
-            })}
-          </ScrollView>
-
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.quickBar}
-            contentContainerStyle={styles.quick}
-          >
-            {QUICK.map((q) => (
-              <Pressable
-                key={q}
-                accessibilityRole="button"
-                disabled={sending}
-                onPress={() => send(q)}
-                style={({ pressed }) => [styles.chip, pressed && styles.pressed]}
-              >
-                <Text style={styles.chipText}>{q}</Text>
-              </Pressable>
-            ))}
-          </ScrollView>
-
-          {error && <Text style={styles.error}>{error}</Text>}
-          <View style={styles.inputRow}>
-            <TextInput
-              value={text}
-              onChangeText={setText}
-              placeholder={t('Écris un message…')}
-              placeholderTextColor={colors.muted}
-              maxLength={MAX_MESSAGE_LENGTH}
-              returnKeyType="send"
-              onSubmitEditing={() => send(text)}
-              blurOnSubmit={false}
-              style={styles.input}
-            />
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('Envoyer')}
-              disabled={sending || !text.trim()}
-              onPress={() => send(text)}
-              style={({ pressed }) => [
-                styles.send,
-                (sending || !text.trim()) && styles.sendDisabled,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Text style={styles.sendText}>➤</Text>
-            </Pressable>
-          </View>
+          {content}
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -168,6 +176,8 @@ export function ChatPanel({ visible, onClose, messages, meId, names, avatars, on
 
 const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end' },
+  inline: { flex: 1, minHeight: 0, paddingBottom: 12 },
+  quickWrap: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' },
   backdrop: {
     position: 'absolute',
     top: 0,
