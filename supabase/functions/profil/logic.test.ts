@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { questsFor, xpForLevel } from '../_shared/engine/index.ts';
+import { challengeFor, questsFor, xpForLevel } from '../_shared/engine/index.ts';
 import { GameError } from '../poker/logic.ts';
 import {
   chestContents,
@@ -9,6 +9,7 @@ import {
   podiumChest,
   equip,
   finishedQuest,
+  finishedChallenge,
   localGame,
   reachedAchievement,
   shopItem,
@@ -95,4 +96,14 @@ test('last week podium among friends', () => {
   assert.equal(podiumChest('d', board), null);
   assert.equal(podiumChest('e', board), null);
   assert.equal(podiumChest('a', [{ user_id: 'a', xp: 900 }]), null);
+});
+
+test('the daily challenge is paid only once done, with today’s stats', () => {
+  const day = '2026-10-10';
+  const c = challengeFor(day);
+  assert.equal(c.id, 'wingame:tarot');
+  assert.throws(() => finishedChallenge(day, day, { won: { tarot: 1 } }, {}), /pas encore/);
+  // Yesterday's wins do not count.
+  assert.throws(() => finishedChallenge(day, '2026-10-08', { won: { tarot: 2 } }, {}), /pas encore/);
+  assert.equal(finishedChallenge(day, day, { won: { tarot: 2 } }, {}).coins, c.coins);
 });

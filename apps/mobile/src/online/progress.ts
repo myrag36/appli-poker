@@ -12,6 +12,7 @@ import {
   cleanEquipped,
   cleanOwned,
   levelFromXp,
+  liveChallengeStreak,
   parisDay,
   rewardsAtLevel,
 } from '@appli-poker/engine';
@@ -40,6 +41,9 @@ export interface MyProgress {
   questsDone: number;
   /** Monday of the week whose podium reward was taken. */
   podiumClaimed: string | null;
+  /** Today's challenge already taken, and challenges taken days in a row. */
+  challengeClaimed: boolean;
+  challengeStreak: number;
 }
 
 /** Something to celebrate: experience just earned, maybe with a new level and its rewards. */
@@ -80,9 +84,11 @@ interface Row {
   feats?: unknown;
   quests_done?: number;
   podium_claimed?: string | null;
+  challenge_day?: string | null;
+  challenge_streak?: number;
 }
 const COLUMNS =
-  'xp, equipped, games, coins, owned, stats_day, day_stats, quests_claimed, last_day, streak, best_streak, chests, achievements, feats, quests_done, podium_claimed';
+  'xp, equipped, games, coins, owned, stats_day, day_stats, quests_claimed, last_day, streak, best_streak, chests, achievements, feats, quests_done, podium_claimed, challenge_day, challenge_streak';
 
 /** The streak still counts if the last game was today or yesterday. */
 function liveStreak(lastDay: string | null | undefined, streak: number) {
@@ -113,6 +119,8 @@ function apply(row: Row | null) {
     feats: cleanOwned(row?.feats),
     questsDone: row?.quests_done ?? 0,
     podiumClaimed: row?.podium_claimed ?? null,
+    challengeClaimed: row?.challenge_day === parisDay(),
+    challengeStreak: liveChallengeStreak(row?.challenge_day, row?.challenge_streak ?? 0, parisDay()),
   };
   // Experience earned since the last look: celebrate it (not on the first load). Coins
   // from a quest are shown where they are taken, so only those won while playing count.
@@ -227,6 +235,15 @@ export async function buyItem(kind: RewardKind, id: string) {
 export async function claimQuest(quest: string) {
   try {
     await callProfile({ type: 'claim', quest });
+  } finally {
+    await refreshProgress();
+  }
+}
+
+/** Takes the coins of today's challenge; says the streak bonus. */
+export async function claimChallenge(): Promise<{ coins: number; bonus: number; streak: number }> {
+  try {
+    return await callProfile({ type: 'challenge' });
   } finally {
     await refreshProgress();
   }
