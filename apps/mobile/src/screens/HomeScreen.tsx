@@ -1,4 +1,4 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { PlayingCard } from '../components/PlayingCard';
@@ -6,6 +6,7 @@ import { RulesButton } from '../components/Rules';
 import { POKER_RULES } from '../rules';
 import { colors, gradients, shadow } from '../theme';
 import { t } from '../i18n';
+import { useDesktop } from '../layout';
 
 interface Props {
   canResume: boolean;
@@ -17,7 +18,11 @@ interface Props {
   onBack: () => void;
 }
 
-/** Strongest hand first, with an example of each. */
+/** Smooth hover movement of the desktop cards (web only). */
+const HOVER_TRANSITION =
+  Platform.OS === 'web'
+    ? ({ transitionProperty: 'transform, border-color', transitionDuration: '160ms' } as object)
+    : null;
 
 function Choice({
   icon,
@@ -32,14 +37,17 @@ function Choice({
   highlight?: boolean;
   onPress: () => void;
 }) {
+  const desktop = useDesktop();
   return (
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => [
+      style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
         styles.choice,
         shadow,
+        desktop && [styles.choiceDesktop, HOVER_TRANSITION],
         highlight && styles.choiceHighlight,
+        hovered && desktop && styles.choiceHover,
         pressed && styles.pressed,
       ]}
     >
@@ -51,18 +59,20 @@ function Choice({
         <Text style={[styles.choiceTitle, highlight && styles.choiceTitleHighlight]}>{title}</Text>
         <Text style={[styles.choiceText, highlight && styles.choiceTextHighlight]}>{text}</Text>
       </View>
-      <Text style={[styles.chevron, highlight && styles.choiceTitleHighlight]}>›</Text>
+      {!desktop && <Text style={[styles.chevron, highlight && styles.choiceTitleHighlight]}>›</Text>}
     </Pressable>
   );
 }
 
 export function HomeScreen({ canResume, playerName, onOnline, onResume, onLocal, onStats, onBack }: Props) {
   const insets = useSafeAreaInsets();
+  const desktop = useDesktop();
 
   return (
     <ScrollView
       contentContainerStyle={[
         styles.container,
+        desktop && styles.containerDesktop,
         { paddingTop: insets.top + 28, paddingBottom: insets.bottom + 24 },
       ]}
     >
@@ -91,7 +101,7 @@ export function HomeScreen({ canResume, playerName, onOnline, onResume, onLocal,
         </Text>
       </View>
 
-      <View style={styles.choices}>
+      <View style={[styles.choices, desktop && styles.choicesDesktop]}>
         {canResume && (
           <Choice
             icon="▶"
@@ -122,6 +132,7 @@ export function HomeScreen({ canResume, playerName, onOnline, onResume, onLocal,
         />
       </View>
 
+      {desktop && <View style={styles.rulesGap} />}
       <RulesButton rules={POKER_RULES} />
     </ScrollView>
   );
@@ -167,6 +178,20 @@ const styles = StyleSheet.create({
     maxWidth: 320,
   },
   choices: { gap: 12 },
+  // On a computer the choices sit side by side as cards, under the hero.
+  containerDesktop: { maxWidth: 1040, paddingHorizontal: 32 },
+  choicesDesktop: { flexDirection: 'row', gap: 18 },
+  rulesGap: { height: 16 },
+  choiceDesktop: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    padding: 22,
+    gap: 14,
+    borderRadius: 20,
+    cursor: 'pointer',
+  },
+  choiceHover: { transform: [{ translateY: -4 }], borderColor: colors.gold },
   choice: {
     flexDirection: 'row',
     alignItems: 'center',

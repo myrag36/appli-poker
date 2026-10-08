@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useInstall } from '../pwa';
 import { colors, gradients, shadow } from '../theme';
 import { t } from '../i18n';
+import { useDesktop } from '../layout';
 
 /** Safari's share icon: a box with an arrow coming out of the top. */
 function ShareIcon() {
@@ -41,6 +42,7 @@ export function InstallBanner() {
   const { mode, install, dismiss } = useInstall();
   const [guide, setGuide] = useState(false);
   const insets = useSafeAreaInsets();
+  const desktop = useDesktop();
   if (!mode && !guide) return null;
 
   const onInstall = () => (mode === 'ios' ? setGuide(true) : install());
@@ -48,7 +50,14 @@ export function InstallBanner() {
   return (
     <>
       {mode && (
-        <View style={[styles.wrap, { bottom: insets.bottom + 12 }]} pointerEvents="box-none">
+        <View
+          style={[
+            styles.wrap,
+            { bottom: insets.bottom + (desktop ? 24 : 12) },
+            desktop && styles.wrapDesktop,
+          ]}
+          pointerEvents="box-none"
+        >
           <View style={[styles.banner, shadow]}>
             <View style={styles.badge}>
               <Text style={styles.badgeText}>📲</Text>
@@ -131,6 +140,8 @@ export function InstallBanner() {
 
 const styles = StyleSheet.create({
   wrap: { position: 'absolute', left: 12, right: 12, alignItems: 'center' },
+  // On a computer, a small card in the bottom-right corner, off the games grid.
+  wrapDesktop: { left: 'auto', right: 24, width: 440 },
   banner: {
     width: '100%',
     maxWidth: 480,

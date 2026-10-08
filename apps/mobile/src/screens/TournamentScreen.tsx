@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -38,6 +38,7 @@ import {
 } from '../online/supabase';
 import type { TournamentTable } from './OnlineGameScreen';
 import { t, tn } from '../i18n';
+import { useDesktop } from '../layout';
 import { colors, gradients, shadow } from '../theme';
 
 const GAMES: { id: OnlineGameId; title: string; emoji: string }[] = [
@@ -113,6 +114,7 @@ function TournamentHome({
   onOpen: (id: string) => void;
 }) {
   const insets = useSafeAreaInsets();
+  const desktop = useDesktop();
   const [name, setName] = useState(initialName);
   const [avatar, setAvatar] = useState<Avatar>(() => defaultAvatar(Math.floor(Math.random() * 8)));
   const [pickingAvatar, setPickingAvatar] = useState(false);
@@ -171,21 +173,8 @@ function TournamentHome({
   }
 
   const tournamentTitle = title.trim() || 'Tournoi entre amis';
-  return (
-    <ScrollView
-      contentContainerStyle={[
-        styles.container,
-        { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 30 },
-      ]}
-      keyboardShouldPersistTaps="handled"
-    >
-      <TopBar onBack={onBack} backLabel={t('← Jeux')} />
-      <Text style={styles.trophy}>🏆</Text>
-      <Text style={styles.title}>{t('Tournois')}</Text>
-      <Text style={styles.subtitle}>
-        {t('Plusieurs jeux à la suite entre amis : 3 points par victoire, 1 point par participation.')}
-      </Text>
-
+  const join = (
+    <>
       <View style={[styles.card, styles.me]}>
         <Pressable
           accessibilityRole="button"
@@ -258,8 +247,12 @@ function TournamentHome({
           />
         </View>
       </View>
+    </>
+  );
 
-      <Text style={styles.section}>{t('Créer un tournoi')}</Text>
+  const create = (
+    <>
+      <Text style={[styles.section, desktop && styles.sectionFirst]}>{t('Créer un tournoi')}</Text>
       <View style={styles.card}>
         <TextInput
           style={styles.input}
@@ -327,7 +320,44 @@ function TournamentHome({
         <Text style={styles.hint}>{t('Écris ton prénom pour créer ou rejoindre un tournoi.')}</Text>
       )}
       {error && <Text style={styles.error}>{error}</Text>}
+    </>
+  );
+
+  return (
+    <ScrollView
+      contentContainerStyle={[
+        styles.container,
+        desktop && styles.containerDesktop,
+        { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 30 },
+      ]}
+      keyboardShouldPersistTaps="handled"
+    >
+      <TopBar onBack={onBack} backLabel={t('← Jeux')} />
+      <Text style={styles.trophy}>🏆</Text>
+      <Text style={styles.title}>{t('Tournois')}</Text>
+      <Text style={styles.subtitle}>
+        {t('Plusieurs jeux à la suite entre amis : 3 points par victoire, 1 point par participation.')}
+      </Text>
+      <Columns desktop={desktop} left={join} right={create} />
     </ScrollView>
+  );
+}
+
+/** Side by side on a computer (the left one narrower), one under the other on a phone. */
+function Columns({ desktop, left, right }: { desktop: boolean; left: ReactNode; right: ReactNode }) {
+  if (!desktop) {
+    return (
+      <>
+        {left}
+        {right}
+      </>
+    );
+  }
+  return (
+    <View style={styles.columns}>
+      <View style={styles.leftColumn}>{left}</View>
+      <View style={styles.rightColumn}>{right}</View>
+    </View>
   );
 }
 
@@ -414,6 +444,7 @@ function TournamentView({
   onPlay: (game: OnlineGameId, join?: string) => void;
 }) {
   const insets = useSafeAreaInsets();
+  const desktop = useDesktop();
   const { tournament: tour, players, userId, error, missing, refresh } = useTournament(id);
   const [copied, setCopied] = useState(false);
 
@@ -473,10 +504,8 @@ function TournamentView({
     Share.share({ message }).catch(() => {});
   }
 
-  return (
-    <ScrollView contentContainerStyle={[styles.container, top]}>
-      <TopBar onBack={onBack} backLabel={t('← Tournois')} />
-
+  const summary = (
+    <>
       <View style={[styles.hero, shadow]}>
         <LinearGradient colors={gradients.glass} style={StyleSheet.absoluteFill} />
         <Text style={styles.heroTrophy}>{finished ? '🏆' : '🎯'}</Text>
@@ -548,8 +577,12 @@ function TournamentView({
           )}
         </View>
       )}
+    </>
+  );
 
-      <Text style={styles.section}>{t('Programme')}</Text>
+  const details = (
+    <>
+      <Text style={[styles.section, desktop && styles.sectionFirst]}>{t('Programme')}</Text>
       <View style={[styles.card, styles.program]}>
         {tour.games.map((g, i) => {
           const done = finished || i < tour.round;
@@ -594,6 +627,13 @@ function TournamentView({
       <Text style={styles.note}>
         {t('Victoire : 3 points · Participation : 1 point. Le champion gagne un grand coffre.')}
       </Text>
+    </>
+  );
+
+  return (
+    <ScrollView contentContainerStyle={[styles.container, desktop && styles.containerDesktop, top]}>
+      <TopBar onBack={onBack} backLabel={t('← Tournois')} />
+      <Columns desktop={desktop} left={summary} right={details} />
     </ScrollView>
   );
 }
@@ -646,6 +686,11 @@ function Podium({
 
 const styles = StyleSheet.create({
   container: { paddingHorizontal: 16, maxWidth: 520, width: '100%', alignSelf: 'center' },
+  containerDesktop: { maxWidth: 1040, paddingHorizontal: 32 },
+  columns: { flexDirection: 'row', alignItems: 'flex-start', gap: 32 },
+  leftColumn: { width: 420 },
+  rightColumn: { flex: 1, minWidth: 0 },
+  sectionFirst: { marginTop: 16 },
   flex: { flex: 1 },
   row: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   pressed: { opacity: 0.7 },

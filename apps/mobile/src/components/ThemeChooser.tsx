@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Backdrop } from './Backdrop';
 import { PlayingCard } from './PlayingCard';
 import { t as tr } from '../i18n';
+import { useDesktop } from '../layout';
 import { THEMES, type Theme, type ThemeId, canChangeTheme, colors, setTheme, themeId } from '../theme';
 
 /** A small picture of the theme: its scenery with a table in the middle. */
@@ -56,13 +57,16 @@ function ThemePreview({ id, width, height }: { id: ThemeId; width: number; heigh
 export function ThemeChooser() {
   const [open, setOpen] = useState(false);
   const { width: screenW } = useWindowDimensions();
+  const desktop = useDesktop();
   if (!canChangeTheme) return null;
 
   const current = THEMES[themeId];
-  const sheetW = Math.min(screenW - 24, 480);
-  // Sheet border (2), side padding (32) and the gap between the two columns (12).
-  const cardW = Math.floor((sheetW - 2 - 32 - 12) / 2);
-  const previewH = Math.round(cardW * 1.15);
+  // Two columns on a phone; on a computer, a wider gallery with every theme on two rows.
+  const columns = desktop ? 4 : 2;
+  const sheetW = desktop ? Math.min(screenW - 48, 920) : Math.min(screenW - 24, 480);
+  // Sheet border (2), side padding (32) and the gaps between the columns (12 each).
+  const cardW = Math.floor((sheetW - 2 - 32 - 12 * (columns - 1)) / columns);
+  const previewH = Math.round(cardW * (desktop ? 0.85 : 1.15));
 
   return (
     <>
