@@ -34,9 +34,11 @@ import { GameLayout } from '../components/GameLayout';
 import { Pill } from '../components/LevelPicker';
 import { Appear, FloatUp } from '../components/Motion';
 import { PlayingCard } from '../components/PlayingCard';
+import { SetupFrame, SideSection, TableWithSide, isHovered } from '../components/TableSide';
 import { TopBar } from '../components/TopBar';
 import { TurnTimer } from '../components/TurnTimer';
 import { sounds } from '../feedback';
+import { COLUMN_MAX_WIDTH, useDesktop } from '../layout';
 import type { OnlineBoardProps, OnlineOptionsProps } from '../online-games/types';
 import { deviceRng } from '../rng';
 import { lang, t, tn } from '../i18n';
@@ -114,22 +116,29 @@ function RamiSetup({
   const robot = (seat: number): Avatar => ({ emoji: '🤖', color: seatColors[seat] });
 
   return (
-    <ScrollView contentContainerStyle={styles.setup} keyboardShouldPersistTaps="handled">
-      <View style={styles.titleCards}>
-        {['7d', '8d', 'Xr', '9d'].map((c, i) => (
-          <View
-            key={c}
-            style={{ transform: [{ rotate: `${(i - 1.5) * 10}deg` }, { translateY: Math.abs(i - 1.5) * 5 }] }}
-          >
-            <PlayingCard card={c} width={40} />
+    <SetupFrame
+      phoneStyle={styles.setup}
+      intro={
+        <>
+          <View style={styles.titleCards}>
+            {['7d', '8d', 'Xr', '9d'].map((c, i) => (
+              <View
+                key={c}
+                style={{
+                  transform: [{ rotate: `${(i - 1.5) * 10}deg` }, { translateY: Math.abs(i - 1.5) * 5 }],
+                }}
+              >
+                <PlayingCard card={c} width={40} />
+              </View>
+            ))}
           </View>
-        ))}
-      </View>
-      <Text style={styles.title}>Rami</Text>
-      <Text style={styles.subtitle}>{t('Pose tes combinaisons et vide ta main le premier.')}</Text>
-      {onOnline && <OnlineButton onPress={onOnline} />}
-      <RulesButton rules={RAMI_RULES} />
-
+          <Text style={styles.title}>Rami</Text>
+          <Text style={styles.subtitle}>{t('Pose tes combinaisons et vide ta main le premier.')}</Text>
+          {onOnline && <OnlineButton onPress={onOnline} />}
+          <RulesButton rules={RAMI_RULES} />
+        </>
+      }
+    >
       <Text style={styles.section}>{t('Toi')}</Text>
       <View style={styles.row}>
         <Pressable
@@ -185,7 +194,7 @@ function RamiSetup({
         }
       />
       <Button label={t('Retour')} variant="secondary" onPress={onBack} />
-    </ScrollView>
+    </SetupFrame>
   );
 }
 
@@ -348,6 +357,7 @@ function RamiTable({
   const [sortBy, setSortBy] = useState<'suit' | 'rank'>('suit');
   /** The card I just drew, shown with a glow. */
   const [fresh, setFresh] = useState<Card | null>(null);
+  const desktop = useDesktop();
 
   const active = game.phase === 'draw' || game.phase === 'play';
   const myPlay = myTurn && game.phase === 'play' && !busy;
@@ -469,40 +479,59 @@ function RamiTable({
       top={
         <>
           <TopBar onBack={onBack} backLabel={t('← Quitter')}>
-            <Text style={styles.roundText}>{t('Manche {n}', { n: game.round })}</Text>
-            <Text style={styles.targetText}>{t('· {n} pts', { n: game.target })}</Text>
+            {/* On a computer the round and the scores are in the panel beside the table. */}
+            {!desktop && (
+              <>
+                <Text style={styles.roundText}>{t('Manche {n}', { n: game.round })}</Text>
+                <Text style={styles.targetText}>{t('· {n} pts', { n: game.target })}</Text>
+              </>
+            )}
           </TopBar>
-          <Scoreboard game={game} me={me} names={names} avatars={avatars} />
+          {!desktop && <Scoreboard game={game} me={me} names={names} avatars={avatars} />}
           {timer}
         </>
       }
-      table={({ width, height }) => (
-        <View style={[styles.rail, { width: Math.min(width, 520), height }]}>
-          <LinearGradient colors={gradients.wood} style={StyleSheet.absoluteFill} />
-          <View style={styles.felt}>
-            <LinearGradient colors={gradients.felt} style={StyleSheet.absoluteFill} />
-            <Piles
-              game={game}
-              me={me}
-              names={names}
-              canDraw={myTurn && !busy && game.phase === 'draw'}
-              onDraw={() => onMove({ type: 'draw' })}
-              onTake={() => onMove({ type: 'take' })}
-            />
-            <Melds
-              melds={game.melds}
-              avatars={avatars}
-              targets={targets}
-              staged={staged}
-              stagedPoints={stagedPoints}
-              onMeld={onMeld}
-              onUnstage={() => setStaged([])}
-              width={Math.min(width, 520) - 40}
-            />
-            {overlay && <View style={styles.overlay}>{overlay}</View>}
+      table={({ width, height }) => {
+        const felt = (w: number, h: number) => (
+          <View style={[styles.rail, { width: w, height: h }]}>
+            <LinearGradient colors={gradients.wood} style={StyleSheet.absoluteFill} />
+            <View style={styles.felt}>
+              <LinearGradient colors={gradients.felt} style={StyleSheet.absoluteFill} />
+              <Piles
+                game={game}
+                me={me}
+                names={names}
+                canDraw={myTurn && !busy && game.phase === 'draw'}
+                onDraw={() => onMove({ type: 'draw' })}
+                onTake={() => onMove({ type: 'take' })}
+                big={desktop}
+              />
+              <Melds
+                melds={game.melds}
+                avatars={avatars}
+                targets={targets}
+                staged={staged}
+                stagedPoints={stagedPoints}
+                onMeld={onMeld}
+                onUnstage={() => setStaged([])}
+                width={w - 40}
+                big={desktop}
+              />
+              {overlay && <View style={styles.overlay}>{overlay}</View>}
+            </View>
           </View>
-        </View>
-      )}
+        );
+        if (!desktop) return felt(Math.min(width, 520), height);
+        // On a computer: a wide table, the scores in a panel on its right.
+        return (
+          <TableWithSide
+            width={width}
+            height={height}
+            side={<RamiSide game={game} me={me} names={names} avatars={avatars} />}
+            table={(size) => felt(size.width, Math.min(size.height, 700))}
+          />
+        );
+      }}
       bottom={
         <>
           <View style={[styles.prompt, myTurn && styles.promptMine, error !== null && styles.promptError]}>
@@ -519,17 +548,21 @@ function RamiTable({
           </View>
           {me >= 0 && (
             <>
-              <View style={styles.actions}>
+              <View style={[styles.actions, desktop && styles.actionsDesktop]}>
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={t('Trier')}
                   onPress={() => setSortBy(sortBy === 'suit' ? 'rank' : 'suit')}
-                  style={({ pressed }) => [styles.sort, pressed && styles.pressed]}
+                  style={(state) => [
+                    styles.sort,
+                    isHovered(state) && styles.sortHover,
+                    state.pressed && styles.pressed,
+                  ]}
                 >
                   <Text style={styles.sortIcon}>⇅</Text>
                   <Text style={styles.sortText}>{sortBy === 'suit' ? t('Couleur') : t('Valeur')}</Text>
                 </Pressable>
-                <View style={styles.flex}>
+                <View style={desktop ? styles.actionDesktop : styles.flex}>
                   <Button
                     compact
                     label={layout ? t('Poser · {pts}', { pts: ramiMeldPoints(layout) }) : t('Poser')}
@@ -537,7 +570,7 @@ function RamiTable({
                     onPress={lay}
                   />
                 </View>
-                <View style={styles.flex}>
+                <View style={desktop ? styles.actionDesktop : styles.flex}>
                   <Button
                     compact
                     variant="secondary"
@@ -613,6 +646,7 @@ function Piles({
   canDraw,
   onDraw,
   onTake,
+  big,
 }: {
   game: RamiView;
   me: number;
@@ -620,6 +654,8 @@ function Piles({
   canDraw: boolean;
   onDraw: () => void;
   onTake: () => void;
+  /** Bigger cards, on a computer. */
+  big?: boolean;
 }) {
   const top = game.discard[game.discard.length - 1];
   const ev = game.last;
@@ -650,9 +686,9 @@ function Piles({
     else if (ev.type === 'discard')
       text = me ? t('Tu défausses le {card}', { card }) : t('{who} défausse le {card}', { who, card });
   }
-  const cw = 50;
+  const cw = big ? 68 : 50;
   return (
-    <View style={styles.piles}>
+    <View style={[styles.piles, big && styles.pilesBig]}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={t('Piocher')}
@@ -693,7 +729,7 @@ function Piles({
       <View style={styles.event}>
         {ev && (
           <Appear key={`${game.round}-${game.turns}-${ev.type}-${ev.cards.join('')}`} from={-8}>
-            <Text style={styles.eventText} numberOfLines={3}>
+            <Text style={[styles.eventText, big && styles.eventTextBig]} numberOfLines={3}>
               {text}
             </Text>
           </Appear>
@@ -723,6 +759,7 @@ function Melds({
   onMeld,
   onUnstage,
   width,
+  big,
 }: {
   melds: RamiMeld[];
   avatars: Avatar[];
@@ -732,11 +769,16 @@ function Melds({
   onMeld: (m: RamiMeld) => void;
   onUnstage: () => void;
   width: number;
+  /** Bigger cards, on a computer. */
+  big?: boolean;
 }) {
-  const cw = 34;
-  const step = 17;
+  const cw = big ? 54 : 34;
+  const step = big ? 27 : 17;
   return (
-    <ScrollView style={styles.meldScroll} contentContainerStyle={styles.meldWrap}>
+    <ScrollView
+      style={styles.meldScroll}
+      contentContainerStyle={[styles.meldWrap, big && styles.meldWrapBig]}
+    >
       {staged.length > 0 && (
         <Appear style={[styles.staged, { width }]}>
           <View style={styles.stagedHead}>
@@ -810,6 +852,9 @@ function Hand({
   onToggle: (c: Card) => void;
 }) {
   const { width: screenWidth } = useWindowDimensions();
+  const desktop = useDesktop();
+  if (desktop)
+    return <WideHand hand={hand} selected={selected} fresh={fresh} enabled={enabled} onToggle={onToggle} />;
   const avail = Math.min(screenWidth, 520) - 24;
   // A hand holds 14 cards at most: two rows of 7, always the same size so nothing jumps.
   const perRow = 7;
@@ -841,6 +886,96 @@ function Hand({
         </View>
       ))}
     </View>
+  );
+}
+
+/** On a computer: my whole hand in one overlapping row of big cards. */
+function WideHand({
+  hand,
+  selected,
+  fresh,
+  enabled,
+  onToggle,
+}: {
+  hand: Card[];
+  selected: Card[];
+  fresh: Card | null;
+  enabled: boolean;
+  onToggle: (c: Card) => void;
+}) {
+  const avail = COLUMN_MAX_WIDTH + 176;
+  const cw = 78;
+  const ch = Math.round(cw * 1.4);
+  const step = hand.length > 1 ? Math.min(cw + 8, (avail - cw - 8) / (hand.length - 1)) : 0;
+  return (
+    <View style={[styles.wideHand, { height: ch + 26 }]}>
+      {hand.map((c, i) => {
+        const on = selected.includes(c);
+        return (
+          <Pressable
+            key={c}
+            accessibilityRole="button"
+            accessibilityLabel={t('Carte {card}', { card: cardLabel(c) })}
+            disabled={!enabled}
+            onPress={() => onToggle(c)}
+            style={(state) => [
+              styles.handCard,
+              { marginLeft: i === 0 ? 0 : step - cw - 4 },
+              on && styles.handCardOn,
+              c === fresh && !on && styles.handCardFresh,
+              enabled && !on && isHovered(state) && styles.handCardHover,
+            ]}
+          >
+            <PlayingCard card={c} width={cw} />
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+/** The panel beside the table on a computer: the round, then everyone's score and cards. */
+function RamiSide({
+  game,
+  me,
+  names,
+  avatars,
+}: {
+  game: RamiView;
+  me: number;
+  names: string[];
+  avatars: Avatar[];
+}) {
+  const active = game.phase === 'draw' || game.phase === 'play';
+  return (
+    <SideSection title={t('Manche {n}', { n: game.round })}>
+      {names.map((name, i) => {
+        const turn = active && game.current === i;
+        return (
+          <View key={i} style={[styles.sideRow, i === me && styles.sideRowMe, turn && styles.boardActive]}>
+            <View>
+              <AvatarBadge avatar={avatars[i]} size={30} />
+              {game.opened[i] && (
+                <View style={styles.openedDot}>
+                  <Text style={styles.openedDotText}>✓</Text>
+                </View>
+              )}
+            </View>
+            <View style={styles.flex}>
+              <Text style={[styles.sideName, turn && styles.boardNameActive]} numberOfLines={1}>
+                {i === me ? t('Toi') : name}
+              </Text>
+              <View style={styles.boardCount}>
+                <View style={styles.boardBack} />
+                <Text style={styles.sideCards}>{tn(game.handCounts[i], '{n} carte', '{n} cartes')}</Text>
+              </View>
+            </View>
+            <Text style={styles.sideScore}>{game.scores[i]}</Text>
+          </View>
+        );
+      })}
+      <Text style={styles.sideNote}>{t('Partie en {n} points', { n: game.target })}</Text>
+    </SideSection>
   );
 }
 
@@ -1169,6 +1304,8 @@ const styles = StyleSheet.create({
   pileLabel: { color: 'rgba(255,255,255,0.75)', fontSize: 10, fontWeight: '800', marginTop: 3 },
   event: { flex: 1, justifyContent: 'center', minHeight: 60 },
   eventText: { color: colors.text, fontSize: 13, fontWeight: '700', textAlign: 'center' },
+  eventTextBig: { fontSize: 16 },
+  pilesBig: { gap: 16, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 10 },
   float: { position: 'absolute', alignSelf: 'center', top: -6 },
   floatText: {
     color: colors.onGold,
@@ -1181,6 +1318,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   meldScroll: { flex: 1 },
+  meldWrapBig: { gap: 10, padding: 16 },
   meldWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1250,6 +1388,9 @@ const styles = StyleSheet.create({
   promptTextMine: { color: colors.gold },
   promptTextError: { color: '#ffd6d6' },
   actions: { flexDirection: 'row', gap: 6, alignItems: 'center' },
+  actionsDesktop: { alignSelf: 'center', gap: 10 },
+  actionDesktop: { width: 170 },
+  sortHover: { borderColor: colors.goldBorder },
   sort: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1273,6 +1414,26 @@ const styles = StyleSheet.create({
     boxShadow: '0 0 10px rgba(255, 193, 7, 0.9)',
   },
   handCardFresh: { borderColor: 'rgba(120, 220, 255, 0.85)' },
+  handCardHover: { transform: [{ translateY: -8 }] },
+  wideHand: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', paddingBottom: 4 },
+
+  // Side panel (computer)
+  sideRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 7,
+    paddingHorizontal: 9,
+    borderRadius: 10,
+    backgroundColor: colors.glass,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+  },
+  sideRowMe: { backgroundColor: 'rgba(255,255,255,0.1)' },
+  sideName: { color: colors.text, fontSize: 14, fontWeight: '700' },
+  sideCards: { color: colors.muted, fontSize: 12, fontWeight: '700' },
+  sideScore: { color: colors.text, fontSize: 20, fontWeight: '900' },
+  sideNote: { color: colors.muted, fontSize: 13, marginTop: 4 },
 
   // Results
   summary: {

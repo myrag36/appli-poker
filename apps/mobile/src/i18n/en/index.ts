@@ -17,6 +17,7 @@ import revanche from './revanche';
 import notifications from './notifications';
 import pcAccueil from './pcAccueil';
 import pcAutres from './pcAutres';
+import plisPc from './plisPc';
 
 export const EN: Record<string, string> = {
   ...accueil,
@@ -37,4 +38,5 @@ export const EN: Record<string, string> = {
   ...notifications,
   ...pcAccueil,
   ...pcAutres,
+  ...plisPc,
 };

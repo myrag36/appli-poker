@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   type Avatar,
@@ -32,12 +32,21 @@ import { Pill } from '../components/LevelPicker';
 import { Appear, FloatUp } from '../components/Motion';
 import { Panel, PanelText } from '../components/Panel';
 import { PlayingCard } from '../components/PlayingCard';
+import {
+  ActionRow,
+  SetupFrame,
+  SideLine,
+  SideSection,
+  TableWithSide,
+  isHovered,
+} from '../components/TableSide';
 import { TopBar } from '../components/TopBar';
 import { TurnTimer } from '../components/TurnTimer';
 import { sounds } from '../feedback';
+import { COLUMN_MAX_WIDTH, useDesktop } from '../layout';
 import type { OnlineBoardProps, OnlineOptionsProps } from '../online-games/types';
 import { deviceRng } from '../rng';
-import { t } from '../i18n';
+import { t, tn } from '../i18n';
 import { colors, gradients, seatColors, shadow } from '../theme';
 
 /** How long a robot seems to think, in ms. */
@@ -104,12 +113,25 @@ function BeloteSetup({
   );
 
   return (
-    <ScrollView contentContainerStyle={styles.setup} keyboardShouldPersistTaps="handled">
-      <Text style={styles.title}>Belote</Text>
-      <Text style={styles.subtitle}>{t('Toi et ton partenaire robot contre deux robots.')}</Text>
-      {onOnline && <OnlineButton onPress={onOnline} />}
-      <RulesButton rules={BELOTE_RULES} />
-
+    <SetupFrame
+      phoneStyle={styles.setup}
+      hero={['Jc', '9c', 'Ac', 'Tc'].map((c, i) => (
+        <View
+          key={c}
+          style={{ transform: [{ rotate: `${(i - 1.5) * 9}deg` }, { translateY: Math.abs(i - 1.5) * 7 }] }}
+        >
+          <PlayingCard card={c} width={64} />
+        </View>
+      ))}
+      intro={
+        <>
+          <Text style={styles.title}>Belote</Text>
+          <Text style={styles.subtitle}>{t('Toi et ton partenaire robot contre deux robots.')}</Text>
+          {onOnline && <OnlineButton onPress={onOnline} />}
+          <RulesButton rules={BELOTE_RULES} />
+        </>
+      }
+    >
       <Text style={styles.section}>{t('Nous')}</Text>
       <View style={styles.row}>
         <Pressable
@@ -152,7 +174,7 @@ function BeloteSetup({
         onPress={() => onStart({ names, avatars: [avatar, robot(1), robot(2), robot(3)], target })}
       />
       <Button label={t('Retour')} variant="secondary" onPress={onBack} />
-    </ScrollView>
+    </SetupFrame>
   );
 }
 
@@ -175,6 +197,7 @@ function BeloteGame({
   /** A finished trick stays in the middle for a moment before play goes on. */
   const [holding, setHolding] = useState(false);
   const names = settings.names;
+  const desktop = useDesktop();
   useFeat('capot', game.result?.kind === 'played' && game.result.capot === 0);
 
   const bidding = game.phase === 'bidding1' || game.phase === 'bidding2';
@@ -267,9 +290,14 @@ function BeloteGame({
     <GameLayout
       top={
         <TopBar onBack={onBack} backLabel={t('← Quitter')}>
-          <ScorePill label={t('Nous')} value={game.scores[0]} mine />
-          <ScorePill label={t('Eux')} value={game.scores[1]} />
-          <Text style={styles.target}>/ {game.target}</Text>
+          {/* On a computer the scores are in the panel beside the table. */}
+          {!desktop && (
+            <>
+              <ScorePill label={t('Nous')} value={game.scores[0]} mine />
+              <ScorePill label={t('Eux')} value={game.scores[1]} />
+              <Text style={styles.target}>/ {game.target}</Text>
+            </>
+          )}
         </TopBar>
       }
       table={({ width, height }) => (
@@ -329,7 +357,7 @@ function BidButtons({
   const turned = game.turnUp?.[1] as BeloteSuit | undefined;
   if (game.phase === 'bidding1')
     return (
-      <View style={styles.bids}>
+      <ActionRow>
         <Button
           compact
           disabled={disabled}
@@ -343,11 +371,11 @@ function BidButtons({
           label={t('Passer')}
           onPress={() => onMove({ type: 'pass' })}
         />
-      </View>
+      </ActionRow>
     );
   if (game.phase === 'bidding2')
     return (
-      <View style={styles.bids}>
+      <ActionRow>
         {BELOTE_SUITS.filter((s) => s !== turned).map((s) => (
           <Button
             key={s}
@@ -364,7 +392,7 @@ function BidButtons({
           label={t('Passer')}
           onPress={() => onMove({ type: 'pass' })}
         />
-      </View>
+      </ActionRow>
     );
   return null;
 }
@@ -384,8 +412,10 @@ function BeloteHand({
   onPlay: (card: Card) => void;
 }) {
   const { width: screenWidth } = useWindowDimensions();
-  const avail = Math.min(screenWidth, 520) - 20;
-  const cardW = Math.min(60, Math.floor(avail / 6.2));
+  const desktop = useDesktop();
+  // On a computer the hand gets the whole controls width, and bigger cards.
+  const avail = desktop ? COLUMN_MAX_WIDTH + 180 : Math.min(screenWidth, 520) - 20;
+  const cardW = desktop ? 88 : Math.min(60, Math.floor(avail / 6.2));
   const step = hand.length > 1 ? Math.min(cardW + 4, (avail - cardW - 4) / (hand.length - 1)) : 0;
   return (
     <View style={[styles.hand, { height: Math.round(cardW * 1.4) + 10 }]}>
@@ -399,10 +429,11 @@ function BeloteHand({
             accessibilityLabel={t('Jouer {card}', { card: c })}
             disabled={!playable}
             onPress={() => onPlay(c)}
-            style={[
+            style={(state) => [
               styles.handCard,
               { marginLeft: i === 0 ? 0 : step - cardW - 4 },
               playable && styles.handCardUp,
+              playable && isHovered(state) && styles.handCardHover,
               dim && styles.handCardDim,
             ]}
           >
@@ -474,18 +505,7 @@ function teamName(team: number, me: number, names: string[]): string {
   return team === beloteTeamOf(me) ? t('Nous') : t('Eux');
 }
 
-function BeloteTable({
-  game,
-  counts,
-  holding,
-  width,
-  height,
-  names,
-  avatars,
-  bottom,
-  me,
-  overlay,
-}: {
+type TableProps = {
   game: TableGame;
   /** How many cards each seat holds. */
   counts: number[];
@@ -500,12 +520,45 @@ function BeloteTable({
   me: number;
   /** Shown over the table once the deal is over. */
   overlay: ReactNode;
-}) {
-  const w = Math.min(width, 480);
-  const h = Math.min(height, Math.round(w * 1.5));
+};
+
+/** The table; on a computer it is landscape, with the scores in a panel on its right. */
+function BeloteTable(props: TableProps) {
+  const desktop = useDesktop();
+  if (!desktop) return <BeloteFelt {...props} />;
+  return (
+    <TableWithSide
+      width={props.width}
+      height={props.height}
+      maxAspect={1.75}
+      side={<BeloteSide game={props.game} me={props.me} names={props.names} bottom={props.bottom} />}
+      table={(size) => <BeloteFelt {...props} {...size} desktop />}
+    />
+  );
+}
+
+function BeloteFelt({
+  game,
+  counts,
+  holding,
+  width,
+  height,
+  names,
+  avatars,
+  bottom,
+  me,
+  overlay,
+  desktop,
+}: TableProps & { desktop?: boolean }) {
+  // A phone gets a portrait table; a computer a landscape one filling the room.
+  const w = desktop ? Math.min(width, Math.round(height * 1.75)) : Math.min(width, 480);
+  const h = desktop ? Math.min(height, 680) : Math.min(height, Math.round(w * 1.5));
   const cx = w / 2;
-  const cy = h / 2 + 6;
-  const cw = Math.max(40, Math.min(58, Math.floor(Math.min(w, h) * 0.15)));
+  // On a computer the trick sits between the top player's cards and my name, as big as fits there.
+  const cy = desktop ? Math.round((h + 138) / 2) : h / 2 + 6;
+  const cw = desktop
+    ? Math.max(58, Math.min(86, Math.floor((h - 242) / 2 / 1.4), Math.floor(h * 0.15)))
+    : Math.max(40, Math.min(58, Math.floor(Math.min(w, h) * 0.15)));
   const ch = Math.round(cw * 1.4);
   const bidding = game.phase === 'bidding1' || game.phase === 'bidding2';
   const round = game.phase === 'bidding1' ? 1 : 2;
@@ -513,11 +566,12 @@ function BeloteTable({
   const place = (seat: number) => (seat - bottom + 4) % 4;
 
   // Where each place sits: bottom, left, top, right.
+  const sideX = desktop ? Math.max(80, Math.round(w * 0.1)) : 38;
   const seatPos = [
     { x: cx, y: h - 22 },
-    { x: 38, y: cy - 10 },
-    { x: cx, y: 42 },
-    { x: w - 38, y: cy - 10 },
+    { x: sideX, y: desktop ? h / 2 : cy - 10 },
+    { x: cx, y: desktop ? 54 : 42 },
+    { x: w - sideX, y: desktop ? h / 2 : cy - 10 },
   ];
   // Where each place's card lands in the trick cross.
   const slot = [
@@ -550,8 +604,8 @@ function BeloteTable({
         </View>
       </View>
 
-      {/* Trump and taker, in the corner. */}
-      {game.trump && game.taker !== null && (
+      {/* Trump and taker, in the corner (in the side panel on a computer). */}
+      {!desktop && game.trump && game.taker !== null && (
         <Appear style={styles.trumpBox} from={-10}>
           <Text style={styles.trumpLabel}>{t('Atout')}</Text>
           <SuitChip suit={game.trump} size={30} />
@@ -560,14 +614,16 @@ function BeloteTable({
           </Text>
         </Appear>
       )}
-      <View style={styles.dealBox}>
-        <Text style={styles.dealText}>{t('Donne {n}', { n: game.dealNumber })}</Text>
-        {game.phase === 'playing' && (
-          <Text style={styles.dealText}>
-            {t('Plis {us}–{them}', { us: myTeamTricks, them: theirTricks })}
-          </Text>
-        )}
-      </View>
+      {!desktop && (
+        <View style={styles.dealBox}>
+          <Text style={styles.dealText}>{t('Donne {n}', { n: game.dealNumber })}</Text>
+          {game.phase === 'playing' && (
+            <Text style={styles.dealText}>
+              {t('Plis {us}–{them}', { us: myTeamTricks, them: theirTricks })}
+            </Text>
+          )}
+        </View>
+      )}
 
       {/* Players around the table. */}
       {[1, 2, 3, 0].map((p) => {
@@ -579,30 +635,36 @@ function BeloteTable({
           : undefined;
         const count = counts[seat];
         const side = p === 1 || p === 3;
-        const backW = side ? 20 : 24;
+        const backW = desktop ? 30 : side ? 20 : 24;
+        const seatW = desktop ? 150 : side ? 76 : 110;
         return (
           <View
             key={seat}
             pointerEvents="none"
             style={[
               styles.seat,
-              { width: side ? 76 : 110, left: pos.x - (side ? 38 : 55), top: pos.y - (p === 0 ? 14 : 30) },
+              {
+                width: seatW,
+                left: pos.x - seatW / 2,
+                top: pos.y - (p === 0 ? 14 : desktop ? 40 : 30),
+              },
             ]}
           >
             {p !== 0 && (
               <View style={[styles.avatarRing, turn && styles.avatarTurn]}>
-                <AvatarBadge avatar={avatars[seat]} size={side ? 36 : 34} />
+                <AvatarBadge avatar={avatars[seat]} size={desktop ? 48 : side ? 36 : 34} />
                 {game.dealer === seat && <Text style={styles.dealerChip}>D</Text>}
               </View>
             )}
             <View
               style={[
                 styles.plate,
+                desktop && styles.plateDesktop,
                 turn && styles.plateTurn,
                 beloteTeamOf(seat) === ourTeam && styles.plateUs,
               ]}
             >
-              <Text style={styles.plateName} numberOfLines={1}>
+              <Text style={[styles.plateName, desktop && styles.plateNameDesktop]} numberOfLines={1}>
                 {names[seat]}
               </Text>
               {p === 0 && game.dealer === seat && <Text style={styles.dealerInline}>D</Text>}
@@ -611,7 +673,7 @@ function BeloteTable({
             {p !== 0 && count > 0 && (
               <View style={styles.backs}>
                 {Array.from({ length: count }, (_, i) => (
-                  <View key={i} style={{ marginLeft: i === 0 ? 0 : side ? -17 : -18 }}>
+                  <View key={i} style={{ marginLeft: i === 0 ? 0 : desktop ? -22 : side ? -17 : -18 }}>
                     <PlayingCard card="As" hidden width={backW} />
                   </View>
                 ))}
@@ -668,6 +730,70 @@ function BeloteTable({
 
       {showResult && game.result && overlay && <View style={styles.overlay}>{overlay}</View>}
     </View>
+  );
+}
+
+/** The panel beside the table on a computer: scores, trump and the current deal. */
+function BeloteSide({
+  game,
+  me,
+  names,
+  bottom,
+}: {
+  game: TableGame;
+  me: number;
+  names: string[];
+  bottom: number;
+}) {
+  const ourTeam = beloteTeamOf(bottom);
+  const bidding = game.phase === 'bidding1' || game.phase === 'bidding2';
+  return (
+    <>
+      <SideSection title={t('Score')}>
+        {[ourTeam, 1 - ourTeam].map((team) => (
+          <View key={team} style={[styles.sideTeam, team === ourTeam && styles.sideTeamMine]}>
+            <View style={styles.sideTeamHead}>
+              <Text style={styles.sideTeamName} numberOfLines={1}>
+                {teamName(team, me, names)}
+              </Text>
+              <Text style={styles.sideTeamScore}>{game.scores[team]}</Text>
+            </View>
+            <View style={styles.sideBar}>
+              <View
+                style={[
+                  styles.sideBarFill,
+                  { width: `${Math.min(100, (100 * game.scores[team]) / game.target)}%` },
+                ]}
+              />
+            </View>
+          </View>
+        ))}
+        <Text style={styles.sideNote}>{t('Partie en {n} points', { n: game.target })}</Text>
+      </SideSection>
+
+      <SideSection title={t('Atout')}>
+        {game.trump && game.taker !== null ? (
+          <View style={styles.sideTrump}>
+            <SuitChip suit={game.trump} size={36} />
+            <Text style={styles.sideTrumpText} numberOfLines={2}>
+              {game.taker === me ? t('pris par toi') : t('pris par {name}', { name: names[game.taker] })}
+            </Text>
+          </View>
+        ) : (
+          <Text style={styles.sideNote}>{bidding ? t('Enchères en cours…') : '–'}</Text>
+        )}
+      </SideSection>
+
+      <SideSection title={t('Donne {n}', { n: game.dealNumber })}>
+        {[ourTeam, 1 - ourTeam].map((team) => (
+          <SideLine
+            key={team}
+            label={teamName(team, me, names)}
+            value={tn(game.tricksWon[team], '{n} pli', '{n} plis')}
+          />
+        ))}
+      </SideSection>
+    </>
   );
 }
 
@@ -854,10 +980,10 @@ const styles = StyleSheet.create({
   promptText: { color: colors.text, fontSize: 14, fontWeight: '700' },
   promptTextMine: { color: colors.gold },
   controls: { height: 84, justifyContent: 'center', gap: 6 },
-  bids: { flexDirection: 'row', gap: 6 },
   hand: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end', paddingTop: 4 },
   handCard: { transform: [{ translateY: 0 }] },
   handCardUp: { transform: [{ translateY: -8 }] },
+  handCardHover: { transform: [{ translateY: -18 }] },
   handCardDim: { opacity: 0.38 },
 
   // Table
@@ -961,6 +1087,8 @@ const styles = StyleSheet.create({
   plateUs: { borderColor: 'rgba(255, 213, 120, 0.4)' },
   plateTurn: { borderColor: colors.gold },
   plateName: { color: colors.text, fontWeight: '700', fontSize: 12, textAlign: 'center', flexShrink: 1 },
+  plateDesktop: { paddingHorizontal: 10, paddingVertical: 3 },
+  plateNameDesktop: { fontSize: 14 },
   dealerInline: {
     width: 15,
     height: 15,
@@ -1063,6 +1191,25 @@ const styles = StyleSheet.create({
   finalTeamScore: { color: colors.text, fontSize: 26, fontWeight: '900' },
   finalButtons: { flexDirection: 'row', gap: 6 },
   errorLine: { color: colors.gold, textAlign: 'center', fontSize: 13 },
+
+  // Side panel (computer)
+  sideTeam: {
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: colors.glass,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    gap: 7,
+  },
+  sideTeamMine: { borderColor: colors.goldBorder },
+  sideTeamHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 8 },
+  sideTeamName: { color: colors.text, fontSize: 15, fontWeight: '800', flexShrink: 1 },
+  sideTeamScore: { color: colors.gold, fontSize: 26, fontWeight: '900' },
+  sideBar: { height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.12)', overflow: 'hidden' },
+  sideBarFill: { height: 5, borderRadius: 3, backgroundColor: colors.gold },
+  sideNote: { color: colors.muted, fontSize: 13 },
+  sideTrump: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  sideTrumpText: { color: colors.text, fontSize: 14, fontWeight: '700', flexShrink: 1 },
 });
 
 // ------------------------------------------------------------------ Online
@@ -1111,6 +1258,7 @@ export function BeloteOnlineBoard({
   const avatars = seats.map((s) => s.avatar);
   const me = mySeat;
   const bottom = me >= 0 ? me : 0;
+  const desktop = useDesktop();
   const myTeam = beloteTeamOf(bottom);
   const bidding = game.phase === 'bidding1' || game.phase === 'bidding2';
   const active = bidding || game.phase === 'playing';
@@ -1208,9 +1356,13 @@ export function BeloteOnlineBoard({
       top={
         <>
           <TopBar onBack={onLeave} backLabel={t('← Quitter')}>
-            <ScorePill label={teamName(myTeam, me, names)} value={game.scores[myTeam]} mine />
-            <ScorePill label={teamName(1 - myTeam, me, names)} value={game.scores[1 - myTeam]} />
-            <Text style={styles.target}>/ {game.target}</Text>
+            {!desktop && (
+              <>
+                <ScorePill label={teamName(myTeam, me, names)} value={game.scores[myTeam]} mine />
+                <ScorePill label={teamName(1 - myTeam, me, names)} value={game.scores[1 - myTeam]} />
+                <Text style={styles.target}>/ {game.target}</Text>
+              </>
+            )}
           </TopBar>
           {deadline && actor && !actor.bot && (
             <TurnTimer deadline={deadline} now={now} name={myTurn ? t('Toi') : actor.name} seconds={60} />
