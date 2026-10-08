@@ -13,7 +13,7 @@ import { BeloteScreen } from './src/screens/BeloteScreen';
 import { Backdrop } from './src/components/Backdrop';
 import { OnlineLobbyScreen } from './src/screens/OnlineLobbyScreen';
 import { OnlineRoomScreen } from './src/screens/OnlineRoomScreen';
-import { OnlineGameScreen } from './src/screens/OnlineGameScreen';
+import { OnlineGameScreen, type TournamentTable } from './src/screens/OnlineGameScreen';
 import { StatsScreen } from './src/screens/StatsScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { ShopScreen } from './src/screens/ShopScreen';
@@ -26,7 +26,7 @@ import { colors } from './src/theme';
 type Screen =
   | { name: 'games' }
   | { name: 'game'; game: Exclude<GameId, 'poker'> }
-  | { name: 'game-online'; game: Exclude<GameId, 'poker'> }
+  | { name: 'game-online'; game: Exclude<GameId, 'poker'>; tournament?: TournamentTable }
   | { name: 'home' }
   | { name: 'local-setup' }
   | { name: 'local-game'; settings: GameSettings }
@@ -36,7 +36,7 @@ type Screen =
   | { name: 'profile' }
   | { name: 'shop'; from: 'games' | 'profile' }
   | { name: 'friends' }
-  | { name: 'tournaments' };
+  | { name: 'tournaments'; id?: string };
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>({ name: 'games' });
@@ -80,7 +80,14 @@ export default function App() {
           <ProfileScreen onBack={games} onShop={() => setScreen({ name: 'shop', from: 'profile' })} />
         )}
         {screen.name === 'friends' && <FriendsScreen onBack={games} />}
-        {screen.name === 'tournaments' && <TournamentScreen onBack={games} />}
+        {screen.name === 'tournaments' && (
+          <TournamentScreen
+            initialId={screen.id}
+            initialName={savedName ?? lastRoom?.name ?? ''}
+            onBack={games}
+            onPlay={(game, tournament) => setScreen({ name: 'game-online', game, tournament })}
+          />
+        )}
         {screen.name === 'shop' && (
           <ShopScreen onBack={screen.from === 'profile' ? () => setScreen({ name: 'profile' }) : games} />
         )}
@@ -101,7 +108,14 @@ export default function App() {
             key={screen.game}
             game={screen.game}
             initialName={savedName ?? lastRoom?.name ?? ''}
-            onBack={() => setScreen({ name: 'game', game: screen.game })}
+            tournament={screen.tournament}
+            onBack={() =>
+              setScreen(
+                screen.tournament
+                  ? { name: 'tournaments', id: screen.tournament.id }
+                  : { name: 'game', game: screen.game },
+              )
+            }
           />
         )}
         {screen.name === 'home' && (

@@ -26,6 +26,7 @@ import {
   ensureSignedIn,
   loadAvatar,
   loadLastGameRoom,
+  loadName,
   saveAvatar,
   saveLastGameRoom,
 } from '../online/supabase';
@@ -34,14 +35,22 @@ import { type OtherProgress, useProgressOf } from '../online/progress';
 import { TitleBadge } from '../components/TitleBadge';
 import { colors } from '../theme';
 
+/** A table of a tournament: the host creates it for the current round, the others join it. */
+export interface TournamentTable {
+  id: string;
+  /** Code of the table already opened for this round, to join it directly. */
+  join?: string;
+}
+
 interface Props {
   game: OnlineGameId;
   initialName: string;
   onBack: () => void;
+  tournament?: TournamentTable;
 }
 
 /** Blackjack, Président, Yams or Belote with friends, each on their own phone. */
-export function OnlineGameScreen({ game, initialName, onBack }: Props) {
+export function OnlineGameScreen({ game, initialName, onBack, tournament }: Props) {
   const [table, setTable] = useState<{ roomId: string; userId: string } | null>(null);
 
   async function enter(roomId: string, name: string) {
@@ -50,16 +59,23 @@ export function OnlineGameScreen({ game, initialName, onBack }: Props) {
     setTable({ roomId, userId });
   }
 
-  if (!table) return <Lobby game={game} initialName={initialName} onEnter={enter} onBack={onBack} />;
+  if (!table) {
+    return (
+      <Lobby game={game} initialName={initialName} tournament={tournament} onEnter={enter} onBack={onBack} />
+    );
+  }
   return (
     <Room
       game={game}
       roomId={table.roomId}
       userId={table.userId}
-      onLeave={() => setTable(null)}
+      inTournament={!!tournament}
+      // A tournament table goes back to the tournament, not to the lobby.
+      onLeave={() => (tournament ? onBack() : setTable(null))}
       onGone={() => {
         saveLastGameRoom(game, null);
-        setTable(null);
+        if (tournament) onBack();
+        else setTable(null);
       }}
     />
   );
@@ -71,11 +87,13 @@ export function OnlineGameScreen({ game, initialName, onBack }: Props) {
 function Lobby({
   game,
   initialName,
+  tournament,
   onEnter,
   onBack,
 }: {
   game: OnlineGameId;
   initialName: string;
+  tournament?: TournamentTable;
   onEnter: (roomId: string, name: string) => Promise<void>;
   onBack: () => void;
 }) {
@@ -88,6 +106,8 @@ function Lobby({
   const [last, setLast] = useState<SavedRoom | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Joining the table of a tournament needs nothing more than my name: go straight in.
+  const [autoJoining, setAutoJoining] = useState(!!tournament?.join);
 
   useEffect(() => {
     loadAvatar().then((a) => a && setAvatar(cleanAvatar(a, a)));
@@ -97,6 +117,26 @@ function Lobby({
     });
   }, [game, initialName]);
 
+  // The saved name can arrive after the first render.
+  useEffect(() => setName((n) => n || initialName), [initialName]);
+
+  useEffect(() => {
+    const code = tournament?.join;
+    if (!code) return;
+    Promise.all([loadAvatar(), loadName()]).then(([a, saved]) => {
+      const who = (saved || initialName).trim();
+      if (!who) {
+        setAutoJoining(false);
+        return;
+      }
+      setName(who);
+      const look = a ? cleanAvatar(a, a) : avatar;
+      run(() => callGames({ type: 'join', game, name: who, code, avatar: look }), who).then(() =>
+        setAutoJoining(false),
+      );
+    });
+  }, []);
+
   function changeAvatar(a: Avatar) {
     setAvatar(a);
     saveAvatar(a);
@@ -104,19 +144,93 @@ function Lobby({
 
   const trimmed = name.trim();
 
-  async function run(request: () => Promise<{ roomId: string }>) {
+  async function run(request: () => Promise<{ roomId: string }>, who = trimmed) {
     setBusy(true);
     setError(null);
     try {
       const { roomId } = await request();
-      await onEnter(roomId, trimmed);
+      await onEnter(roomId, who);
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);
     }
   }
 
+  const join = () =>
+    run(() => callGames({ type: 'join', game, name: trimmed, code: tournament?.join ?? code, avatar }));
+  const create = () =>
+    run(() =>
+      callGames({ type: 'create', game, name: trimmed, avatar, options, tournamentId: tournament?.id }),
+    );
+
   const Options = ui.Options;
+  if (tournament) {
+    return (
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <Text style={styles.emoji}>{ui.emoji}</Text>
+        <Text style={styles.title}>{ui.title}</Text>
+        <Text style={styles.subtitle}>🏆 Manche de tournoi · {ui.players}</Text>
+        {autoJoining && !error ? (
+          <>
+            <View style={styles.spacer} />
+            <ActivityIndicator color={colors.gold} />
+            <Text style={styles.hint}>Arrivée à la table {tournament.join}…</Text>
+          </>
+        ) : (
+          <>
+            <Text style={styles.label}>Ton prénom et ton avatar</Text>
+            <View style={styles.row}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Changer d'avatar"
+                onPress={() => setPickingAvatar(!pickingAvatar)}
+              >
+                <AvatarBadge avatar={avatar} size={48} />
+                <Text style={styles.edit}>✎</Text>
+              </Pressable>
+              <TextInput
+                style={[styles.input, styles.flex]}
+                value={name}
+                onChangeText={setName}
+                maxLength={16}
+                placeholder="Ton prénom"
+                placeholderTextColor={colors.muted}
+              />
+            </View>
+            {pickingAvatar && <AvatarPicker value={avatar} onChange={changeAvatar} />}
+            {tournament.join ? (
+              <>
+                <View style={styles.spacer} />
+                <Button
+                  label={`Rejoindre la table ${tournament.join}`}
+                  disabled={busy || !trimmed}
+                  onPress={join}
+                />
+              </>
+            ) : (
+              <>
+                {Options ? (
+                  <>
+                    <Text style={styles.section}>Réglages de la manche</Text>
+                    <Options value={options} onChange={setOptions} />
+                  </>
+                ) : (
+                  <View style={styles.spacer} />
+                )}
+                <Button label="Créer la table" disabled={busy || !trimmed} onPress={create} />
+                <Text style={styles.hint}>
+                  Les joueurs du tournoi verront la table et pourront la rejoindre.
+                </Text>
+              </>
+            )}
+          </>
+        )}
+        {error && <Text style={styles.error}>{error}</Text>}
+        <View style={styles.spacer} />
+        <Button label="Retour au tournoi" variant="secondary" onPress={onBack} />
+      </ScrollView>
+    );
+  }
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.emoji}>{ui.emoji}</Text>
@@ -162,20 +276,11 @@ function Lobby({
         placeholderTextColor={colors.muted}
         accessibilityLabel="Code de la table"
       />
-      <Button
-        label="Rejoindre"
-        disabled={busy || !trimmed || code.trim().length !== 6}
-        onPress={() => run(() => callGames({ type: 'join', game, name: trimmed, code, avatar }))}
-      />
+      <Button label="Rejoindre" disabled={busy || !trimmed || code.trim().length !== 6} onPress={join} />
 
       <Text style={styles.section}>Ou créer une table</Text>
       {Options && <Options value={options} onChange={setOptions} />}
-      <Button
-        label="Créer la table"
-        variant="secondary"
-        disabled={busy || !trimmed}
-        onPress={() => run(() => callGames({ type: 'create', game, name: trimmed, avatar, options }))}
-      />
+      <Button label="Créer la table" variant="secondary" disabled={busy || !trimmed} onPress={create} />
 
       {error && <Text style={styles.error}>{error}</Text>}
       <View style={styles.spacer} />
@@ -191,12 +296,14 @@ function Room({
   game,
   roomId,
   userId,
+  inTournament,
   onLeave,
   onGone,
 }: {
   game: OnlineGameId;
   roomId: string;
   userId: string;
+  inTournament: boolean;
   onLeave: () => void;
   onGone: () => void;
 }) {
@@ -239,6 +346,7 @@ function Room({
       <WaitingRoom
         code={room.code}
         title={ui.title}
+        inTournament={inTournament}
         players={players}
         progressOf={progressOf}
         isHost={room.host_id === userId}
@@ -293,6 +401,7 @@ function avatarOf(p: GamePlayer | undefined, seat: number, progress?: OtherProgr
 function WaitingRoom({
   code,
   title,
+  inTournament,
   players,
   progressOf,
   isHost,
@@ -307,6 +416,7 @@ function WaitingRoom({
 }: {
   code: string;
   title: string;
+  inTournament: boolean;
   players: GamePlayer[];
   progressOf: Record<string, OtherProgress>;
   isHost: boolean;
@@ -333,7 +443,9 @@ function WaitingRoom({
         {code}
       </Text>
       <Text style={styles.subtitle}>
-        Donne ce code à tes amis : ils choisissent {title} puis « Rejoindre ».
+        {inTournament
+          ? 'Les joueurs du tournoi la rejoignent depuis l’écran du tournoi.'
+          : `Donne ce code à tes amis : ils choisissent ${title} puis « Rejoindre ».`}
       </Text>
       <View style={styles.spacerSmall} />
       <Button label="Inviter des amis" variant="secondary" onPress={invite} />
