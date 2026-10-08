@@ -170,8 +170,10 @@ function Lobby({
     return (
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <Text style={styles.emoji}>{ui.emoji}</Text>
-        <Text style={styles.title}>{ui.title}</Text>
-        <Text style={styles.subtitle}>{t('🏆 Manche de tournoi · {players}', { players: ui.players })}</Text>
+        <Text style={styles.title}>{t(ui.title)}</Text>
+        <Text style={styles.subtitle}>
+          {t('🏆 Manche de tournoi · {players}', { players: t(ui.players) })}
+        </Text>
         {autoJoining && !error ? (
           <>
             <View style={styles.spacer} />
@@ -238,8 +240,8 @@ function Lobby({
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.emoji}>{ui.emoji}</Text>
-      <Text style={styles.title}>{t('{game} en ligne', { game: ui.title })}</Text>
-      <Text style={styles.subtitle}>{ui.players}</Text>
+      <Text style={styles.title}>{t('{game} en ligne', { game: t(ui.title) })}</Text>
+      <Text style={styles.subtitle}>{t(ui.players)}</Text>
 
       {last && (
         <View style={styles.resume}>
@@ -349,7 +351,7 @@ function Room({
     return (
       <WaitingRoom
         code={room.code}
-        title={ui.title}
+        title={t(ui.title)}
         inTournament={inTournament}
         players={players}
         progressOf={progressOf}
