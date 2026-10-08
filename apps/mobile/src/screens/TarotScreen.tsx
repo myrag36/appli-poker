@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   type Avatar,
@@ -11,6 +11,7 @@ import {
   type TarotState,
   type TarotView,
   TAROT_CONTRACTS,
+  TAROT_EXCUSE,
   TAROT_CONTRACT_NAMES,
   TAROT_MULTIPLIERS,
   TAROT_SUIT_SYMBOLS,
@@ -40,9 +41,11 @@ import { Pill } from '../components/LevelPicker';
 import { Appear } from '../components/Motion';
 import { Panel, PanelText } from '../components/Panel';
 import { TAROT_RATIO, TarotCard } from '../components/TarotCard';
+import { ActionRow, SetupFrame, SideSection, TableWithSide, isHovered } from '../components/TableSide';
 import { TopBar } from '../components/TopBar';
 import { TurnTimer } from '../components/TurnTimer';
 import { sounds } from '../feedback';
+import { COLUMN_MAX_WIDTH, useDesktop } from '../layout';
 import type { OnlineBoardProps, OnlineOptionsProps } from '../online-games/types';
 import { deviceRng } from '../rng';
 import { lang, t, tn } from '../i18n';
@@ -103,14 +106,27 @@ function TarotSetup({
   const robot = (seat: number): Avatar => ({ emoji: '🤖', color: seatColors[seat + 1] });
 
   return (
-    <ScrollView contentContainerStyle={styles.setup} keyboardShouldPersistTaps="handled">
-      <Text style={styles.title}>Tarot</Text>
-      <Text style={styles.subtitle}>
-        {t('Toi contre trois robots : à chaque donne, un preneur seul contre tous.')}
-      </Text>
-      {onOnline && <OnlineButton onPress={onOnline} />}
-      <RulesButton rules={TAROT_RULES} />
-
+    <SetupFrame
+      phoneStyle={styles.setup}
+      hero={['1t', 'Rh', TAROT_EXCUSE, '21t'].map((c, i) => (
+        <View
+          key={c}
+          style={{ transform: [{ rotate: `${(i - 1.5) * 9}deg` }, { translateY: Math.abs(i - 1.5) * 7 }] }}
+        >
+          <TarotCard card={c} width={58} />
+        </View>
+      ))}
+      intro={
+        <>
+          <Text style={styles.title}>Tarot</Text>
+          <Text style={styles.subtitle}>
+            {t('Toi contre trois robots : à chaque donne, un preneur seul contre tous.')}
+          </Text>
+          {onOnline && <OnlineButton onPress={onOnline} />}
+          <RulesButton rules={TAROT_RULES} />
+        </>
+      }
+    >
       <Text style={styles.section}>{t('Joueurs')}</Text>
       <View style={styles.row}>
         <Pressable
@@ -157,7 +173,7 @@ function TarotSetup({
         onPress={() => onStart({ names, avatars: [avatar, robot(1), robot(2), robot(3)], deals })}
       />
       <Button label={t('Retour')} variant="secondary" onPress={onBack} />
-    </ScrollView>
+    </SetupFrame>
   );
 }
 
@@ -182,6 +198,7 @@ function TarotGame({
   /** Cards I picked for my écart. */
   const [selected, setSelected] = useState<Card[]>([]);
   const names = settings.names;
+  const desktop = useDesktop();
 
   const active = game.phase === 'bidding' || game.phase === 'ecart' || game.phase === 'playing';
   const myTurn = active && game.toAct === ME && !holding;
@@ -299,13 +316,18 @@ function TarotGame({
     <GameLayout
       top={
         <TopBar onBack={onBack} backLabel={t('← Quitter')}>
-          <Text style={styles.dealCount}>
-            {t('Donne {n}/{total}', { n: Math.min(game.dealNumber, game.deals), total: game.deals })}
-          </Text>
-          <View style={[styles.score, styles.scoreMine]}>
-            <Text style={styles.scoreLabel}>{t('Toi')}</Text>
-            <Text style={styles.scoreValue}>{signed(game.scores[ME])}</Text>
-          </View>
+          {/* On a computer the scores are in the panel beside the table. */}
+          {!desktop && (
+            <>
+              <Text style={styles.dealCount}>
+                {t('Donne {n}/{total}', { n: Math.min(game.dealNumber, game.deals), total: game.deals })}
+              </Text>
+              <View style={[styles.score, styles.scoreMine]}>
+                <Text style={styles.scoreLabel}>{t('Toi')}</Text>
+                <Text style={styles.scoreValue}>{signed(game.scores[ME])}</Text>
+              </View>
+            </>
+          )}
         </TopBar>
       }
       table={({ width, height }) => (
@@ -334,7 +356,7 @@ function TarotGame({
               <BidButtons game={game} onBid={(bid) => apply(ME, { type: 'bid', bid })} />
             )}
             {ecarting && (
-              <View style={styles.ecartButtons}>
+              <ActionRow>
                 <Button
                   compact
                   variant="secondary"
@@ -351,7 +373,7 @@ function TarotGame({
                   }
                   onPress={() => apply(ME, { type: 'ecart', cards: selected })}
                 />
-              </View>
+              </ActionRow>
             )}
           </View>
           <TarotHand
@@ -403,14 +425,21 @@ function BidButtons({
     gardeSans: t('G. sans'),
     gardeContre: t('G. contre'),
   };
+  const desktop = useDesktop();
   return (
-    <View style={styles.bids}>
+    <View style={[styles.bids, desktop && styles.bidsDesktop]}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={t('Passe')}
         disabled={disabled}
         onPress={() => onBid('pass')}
-        style={({ pressed }) => [styles.bid, styles.bidPass, pressed && styles.pressed]}
+        style={(state) => [
+          styles.bid,
+          desktop && styles.bidDesktop,
+          styles.bidPass,
+          isHovered(state) && styles.bidHover,
+          state.pressed && styles.pressed,
+        ]}
       >
         <Text style={styles.bidText}>{t('Passe')}</Text>
       </Pressable>
@@ -423,7 +452,13 @@ function BidButtons({
             accessibilityLabel={t(TAROT_CONTRACT_NAMES[c])}
             disabled={!allowed || disabled}
             onPress={() => onBid(c)}
-            style={({ pressed }) => [styles.bid, !allowed && styles.bidOff, pressed && styles.pressed]}
+            style={(state) => [
+              styles.bid,
+              desktop && styles.bidDesktop,
+              !allowed && styles.bidOff,
+              allowed && isHovered(state) && styles.bidHover,
+              state.pressed && styles.pressed,
+            ]}
           >
             {allowed && <LinearGradient colors={gradients.gold} style={StyleSheet.absoluteFill} />}
             <Text style={[styles.bidText, allowed && styles.bidTextGold]} numberOfLines={1}>
@@ -457,18 +492,20 @@ function TarotHand({
   onPress: (card: Card) => void;
 }) {
   const { width: screenWidth } = useWindowDimensions();
-  const avail = Math.min(screenWidth, 560) - 24;
+  const desktop = useDesktop();
+  const avail = desktop ? COLUMN_MAX_WIDTH + 176 : Math.min(screenWidth, 560) - 24;
   const fit = (n: number) => Math.max(40, Math.min(58, Math.floor(avail / (1 + (n - 1) * 0.78))));
   const stepFor = (n: number, w: number) => (n > 1 ? Math.min(w + 3, (avail - w - 4) / (n - 1)) : 0);
   // On a phone a full hand of 18 is too wide for one row: use two rows for the whole deal, so the
   // table does not jump as cards are played. A wide screen keeps one row.
-  const phone = fit(18) < 48;
+  const phone = !desktop && fit(18) < 48;
   const twoRows = phone && hand.length > 5;
   const perRow = twoRows ? Math.ceil(hand.length / 2) : hand.length;
   const rows = twoRows ? [hand.slice(0, perRow), hand.slice(perRow)] : [hand];
-  // Same size all deal long (the 24 cards of the écart only shrink them for a moment).
-  const usual = phone ? fit(9) : fit(18);
-  const cardW = Math.min(usual, fit(perRow));
+  // Same size all deal long (the 24 cards of the écart only shrink them for a moment). A computer
+  // has room for big cards that overlap more.
+  const usual = desktop ? 76 : phone ? fit(9) : fit(18);
+  const cardW = desktop ? usual : Math.min(usual, fit(perRow));
   const cardH = Math.round(cardW * TAROT_RATIO);
   const overlap = Math.round(cardH * 0.3);
   const usualH = Math.round(usual * TAROT_RATIO);
@@ -489,10 +526,11 @@ function TarotHand({
                   accessibilityLabel={t('Carte {card}', { card: c })}
                   disabled={!can}
                   onPress={() => onPress(c)}
-                  style={[
+                  style={(state) => [
                     styles.handCard,
                     { marginLeft: i === 0 ? 0 : step - cardW - 4 },
                     can && !picked && dimOthers && styles.handCardUp,
+                    can && !picked && isHovered(state) && styles.handCardHover,
                     picked && styles.handCardPicked,
                     dimOthers && !can && styles.handCardDim,
                   ]}
@@ -520,18 +558,7 @@ function bidText(bid: TarotBid): string {
   return bid === 'pass' ? t('Passe') : t('{contract} !', { contract: t(TAROT_CONTRACT_NAMES[bid]) });
 }
 
-function TarotTable({
-  game,
-  counts,
-  holding,
-  width,
-  height,
-  names,
-  avatars,
-  bottom,
-  me,
-  overlay,
-}: {
+type TableProps = {
   game: TableGame;
   /** How many cards each seat holds. */
   counts: number[];
@@ -545,22 +572,56 @@ function TarotTable({
   /** My seat, or -1 when I am only watching. */
   me: number;
   overlay: ReactNode;
-}) {
-  const w = Math.min(width, 480);
-  const h = Math.min(height, Math.round(w * 1.55));
+};
+
+/** The table; on a computer it is landscape, with the scores in a panel on its right. */
+function TarotTable(props: TableProps) {
+  const desktop = useDesktop();
+  if (!desktop) return <TarotFelt {...props} />;
+  return (
+    <TableWithSide
+      width={props.width}
+      height={props.height}
+      maxAspect={1.75}
+      side={<TarotSide game={props.game} me={props.me} names={props.names} avatars={props.avatars} />}
+      table={(size) => <TarotFelt {...props} {...size} desktop />}
+    />
+  );
+}
+
+function TarotFelt({
+  game,
+  counts,
+  holding,
+  width,
+  height,
+  names,
+  avatars,
+  bottom,
+  me,
+  overlay,
+  desktop,
+}: TableProps & { desktop?: boolean }) {
+  // A phone gets a portrait table; a computer a landscape one filling the room.
+  const w = desktop ? Math.min(width, Math.round(height * 1.75)) : Math.min(width, 480);
+  const h = desktop ? Math.min(height, 680) : Math.min(height, Math.round(w * 1.55));
   const cx = w / 2;
-  const cy = h / 2 + 4;
-  const cw = Math.max(40, Math.min(56, Math.floor(Math.min(w, h) * 0.14)));
+  // On a computer the trick sits between the top player's cards and my name, as big as fits there.
+  const cy = desktop ? Math.round((h + 138) / 2) : h / 2 + 4;
+  const cw = desktop
+    ? Math.max(52, Math.min(76, Math.floor((h - 242) / 2 / 1.6), Math.floor(h * 0.13)))
+    : Math.max(40, Math.min(56, Math.floor(Math.min(w, h) * 0.14)));
   const ch = Math.round(cw * TAROT_RATIO);
   /** Play goes round counter-clockwise: after me, the player on my right. */
   const place = (seat: number) => [0, 3, 2, 1][(seat - bottom + 4) % 4];
 
   // Where each place sits: bottom, left, top, right.
+  const sideX = desktop ? Math.max(84, Math.round(w * 0.1)) : 50;
   const seatPos = [
     { x: cx, y: h - 22 },
-    { x: 50, y: cy - 14 },
-    { x: cx, y: 44 },
-    { x: w - 50, y: cy - 14 },
+    { x: sideX, y: desktop ? h / 2 : cy - 14 },
+    { x: cx, y: desktop ? 56 : 44 },
+    { x: w - sideX, y: desktop ? h / 2 : cy - 14 },
   ];
   // Where each place's card lands in the trick cross.
   const slot = [
@@ -593,8 +654,8 @@ function TarotTable({
         </View>
       </View>
 
-      {/* Contract and taker, in the corner. */}
-      {game.contract && game.taker !== null && (
+      {/* Contract and taker, in the corner (in the side panel on a computer). */}
+      {!desktop && game.contract && game.taker !== null && (
         <Appear style={styles.contractBox} from={-10}>
           <Text style={styles.contractLabel}>{t(TAROT_CONTRACT_NAMES[game.contract])}</Text>
           <Text style={styles.contractTaker} numberOfLines={1}>
@@ -606,7 +667,7 @@ function TarotTable({
           )}
         </Appear>
       )}
-      {game.phase === 'playing' && game.taker !== null && (
+      {!desktop && game.phase === 'playing' && game.taker !== null && (
         <View style={styles.trickBox}>
           <Text style={styles.trickText}>{t('Plis du preneur : {n}', { n: game.tricksWon[0] })}</Text>
           <Text style={styles.trickText}>{t('de la défense : {n}', { n: game.tricksWon[1] })}</Text>
@@ -622,23 +683,36 @@ function TarotTable({
         const count = counts[seat];
         const side = p === 1 || p === 3;
         const isTaker = game.taker === seat && game.phase !== 'bidding';
+        const seatW = desktop ? 160 : side ? 96 : 130;
+        const backW = desktop ? 26 : 18;
         return (
           <View
             key={seat}
             pointerEvents="none"
             style={[
               styles.seat,
-              { width: side ? 96 : 130, left: pos.x - (side ? 48 : 65), top: pos.y - (p === 0 ? 14 : 30) },
+              {
+                width: seatW,
+                left: pos.x - seatW / 2,
+                top: pos.y - (p === 0 ? 14 : desktop ? 40 : 30),
+              },
             ]}
           >
             {p !== 0 && (
               <View style={[styles.avatarRing, turn && styles.avatarTurn]}>
-                <AvatarBadge avatar={avatars[seat]} size={side ? 36 : 34} />
+                <AvatarBadge avatar={avatars[seat]} size={desktop ? 48 : side ? 36 : 34} />
                 {game.dealer === seat && <Text style={styles.dealerChip}>D</Text>}
               </View>
             )}
-            <View style={[styles.plate, turn && styles.plateTurn, isTaker && styles.plateTaker]}>
-              <Text style={styles.plateName} numberOfLines={1}>
+            <View
+              style={[
+                styles.plate,
+                desktop && styles.plateDesktop,
+                turn && styles.plateTurn,
+                isTaker && styles.plateTaker,
+              ]}
+            >
+              <Text style={[styles.plateName, desktop && styles.plateNameDesktop]} numberOfLines={1}>
                 {names[seat]}
               </Text>
               <Text style={[styles.plateScore, game.scores[seat] < 0 && styles.plateScoreNeg]}>
@@ -652,9 +726,12 @@ function TarotTable({
                 {[0, 1, 2].map((i) => (
                   <View
                     key={i}
-                    style={{ marginLeft: i === 0 ? 0 : -14, transform: [{ rotate: `${(i - 1) * 10}deg` }] }}
+                    style={{
+                      marginLeft: i === 0 ? 0 : -backW * 0.78,
+                      transform: [{ rotate: `${(i - 1) * 10}deg` }],
+                    }}
                   >
-                    <TarotCard hidden width={18} />
+                    <TarotCard hidden width={backW} />
                   </View>
                 ))}
                 <Text style={styles.backCount}>{count}</Text>
@@ -725,6 +802,67 @@ function TarotTable({
 
       {showResult && game.result && overlay && <View style={styles.overlay}>{overlay}</View>}
     </View>
+  );
+}
+
+/** The panel beside the table on a computer: everyone's score, the contract and the tricks. */
+function TarotSide({
+  game,
+  me,
+  names,
+  avatars,
+}: {
+  game: TableGame;
+  me: number;
+  names: string[];
+  avatars: Avatar[];
+}) {
+  const ranking = [0, 1, 2, 3].sort((a, b) => game.scores[b] - game.scores[a]);
+  return (
+    <>
+      <SideSection
+        title={t('Donne {n}/{total}', { n: Math.min(game.dealNumber, game.deals), total: game.deals })}
+      >
+        {ranking.map((p) => (
+          <View key={p} style={[styles.sideRow, p === me && styles.sideRowMe]}>
+            <AvatarBadge avatar={avatars[p]} size={26} />
+            <Text style={styles.sideName} numberOfLines={1}>
+              {p === me ? t('Toi') : names[p]}
+            </Text>
+            {game.taker === p && game.phase !== 'bidding' && <Text style={styles.sideStar}>★</Text>}
+            {game.dealer === p && <Text style={styles.dealerInline}>D</Text>}
+            <Text style={[styles.sideScore, game.scores[p] < 0 && styles.bad]}>{signed(game.scores[p])}</Text>
+          </View>
+        ))}
+      </SideSection>
+
+      <SideSection title={t('Contrat')}>
+        {game.contract && game.taker !== null ? (
+          <>
+            <Text style={styles.sideContract}>
+              {t(TAROT_CONTRACT_NAMES[game.contract])}{' '}
+              <Text style={styles.sideMult}>×{TAROT_MULTIPLIERS[game.contract]}</Text>
+            </Text>
+            <Text style={styles.sideText}>
+              {game.taker === me ? t('prise par toi') : t('par {name}', { name: names[game.taker] })}
+            </Text>
+            {game.contract === 'gardeSans' && <Text style={styles.sideNote}>{t('chien au preneur')}</Text>}
+            {game.contract === 'gardeContre' && (
+              <Text style={styles.sideNote}>{t('chien à la défense')}</Text>
+            )}
+          </>
+        ) : (
+          <Text style={styles.sideNote}>{game.phase === 'bidding' ? t('Enchères en cours…') : '–'}</Text>
+        )}
+      </SideSection>
+
+      {game.phase === 'playing' && game.taker !== null && (
+        <SideSection title={t('Plis')}>
+          <Text style={styles.sideText}>{t('Plis du preneur : {n}', { n: game.tricksWon[0] })}</Text>
+          <Text style={styles.sideText}>{t('de la défense : {n}', { n: game.tricksWon[1] })}</Text>
+        </SideSection>
+      )}
+    </>
   );
 }
 
@@ -892,6 +1030,7 @@ export function TarotOnlineBoard({
   const avatars = seats.map((s) => s.avatar);
   const me = mySeat;
   const bottom = me >= 0 ? me : 0;
+  const desktop = useDesktop();
   const active = game.phase === 'bidding' || game.phase === 'ecart' || game.phase === 'playing';
   const myTurn = active && me >= 0 && game.toAct === me && actors.includes(seats[me].id);
   const actor = active ? seats[game.toAct] : undefined;
@@ -1002,10 +1141,12 @@ export function TarotOnlineBoard({
       top={
         <>
           <TopBar onBack={onLeave} backLabel={t('← Quitter')}>
-            <Text style={styles.dealCount}>
-              {t('Donne {n}/{total}', { n: Math.min(game.dealNumber, game.deals), total: game.deals })}
-            </Text>
-            {me >= 0 && (
+            {!desktop && (
+              <Text style={styles.dealCount}>
+                {t('Donne {n}/{total}', { n: Math.min(game.dealNumber, game.deals), total: game.deals })}
+              </Text>
+            )}
+            {me >= 0 && !desktop && (
               <View style={[styles.score, styles.scoreMine]}>
                 <Text style={styles.scoreLabel}>{t('Toi')}</Text>
                 <Text style={styles.scoreValue}>{signed(game.scores[me])}</Text>
@@ -1044,7 +1185,7 @@ export function TarotOnlineBoard({
               <BidButtons game={game} disabled={busy} onBid={(bid) => onMove({ type: 'bid', bid })} />
             )}
             {ecarting && (
-              <View style={styles.ecartButtons}>
+              <ActionRow>
                 <Button
                   compact
                   variant="secondary"
@@ -1061,7 +1202,7 @@ export function TarotOnlineBoard({
                   }
                   onPress={() => onMove({ type: 'ecart', cards: selected })}
                 />
-              </View>
+              </ActionRow>
             )}
           </View>
           <TarotHand
@@ -1139,6 +1280,9 @@ const styles = StyleSheet.create({
   promptTextMine: { color: colors.gold },
   controls: { minHeight: 84, justifyContent: 'center', gap: 6 },
   bids: { flexDirection: 'row', gap: 5 },
+  bidsDesktop: { alignSelf: 'center', gap: 10 },
+  bidDesktop: { flexGrow: 0, flexShrink: 0, flexBasis: 'auto', width: 118, height: 50, borderRadius: 10 },
+  bidHover: { transform: [{ translateY: -2 }], boxShadow: '0 6px 14px rgba(0,0,0,0.45)' },
   bid: {
     flex: 1,
     height: 44,
@@ -1157,11 +1301,11 @@ const styles = StyleSheet.create({
   bidMult: { color: colors.muted, fontSize: 10, fontWeight: '800' },
   bidMultGold: { color: colors.onGoldMuted },
   pressed: { opacity: 0.7 },
-  ecartButtons: { flexDirection: 'row', gap: 6 },
   hand: { alignItems: 'center', justifyContent: 'flex-end', paddingTop: 8 },
   handRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'flex-end' },
   handCard: { transform: [{ translateY: 0 }] },
   handCardUp: { transform: [{ translateY: -7 }] },
+  handCardHover: { transform: [{ translateY: -16 }] },
   handCardPicked: { transform: [{ translateY: -14 }] },
   handCardDim: { opacity: 0.4 },
   pickedRing: {
@@ -1282,6 +1426,8 @@ const styles = StyleSheet.create({
   plateTurn: { borderColor: colors.gold },
   plateTaker: { backgroundColor: 'rgba(90, 60, 0, 0.85)' },
   plateName: { color: colors.text, fontWeight: '700', fontSize: 12, textAlign: 'center', flexShrink: 1 },
+  plateDesktop: { paddingHorizontal: 10, paddingVertical: 3, gap: 6 },
+  plateNameDesktop: { fontSize: 14 },
   plateScore: { color: colors.gold, fontWeight: '900', fontSize: 11 },
   plateScoreNeg: { color: '#ff8a80' },
   takerTag: {
@@ -1390,4 +1536,25 @@ const styles = StyleSheet.create({
   rankScore: { color: colors.gold, fontSize: 18, fontWeight: '900' },
   finalButtons: { flexDirection: 'row', gap: 6 },
   errorLine: { color: colors.gold, textAlign: 'center', fontSize: 13 },
+
+  // Side panel (computer)
+  sideRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    backgroundColor: colors.glass,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+  },
+  sideRowMe: { borderColor: colors.goldBorder },
+  sideName: { flex: 1, color: colors.text, fontSize: 14, fontWeight: '700' },
+  sideStar: { color: colors.gold, fontSize: 14, fontWeight: '900' },
+  sideScore: { color: colors.gold, fontSize: 16, fontWeight: '900', minWidth: 44, textAlign: 'right' },
+  sideContract: { color: colors.gold, fontSize: 18, fontWeight: '900' },
+  sideMult: { color: colors.muted, fontSize: 13, fontWeight: '800' },
+  sideText: { color: colors.text, fontSize: 14, fontWeight: '600' },
+  sideNote: { color: colors.muted, fontSize: 13 },
 });

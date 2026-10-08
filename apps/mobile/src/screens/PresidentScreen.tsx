@@ -1,5 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   type Avatar,
@@ -36,10 +36,12 @@ import { GameLayout } from '../components/GameLayout';
 import { Appear } from '../components/Motion';
 import { Panel } from '../components/Panel';
 import { PlayingCard } from '../components/PlayingCard';
+import { ActionRow, SetupFrame, SideSection, TableWithSide, isHovered } from '../components/TableSide';
 import { TopBar } from '../components/TopBar';
 import { TurnTimer } from '../components/TurnTimer';
 import type { OnlineBoardProps, OnlineOptionsProps } from '../online-games/types';
 import { sounds } from '../feedback';
+import { COLUMN_MAX_WIDTH, useDesktop } from '../layout';
 import { deviceRng } from '../rng';
 import { lang, t, tn } from '../i18n';
 import { colors, gradients, shadow, theme } from '../theme';
@@ -53,6 +55,8 @@ const ME = 0;
 
 const SEAT_W = 66;
 const SEAT_H = 74;
+const SEAT_W_DESKTOP = 96;
+const SEAT_H_DESKTOP = 92;
 
 const SHORT_TITLES: Record<PresidentTitle, string> = {
   president: t('👑 Président'),
@@ -137,22 +141,27 @@ function Setup({
   const [robots, setRobots] = useState(3);
 
   return (
-    <ScrollView contentContainerStyle={styles.setup} keyboardShouldPersistTaps="handled">
-      <View style={styles.hero}>
-        {['2c', '2d', '2h', '2s'].map((c, i) => (
-          <View
-            key={c}
-            style={{ transform: [{ rotate: `${(i - 1.5) * 10}deg` }], marginTop: Math.abs(i - 1.5) * 6 }}
-          >
-            <PlayingCard card={c} width={46} />
+    <SetupFrame
+      phoneStyle={styles.setup}
+      intro={
+        <>
+          <View style={styles.hero}>
+            {['2c', '2d', '2h', '2s'].map((c, i) => (
+              <View
+                key={c}
+                style={{ transform: [{ rotate: `${(i - 1.5) * 10}deg` }], marginTop: Math.abs(i - 1.5) * 6 }}
+              >
+                <PlayingCard card={c} width={46} />
+              </View>
+            ))}
           </View>
-        ))}
-      </View>
-      <Text style={styles.title}>{t('Président')}</Text>
-      <Text style={styles.subtitle}>{t('Vide ta main le premier pour devenir Président !')}</Text>
-      {onOnline && <OnlineButton onPress={onOnline} />}
-      <RulesButton rules={PRESIDENT_RULES} />
-
+          <Text style={styles.title}>{t('Président')}</Text>
+          <Text style={styles.subtitle}>{t('Vide ta main le premier pour devenir Président !')}</Text>
+          {onOnline && <OnlineButton onPress={onOnline} />}
+          <RulesButton rules={PRESIDENT_RULES} />
+        </>
+      }
+    >
       <Text style={styles.section}>{t('Ton nom')}</Text>
       <View style={styles.row}>
         <Pressable
@@ -206,7 +215,7 @@ function Setup({
         onPress={() => onStart({ name: name.trim() || t('Toi'), avatar, robots })}
       />
       <Button label={t('Retour')} variant="secondary" onPress={onBack} />
-    </ScrollView>
+    </SetupFrame>
   );
 }
 
@@ -237,6 +246,7 @@ function Game({
   /** Round whose exchange recap I have closed; robots wait until then. */
   const [exchangeSeen, setExchangeSeen] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const desktop = useDesktop();
 
   const me = state.players[ME];
   const n = state.players.length;
@@ -353,10 +363,15 @@ function Game({
     <GameLayout
       top={
         <TopBar onBack={onQuit} backLabel={t('← Quitter')}>
-          <Text style={styles.topInfo}>{t('Manche {n}', { n: state.round })}</Text>
-          <View style={styles.scorePill}>
-            <Text style={styles.scoreText}>{tn(me.score, '⭐ {n} pt', '⭐ {n} pts')}</Text>
-          </View>
+          {/* On a computer the scores are in the panel beside the table. */}
+          {!desktop && (
+            <>
+              <Text style={styles.topInfo}>{t('Manche {n}', { n: state.round })}</Text>
+              <View style={styles.scorePill}>
+                <Text style={styles.scoreText}>{tn(me.score, '⭐ {n} pt', '⭐ {n} pts')}</Text>
+              </View>
+            </>
+          )}
         </TopBar>
       }
       table={({ width, height }) => (
@@ -383,14 +398,16 @@ function Game({
             />
             {error && <Text style={styles.error}>{error}</Text>}
             {pending && myTurn ? (
-              <Button
-                compact
-                label={t('Donner {i}/{n}', { i: selected.length, n: pending.count })}
-                disabled={selected.length !== pending.count}
-                onPress={() => act({ type: 'give', cards: selected })}
-              />
+              <ActionRow>
+                <Button
+                  compact
+                  label={t('Donner {i}/{n}', { i: selected.length, n: pending.count })}
+                  disabled={selected.length !== pending.count}
+                  onPress={() => act({ type: 'give', cards: selected })}
+                />
+              </ActionRow>
             ) : (
-              <View style={styles.actions}>
+              <ActionRow gap={8}>
                 <View style={styles.flex}>
                   <Button
                     compact
@@ -412,7 +429,7 @@ function Game({
                     onPress={() => act({ type: 'play', cards: selected })}
                   />
                 </View>
-              </View>
+              </ActionRow>
             )}
           </View>
         )
@@ -423,34 +440,60 @@ function Game({
 
 /* ---------------------------------------------------------------- table */
 
-function TableView({
-  state,
-  avatars,
-  width,
-  height,
-  children,
-}: {
+type TableProps = {
   state: PresidentState;
   avatars: Avatar[];
   width: number;
   height: number;
+  /** Rounds of an online game, shown in the side panel. */
+  rounds?: number;
+  spectator?: boolean;
   children?: ReactNode;
-}) {
-  const w = Math.min(width, 460);
-  const h = height;
+};
+
+/** The table; on a computer it is landscape, with the scores in a panel on its right. */
+function TableView(props: TableProps) {
+  const desktop = useDesktop();
+  if (!desktop) return <Felt {...props} />;
+  return (
+    <TableWithSide
+      width={props.width}
+      height={props.height}
+      maxAspect={1.8}
+      side={
+        <PresidentSide
+          state={props.state}
+          avatars={props.avatars}
+          rounds={props.rounds}
+          spectator={props.spectator}
+        />
+      }
+      table={(size) => <Felt {...props} {...size} desktop />}
+    />
+  );
+}
+
+function Felt({ state, avatars, width, height, children, desktop }: TableProps & { desktop?: boolean }) {
+  // A phone gets a tall oval; a computer a wide one filling the room.
+  const w = desktop ? Math.min(width, Math.round(height * 1.8)) : Math.min(width, 460);
+  const h = desktop ? Math.min(height, 700) : height;
   const n = state.players.length;
   const robots = n - 1;
+  const seatW = desktop ? SEAT_W_DESKTOP : SEAT_W;
+  const seatH = desktop ? SEAT_H_DESKTOP : SEAT_H;
   const cx = w / 2;
   // Robots sit on the upper half of an ellipse whose center is a little below the middle.
-  const cy = Math.round(h * 0.58);
-  const rx = w / 2 - SEAT_W / 2;
-  const ry = cy - SEAT_H / 2 - 2;
+  const cy = Math.round(h * (desktop ? 0.62 : 0.58));
+  const rx = w / 2 - seatW / 2 - (desktop ? 30 : 0);
+  const ry = cy - seatH / 2 - (desktop ? 14 : 2);
   const seat = (k: number) => {
     const angle = Math.PI - ((k + 0.5) * Math.PI) / robots;
     return { x: cx + rx * Math.cos(angle), y: cy - ry * Math.sin(angle) };
   };
   const trickY = Math.round(Math.min(h - 70, cy + 14));
-  const cardW = Math.max(38, Math.min(54, Math.floor(w / 7)));
+  const cardW = desktop
+    ? Math.max(56, Math.min(80, Math.floor(h / 7)))
+    : Math.max(38, Math.min(54, Math.floor(w / 7)));
 
   return (
     <View style={{ width: w, height: h }}>
@@ -478,18 +521,18 @@ function TableView({
           <View
             key={p.id}
             pointerEvents="none"
-            style={[styles.seat, { left: x - SEAT_W / 2, top: y - SEAT_H / 2 }]}
+            style={[styles.seat, { width: seatW, left: x - seatW / 2, top: y - seatH / 2 }]}
           >
             <View
               style={[styles.avatarRing, active && styles.avatarActive, p.hand.length === 0 && styles.out]}
             >
-              <AvatarBadge avatar={avatars[i]} size={38} />
+              <AvatarBadge avatar={avatars[i]} size={desktop ? 50 : 38} />
             </View>
-            <View style={[styles.plate, active && styles.plateActive]}>
-              <Text style={styles.name} numberOfLines={1}>
+            <View style={[styles.plate, { width: seatW }, active && styles.plateActive]}>
+              <Text style={[styles.name, desktop && styles.nameDesktop]} numberOfLines={1}>
                 {p.name}
               </Text>
-              <Text style={styles.cards}>
+              <Text style={[styles.cards, desktop && styles.cardsDesktop]}>
                 {p.hand.length > 0
                   ? `🂠 ${p.hand.length}`
                   : place >= 0
@@ -507,9 +550,9 @@ function TableView({
         );
       })}
 
-      <View pointerEvents="none" style={[styles.mePlate, { top: h - 34 }]}>
-        <AvatarBadge avatar={avatars[ME]} size={24} />
-        <Text style={styles.meName} numberOfLines={1}>
+      <View pointerEvents="none" style={[styles.mePlate, { top: h - (desktop ? 42 : 34) }]}>
+        <AvatarBadge avatar={avatars[ME]} size={desktop ? 30 : 24} />
+        <Text style={[styles.meName, desktop && styles.meNameDesktop]} numberOfLines={1}>
           {state.players[ME].name}
         </Text>
         {state.titles[ME] && state.phase !== 'roundOver' && <TitleBadge title={state.titles[ME]!} />}
@@ -521,6 +564,59 @@ function TableView({
 
       {children}
     </View>
+  );
+}
+
+/** The panel beside the table on a computer: the round, then everyone's title, cards and points. */
+function PresidentSide({
+  state,
+  avatars,
+  rounds,
+  spectator,
+}: {
+  state: PresidentState;
+  avatars: Avatar[];
+  rounds?: number;
+  spectator?: boolean;
+}) {
+  return (
+    <SideSection
+      title={
+        rounds
+          ? t('Manche {n}/{total}', { n: state.round, total: rounds })
+          : t('Manche {n}', { n: state.round })
+      }
+    >
+      {state.players.map((p, i) => {
+        const title = state.titles[i];
+        const place = state.finished.indexOf(i);
+        const turn = state.toAct === i;
+        return (
+          <View
+            key={p.id}
+            style={[styles.sideRow, i === ME && !spectator && styles.sideRowMe, turn && styles.sideRowTurn]}
+          >
+            <AvatarBadge avatar={avatars[i]} size={28} />
+            <View style={styles.flex}>
+              <Text style={styles.sideName} numberOfLines={1}>
+                {spectator ? p.name : who(state, i)}
+              </Text>
+              <View style={styles.sideLine}>
+                {title && state.phase !== 'roundOver' && <TitleBadge title={title} />}
+                <Text style={styles.sideCards}>
+                  {p.hand.length > 0
+                    ? `🂠 ${p.hand.length}`
+                    : place >= 0
+                      ? t('Fini {n}ᵉ', { n: place + 1 })
+                      : ''}
+                </Text>
+              </View>
+            </View>
+            <Text style={styles.sideScore}>{tn(p.score, '{n} pt', '{n} pts')}</Text>
+          </View>
+        );
+      })}
+    </SideSection>
   );
 }
 
@@ -644,8 +740,9 @@ function Hand({
   active: boolean;
 }) {
   const { width } = useWindowDimensions();
-  const avail = Math.min(width, 480) - 24;
-  const cardW = cards.length > 15 ? 48 : 54;
+  const desktop = useDesktop();
+  const avail = desktop ? COLUMN_MAX_WIDTH + 176 : Math.min(width, 480) - 24;
+  const cardW = desktop ? 80 : cards.length > 15 ? 48 : 54;
   const step = cards.length > 1 ? Math.min(cardW + 4, (avail - cardW) / (cards.length - 1)) : 0;
   const total = cards.length ? cardW + step * (cards.length - 1) : 0;
   const lift = 14;
@@ -664,7 +761,10 @@ function Hand({
               accessibilityState={{ selected: on, disabled: !ok }}
               disabled={!ok}
               onPress={() => onTap(c)}
-              style={[styles.handCard, { left: i * step, top: on ? 0 : lift }]}
+              style={(state) => [
+                styles.handCard,
+                { left: i * step, top: on ? 0 : ok && isHovered(state) ? lift / 2 : lift },
+              ]}
             >
               <View style={[on && styles.cardOn, received.has(c) && !on && styles.cardNew]}>
                 <PlayingCard card={c} width={cardW} />
@@ -682,8 +782,9 @@ function Hand({
 
 function ExchangeRecap({ state, onClose }: { state: PresidentState; onClose: () => void }) {
   const mine = state.exchanges.filter((e) => e.from === ME || e.to === ME);
+  const desktop = useDesktop();
   return (
-    <View style={styles.overlay}>
+    <View style={[styles.overlay, desktop && styles.overlayDesktop]}>
       <Appear from={20} style={styles.overlayCard}>
         <Panel compact title={t('Échange des cartes')}>
           {mine.map((e, k) => (
@@ -733,9 +834,10 @@ function RoundRecap({
 }) {
   const n = state.players.length;
   const mine = state.exchanges.filter((e) => e.from === ME || e.to === ME);
+  const desktop = useDesktop();
   return (
-    <View style={styles.overlay}>
-      <Appear from={20} style={styles.overlayCard}>
+    <View style={[styles.overlay, desktop && styles.overlayDesktop]}>
+      <Appear from={20} style={[styles.overlayCard, desktop && styles.overlayCardDesktop]}>
         <Panel compact title={t('Fin de la manche {n}', { n: state.round })}>
           {state.finished.map((p, pos) => {
             const title = state.titles[p]!;
@@ -817,12 +919,18 @@ function FinalRanking({
   const rounds = state.phase === 'roundOver' ? state.round : state.round - 1;
   const myPlace = spectator ? 0 : standings.find((s) => s.index === ME)!.place;
   return (
-    <ScrollView contentContainerStyle={styles.setup}>
-      <Appear>
-        <Text style={styles.trophy}>{myPlace === 1 ? '🏆' : '🃏'}</Text>
-      </Appear>
-      <Text style={styles.title}>{myPlace === 1 ? t('Tu gagnes !') : t('Partie terminée')}</Text>
-      <Text style={styles.subtitle}>{tn(rounds, '{n} manche jouée', '{n} manches jouées')}</Text>
+    <SetupFrame
+      phoneStyle={styles.setup}
+      intro={
+        <>
+          <Appear>
+            <Text style={styles.trophy}>{myPlace === 1 ? '🏆' : '🃏'}</Text>
+          </Appear>
+          <Text style={styles.title}>{myPlace === 1 ? t('Tu gagnes !') : t('Partie terminée')}</Text>
+          <Text style={styles.subtitle}>{tn(rounds, '{n} manche jouée', '{n} manches jouées')}</Text>
+        </>
+      }
+    >
       <Panel title={t('Classement')}>
         {standings.map((s, k) => (
           <Appear key={s.index} delay={k * 80} from={10}>
@@ -840,7 +948,7 @@ function FinalRanking({
       <View style={styles.spacer} />
       {onReplay && <Button label={t('Rejouer')} onPress={onReplay} />}
       <Button label={quitLabel} variant="secondary" onPress={onQuit} />
-    </ScrollView>
+    </SetupFrame>
   );
 }
 
@@ -888,6 +996,7 @@ export function PresidentOnlineBoard({
   const [selected, setSelected] = useState<Card[]>([]);
   /** Round whose exchange recap I have closed. */
   const [exchangeSeen, setExchangeSeen] = useState(1);
+  const desktop = useDesktop();
 
   const me = state.players[ME];
   const myTurn = !spectator && state.toAct === ME && actors.includes(seats[mySeat]?.id);
@@ -988,10 +1097,12 @@ export function PresidentOnlineBoard({
       top={
         <>
           <TopBar onBack={onLeave} backLabel={t('← Quitter')}>
-            <Text style={styles.topInfo}>
-              {t('Manche {n}/{total}', { n: state.round, total: view.rounds })}
-            </Text>
-            {!spectator && (
+            {!desktop && (
+              <Text style={styles.topInfo}>
+                {t('Manche {n}/{total}', { n: state.round, total: view.rounds })}
+              </Text>
+            )}
+            {!spectator && !desktop && (
               <View style={styles.scorePill}>
                 <Text style={styles.scoreText}>{tn(me.score, '⭐ {n} pt', '⭐ {n} pts')}</Text>
               </View>
@@ -1003,7 +1114,14 @@ export function PresidentOnlineBoard({
         </>
       }
       table={({ width, height }) => (
-        <TableView state={state} avatars={avatars} width={width} height={height}>
+        <TableView
+          state={state}
+          avatars={avatars}
+          width={width}
+          height={height}
+          rounds={view.rounds}
+          spectator={spectator}
+        >
           {betweenRounds && state.phase === 'roundOver' && (
             <RoundRecap
               state={state}
@@ -1038,14 +1156,16 @@ export function PresidentOnlineBoard({
             )}
             {error && <Text style={styles.error}>{error}</Text>}
             {spectator ? null : pending && myTurn ? (
-              <Button
-                compact
-                label={t('Donner {i}/{n}', { i: selected.length, n: pending.count })}
-                disabled={busy || selected.length !== pending.count}
-                onPress={() => onMove({ type: 'give', cards: selected })}
-              />
+              <ActionRow>
+                <Button
+                  compact
+                  label={t('Donner {i}/{n}', { i: selected.length, n: pending.count })}
+                  disabled={busy || selected.length !== pending.count}
+                  onPress={() => onMove({ type: 'give', cards: selected })}
+                />
+              </ActionRow>
             ) : (
-              <View style={styles.actions}>
+              <ActionRow gap={8}>
                 <View style={styles.flex}>
                   <Button
                     compact
@@ -1067,7 +1187,7 @@ export function PresidentOnlineBoard({
                     onPress={() => onMove({ type: 'play', cards: selected })}
                   />
                 </View>
-              </View>
+              </ActionRow>
             )}
           </View>
         )
@@ -1215,7 +1335,9 @@ const styles = StyleSheet.create({
   },
   plateActive: { borderColor: colors.gold },
   name: { color: colors.text, fontWeight: '700', fontSize: 11 },
+  nameDesktop: { fontSize: 13 },
   cards: { color: colors.gold, fontWeight: '700', fontSize: 11 },
+  cardsDesktop: { fontSize: 13 },
   badge: { marginTop: 2, borderRadius: 6, paddingHorizontal: 5, paddingVertical: 1, maxWidth: 120 },
   badgeText: { fontSize: 9, fontWeight: '800' },
   passBubble: { position: 'absolute', top: -4, right: -6 },
@@ -1241,6 +1363,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   meName: { color: colors.text, fontWeight: '800', fontSize: 13, maxWidth: 110 },
+  meNameDesktop: { fontSize: 15, maxWidth: 180 },
   mePassed: { color: colors.gold, fontWeight: '800', fontSize: 12 },
 
   trick: { position: 'absolute', left: 0, alignItems: 'center' },
@@ -1291,6 +1414,9 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 6,
   },
+  // On a computer the shade follows the wide oval of the table.
+  overlayDesktop: { top: 4, borderRadius: 999 },
+  overlayCardDesktop: { maxWidth: 440 },
   overlayCard: {
     width: '100%',
     maxWidth: 380,
@@ -1331,4 +1457,23 @@ const styles = StyleSheet.create({
   finalName: { color: colors.text, fontSize: 16, fontWeight: '600', flex: 1 },
   finalNameFirst: { color: colors.gold, fontWeight: '800' },
   finalScore: { color: colors.gold, fontSize: 15, fontWeight: '800' },
+
+  // Side panel (computer)
+  sideRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    backgroundColor: colors.glass,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+  },
+  sideRowMe: { backgroundColor: 'rgba(255,255,255,0.1)' },
+  sideRowTurn: { borderColor: colors.gold },
+  sideName: { color: colors.text, fontSize: 14, fontWeight: '700' },
+  sideLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  sideCards: { color: colors.muted, fontSize: 12, fontWeight: '700', marginTop: 2 },
+  sideScore: { color: colors.gold, fontSize: 15, fontWeight: '900' },
 });
