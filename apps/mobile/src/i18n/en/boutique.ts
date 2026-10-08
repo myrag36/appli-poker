@@ -36,8 +36,7 @@ const en: Record<string, string> = {
   Amis: 'Friends',
   'Ami ajouté !': 'Friend added!',
   'Ton coffre t’attend dans la boutique !': 'Your chest is waiting in the shop!',
-  'Ajoute-moi dans Jeux entre amis avec mon code ami : {code}':
-    'Add me in Jeux entre amis with my friend code: {code}',
+  'Ajoute-moi dans La Tablée avec mon code ami : {code}': 'Add me on La Tablée with my friend code: {code}',
   'Mon code ami': 'My friend code',
   '📤 Envoyer mon code': '📤 Send my code',
   'Code de ton ami': 'Your friend’s code',

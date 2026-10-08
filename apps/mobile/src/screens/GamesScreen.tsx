@@ -254,7 +254,7 @@ export function GamesScreen({
         <CoinsChip onPress={onShop} />
         <LangChip />
       </View>
-      <Text style={styles.title}>{t('Jeux entre amis')}</Text>
+      <Text style={styles.title}>La Tablée</Text>
       <Text style={styles.subtitle}>{t('Glisse pour choisir ton jeu.')}</Text>
       <View style={styles.social}>
         <Pressable

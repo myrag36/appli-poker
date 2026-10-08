@@ -1,8 +1,8 @@
 {
   "id": "/appli-poker/",
-  "name": "Jeux entre amis",
-  "short_name": "Jeux amis",
-  "description": "Poker, blackjack, président, yams et belote, à plusieurs sur un téléphone ou en ligne.",
+  "name": "La Tablée",
+  "short_name": "La Tablée",
+  "description": "Poker, belote, tarot, Uno, Yams et d'autres jeux à partager entre amis, sur un téléphone ou en ligne.",
   "lang": "fr",
   "dir": "ltr",
   "start_url": "/appli-poker/",

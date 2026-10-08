@@ -285,7 +285,7 @@ const en: Record<string, string> = {
   "« Sur l'écran d'accueil »": '“Add to Home Screen”',
   'Fais défiler la liste vers le bas si tu ne le vois pas.': 'Scroll down the list if you don’t see it.',
   'Touche « Ajouter »': 'Tap “Add”',
-  "L'icône Jeux amis rejoint tes autres applis.": 'The Jeux amis icon joins your other apps.',
+  "L'icône La Tablée rejoint tes autres applis.": 'The La Tablée icon joins your other apps.',
   "J'ai compris": 'Got it',
   'Ne plus me le proposer': 'Don’t ask me again',
 
