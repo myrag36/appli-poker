@@ -37,13 +37,14 @@ import {
   supabase,
 } from '../online/supabase';
 import type { TournamentTable } from './OnlineGameScreen';
+import { t, tn } from '../i18n';
 import { colors, gradients, shadow } from '../theme';
 
 const GAMES: { id: OnlineGameId; title: string; emoji: string }[] = [
-  { id: 'blackjack', title: 'Blackjack', emoji: '🂡' },
-  { id: 'president', title: 'Président', emoji: '👑' },
-  { id: 'yams', title: 'Yams', emoji: '🎲' },
-  { id: 'belote', title: 'Belote', emoji: '♠️' },
+  { id: 'blackjack', title: t('Blackjack'), emoji: '🂡' },
+  { id: 'president', title: t('Président'), emoji: '👑' },
+  { id: 'yams', title: t('Yams'), emoji: '🎲' },
+  { id: 'belote', title: t('Belote'), emoji: '♠️' },
 ];
 const GAME = Object.fromEntries(GAMES.map((g) => [g.id, g])) as Record<OnlineGameId, (typeof GAMES)[number]>;
 const MEDALS = ['🥇', '🥈', '🥉'];
@@ -78,10 +79,11 @@ function avatarOf(p: TournamentPlayer, i: number): Avatar {
   return cleanAvatar({ emoji: p.avatar, color: p.avatar_color }, defaultAvatar(i), ALL_AVATAR_EMOJIS);
 }
 
-function statusLabel(t: Pick<Tournament, 'status' | 'round' | 'games'>) {
-  if (t.status === 'finished') return 'Terminé';
-  const g = GAME[t.games[t.round]];
-  return `Manche ${t.round + 1}/${t.games.length}${g ? ` · ${g.title}` : ''}`;
+function statusLabel(tour: Pick<Tournament, 'status' | 'round' | 'games'>) {
+  if (tour.status === 'finished') return t('Terminé');
+  const g = GAME[tour.games[tour.round]];
+  const round = t('Manche {n}/{total}', { n: tour.round + 1, total: tour.games.length });
+  return g ? `${round} · ${g.title}` : round;
 }
 
 /** The game's emoji on a light token, so the black spade and card stay visible on dark themes. */
@@ -128,10 +130,10 @@ function TournamentHome({
           .select('id, name, code, status, round, games')
           .in(
             'id',
-            saved.map((t) => t.id),
+            saved.map((tour) => tour.id),
           );
-        const byId = new Map(((data ?? []) as Tournament[]).map((t) => [t.id, t]));
-        setMine(saved.map((t) => ({ ...t, ...byId.get(t.id) })));
+        const byId = new Map(((data ?? []) as Tournament[]).map((tour) => [tour.id, tour]));
+        setMine(saved.map((tour) => ({ ...tour, ...byId.get(tour.id) })));
       } catch {
         // The saved names are enough to show the list.
       }
@@ -153,7 +155,7 @@ function TournamentHome({
       await saveTournament({ id: tournamentId, name: fallbackName, code: newCode ?? code });
       onOpen(tournamentId);
     } catch (e) {
-      setError((e as Error).message);
+      setError(t((e as Error).message));
       setBusy(false);
     }
   }
@@ -172,17 +174,17 @@ function TournamentHome({
       ]}
       keyboardShouldPersistTaps="handled"
     >
-      <TopBar onBack={onBack} backLabel="← Jeux" />
+      <TopBar onBack={onBack} backLabel={t('← Jeux')} />
       <Text style={styles.trophy}>🏆</Text>
-      <Text style={styles.title}>Tournois</Text>
+      <Text style={styles.title}>{t('Tournois')}</Text>
       <Text style={styles.subtitle}>
-        Plusieurs jeux à la suite entre amis : 3 points par victoire, 1 point par participation.
+        {t('Plusieurs jeux à la suite entre amis : 3 points par victoire, 1 point par participation.')}
       </Text>
 
       <View style={[styles.card, styles.me]}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Changer d'avatar"
+          accessibilityLabel={t("Changer d'avatar")}
           onPress={() => setPickingAvatar(!pickingAvatar)}
         >
           <AvatarBadge avatar={avatar} size={48} />
@@ -193,33 +195,33 @@ function TournamentHome({
           value={name}
           onChangeText={setName}
           maxLength={16}
-          placeholder="Ton prénom"
+          placeholder={t('Ton prénom')}
           placeholderTextColor={colors.muted}
-          accessibilityLabel="Ton prénom"
+          accessibilityLabel={t('Ton prénom')}
         />
       </View>
       {pickingAvatar && <AvatarPicker value={avatar} onChange={changeAvatar} />}
 
       {mine.length > 0 && (
         <>
-          <Text style={styles.section}>Mes tournois</Text>
-          {mine.map((t) => (
+          <Text style={styles.section}>{t('Mes tournois')}</Text>
+          {mine.map((tour) => (
             <Pressable
-              key={t.id}
+              key={tour.id}
               accessibilityRole="button"
-              accessibilityLabel={`Ouvrir le tournoi ${t.name}`}
-              onPress={() => onOpen(t.id)}
+              accessibilityLabel={t('Ouvrir le tournoi {name}', { name: t(tour.name) })}
+              onPress={() => onOpen(tour.id)}
               style={({ pressed }) => [styles.card, styles.mineRow, pressed && styles.pressed]}
             >
-              <Text style={styles.mineIcon}>{t.status === 'finished' ? '🏆' : '🎯'}</Text>
+              <Text style={styles.mineIcon}>{tour.status === 'finished' ? '🏆' : '🎯'}</Text>
               <View style={styles.flex}>
                 <Text style={styles.mineName} numberOfLines={1}>
-                  {t.name}
+                  {t(tour.name)}
                 </Text>
                 <Text style={styles.mineDetail} numberOfLines={1}>
-                  {t.games && t.round !== undefined && t.status
-                    ? statusLabel({ status: t.status, round: t.round, games: t.games })
-                    : `Code ${t.code}`}
+                  {tour.games && tour.round !== undefined && tour.status
+                    ? statusLabel({ status: tour.status, round: tour.round, games: tour.games })
+                    : t('Code {code}', { code: tour.code })}
                 </Text>
               </View>
               <Text style={styles.chevron}>›</Text>
@@ -228,22 +230,22 @@ function TournamentHome({
         </>
       )}
 
-      <Text style={styles.section}>Rejoindre avec un code</Text>
+      <Text style={styles.section}>{t('Rejoindre avec un code')}</Text>
       <View style={styles.row}>
         <TextInput
           style={[styles.input, styles.code, styles.codeInput]}
           value={code}
-          onChangeText={(t) => setCode(t.toUpperCase())}
+          onChangeText={(text) => setCode(text.toUpperCase())}
           maxLength={6}
           autoCapitalize="characters"
           autoCorrect={false}
-          placeholder="CODE"
+          placeholder={t('CODE')}
           placeholderTextColor={colors.muted}
-          accessibilityLabel="Code du tournoi"
+          accessibilityLabel={t('Code du tournoi')}
         />
         <View style={styles.joinButton}>
           <Button
-            label="Rejoindre"
+            label={t('Rejoindre')}
             disabled={busy || !trimmed || code.trim().length !== 6}
             onPress={() =>
               run(() => callGames({ type: 'tournamentJoin', code, name: trimmed, avatar }), 'Tournoi')
@@ -252,24 +254,24 @@ function TournamentHome({
         </View>
       </View>
 
-      <Text style={styles.section}>Créer un tournoi</Text>
+      <Text style={styles.section}>{t('Créer un tournoi')}</Text>
       <View style={styles.card}>
         <TextInput
           style={styles.input}
           value={title}
           onChangeText={setTitle}
           maxLength={30}
-          placeholder="Tournoi entre amis"
+          placeholder={t('Tournoi entre amis')}
           placeholderTextColor={colors.muted}
-          accessibilityLabel="Nom du tournoi"
+          accessibilityLabel={t('Nom du tournoi')}
         />
-        <Text style={styles.label}>Touche les jeux dans l’ordre où vous les jouerez</Text>
+        <Text style={styles.label}>{t('Touche les jeux dans l’ordre où vous les jouerez')}</Text>
         <View style={styles.chips}>
           {GAMES.map((g) => (
             <Pressable
               key={g.id}
               accessibilityRole="button"
-              accessibilityLabel={`Ajouter ${g.title}`}
+              accessibilityLabel={t('Ajouter {game}', { game: g.title })}
               disabled={games.length >= MAX_GAMES}
               onPress={() => setGames([...games, g.id])}
               style={({ pressed }) => [styles.chip, pressed && styles.pressed]}
@@ -281,7 +283,7 @@ function TournamentHome({
           ))}
         </View>
         {games.length === 0 ? (
-          <Text style={styles.empty}>Aucun jeu pour l’instant.</Text>
+          <Text style={styles.empty}>{t('Aucun jeu pour l’instant.')}</Text>
         ) : (
           <View style={styles.sequence}>
             {games.map((id, i) => (
@@ -291,7 +293,7 @@ function TournamentHome({
                 <Text style={[styles.stepName, styles.flex]}>{GAME[id].title}</Text>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Retirer ${GAME[id].title} (manche ${i + 1})`}
+                  accessibilityLabel={t('Retirer {game} (manche {n})', { game: GAME[id].title, n: i + 1 })}
                   hitSlop={8}
                   onPress={() => setGames(games.filter((_, j) => j !== i))}
                 >
@@ -302,10 +304,10 @@ function TournamentHome({
           </View>
         )}
         <Text style={[styles.hint, (games.length === 1 || games.length > 6) && styles.warn]}>
-          {games.length} manche{games.length > 1 ? 's' : ''} · 2 à 6 jeux conseillés
+          {tn(games.length, '{n} manche · 2 à 6 jeux conseillés', '{n} manches · 2 à 6 jeux conseillés')}
         </Text>
         <Button
-          label="Créer le tournoi"
+          label={t('Créer le tournoi')}
           disabled={busy || !trimmed || games.length === 0}
           onPress={() =>
             run(
@@ -316,7 +318,9 @@ function TournamentHome({
           }
         />
       </View>
-      {!trimmed && <Text style={styles.hint}>Écris ton prénom pour créer ou rejoindre un tournoi.</Text>}
+      {!trimmed && (
+        <Text style={styles.hint}>{t('Écris ton prénom pour créer ou rejoindre un tournoi.')}</Text>
+      )}
       {error && <Text style={styles.error}>{error}</Text>}
     </ScrollView>
   );
@@ -338,10 +342,10 @@ function useTournament(id: string) {
     try {
       setUserId(await ensureSignedIn());
     } catch (e) {
-      setError((e as Error).message);
+      setError(t((e as Error).message));
       return;
     }
-    const [t, p] = await Promise.all([
+    const [tour, p] = await Promise.all([
       supabase.from('tournaments').select('*').eq('id', id).maybeSingle(),
       supabase
         .from('tournament_players')
@@ -350,21 +354,21 @@ function useTournament(id: string) {
     ]);
     // A newer refresh started meanwhile: let it win so the screen never goes back in time.
     if (request !== latestRequest.current) return;
-    if (t.error || p.error) {
-      setError('Connexion perdue, nouvel essai…');
+    if (tour.error || p.error) {
+      setError(t('Connexion perdue, nouvel essai…'));
       return;
     }
-    if (!t.data) {
+    if (!tour.data) {
       setMissing(true);
       return;
     }
     const sorted = ((p.data ?? []) as TournamentPlayer[])
       .slice()
       .sort((a, b) => b.points - a.points || b.wins - a.wins || a.name.localeCompare(b.name));
-    setTournament(t.data as Tournament);
+    setTournament(tour.data as Tournament);
     setPlayers(sorted);
     setError(null);
-    saveTournament({ id, name: t.data.name, code: t.data.code });
+    saveTournament({ id, name: tour.data.name, code: tour.data.code });
   }, [id]);
 
   useEffect(() => {
@@ -405,21 +409,21 @@ function TournamentView({
   onPlay: (game: OnlineGameId, join?: string) => void;
 }) {
   const insets = useSafeAreaInsets();
-  const { tournament: t, players, userId, error, missing, refresh } = useTournament(id);
+  const { tournament: tour, players, userId, error, missing, refresh } = useTournament(id);
   const [copied, setCopied] = useState(false);
 
   const top = { paddingTop: insets.top + 8, paddingBottom: insets.bottom + 30 };
-  if (!t) {
+  if (!tour) {
     return (
       <ScrollView contentContainerStyle={[styles.container, top]}>
-        <TopBar onBack={onBack} backLabel="← Tournois" />
+        <TopBar onBack={onBack} backLabel={t('← Tournois')} />
         <View style={styles.spacer} />
         {missing ? (
           <>
-            <Text style={styles.error}>Ce tournoi n’existe plus ou tu n’en fais pas partie.</Text>
+            <Text style={styles.error}>{t('Ce tournoi n’existe plus ou tu n’en fais pas partie.')}</Text>
             <View style={styles.spacer} />
             <Button
-              label="Le retirer de ma liste"
+              label={t('Le retirer de ma liste')}
               variant="secondary"
               onPress={() => forgetTournament(id).then(onBack)}
             />
@@ -428,7 +432,7 @@ function TournamentView({
           <>
             <Text style={styles.error}>{error}</Text>
             <View style={styles.spacer} />
-            <Button label="Réessayer" variant="secondary" onPress={refresh} />
+            <Button label={t('Réessayer')} variant="secondary" onPress={refresh} />
           </>
         ) : (
           <ActivityIndicator color={colors.gold} />
@@ -437,20 +441,23 @@ function TournamentView({
     );
   }
 
-  const finished = t.status === 'finished';
-  const isHost = t.host_id === userId;
-  const current = t.games[t.round];
+  const finished = tour.status === 'finished';
+  const isHost = tour.host_id === userId;
+  const current = tour.games[tour.round];
   const best = players[0]?.points ?? 0;
   const champions = finished ? players.filter((p) => p.points === best) : [];
   // Players with the same points share a rank.
   const rankOf = (p: TournamentPlayer) => 1 + players.filter((o) => o.points > p.points).length;
 
   async function shareCode() {
-    const message = `Rejoins mon tournoi « ${t!.name} » ! Ouvre Tournois puis « Rejoindre » avec le code : ${t!.code}`;
+    const message = t(
+      'Rejoins mon tournoi « {name} » ! Ouvre Tournois puis « Rejoindre » avec le code : {code}',
+      { name: t(tour!.name), code: tour!.code },
+    );
     const nav = typeof navigator !== 'undefined' ? navigator : undefined;
     if (Platform.OS === 'web' && nav && !nav.share && nav.clipboard) {
       try {
-        await nav.clipboard.writeText(t!.code);
+        await nav.clipboard.writeText(tour!.code);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       } catch {
@@ -463,33 +470,36 @@ function TournamentView({
 
   return (
     <ScrollView contentContainerStyle={[styles.container, top]}>
-      <TopBar onBack={onBack} backLabel="← Tournois" />
+      <TopBar onBack={onBack} backLabel={t('← Tournois')} />
 
       <View style={[styles.hero, shadow]}>
         <LinearGradient colors={gradients.glass} style={StyleSheet.absoluteFill} />
         <Text style={styles.heroTrophy}>{finished ? '🏆' : '🎯'}</Text>
         <Text style={styles.heroTitle} numberOfLines={2}>
-          {t.name}
+          {t(tour.name)}
         </Text>
         <Text style={styles.heroStatus}>
-          {finished ? 'Tournoi terminé' : statusLabel(t)} · {players.length} joueur
-          {players.length > 1 ? 's' : ''}
+          {finished ? t('Tournoi terminé') : statusLabel(tour)} ·{' '}
+          {tn(players.length, '{n} joueur', '{n} joueurs')}
         </Text>
         <View style={styles.codeRow}>
           <View>
-            <Text style={styles.codeLabel}>Code du tournoi</Text>
-            <Text style={styles.bigCode} accessibilityLabel={`Code du tournoi ${t.code}`}>
-              {t.code}
+            <Text style={styles.codeLabel}>{t('Code du tournoi')}</Text>
+            <Text
+              style={styles.bigCode}
+              accessibilityLabel={t('Code du tournoi {code}', { code: tour.code })}
+            >
+              {tour.code}
             </Text>
           </View>
           {!finished && (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Partager le code"
+              accessibilityLabel={t('Partager le code')}
               onPress={shareCode}
               style={({ pressed }) => [styles.share, pressed && styles.pressed]}
             >
-              <Text style={styles.shareText}>{copied ? '✓ Copié' : '📤 Partager'}</Text>
+              <Text style={styles.shareText}>{copied ? t('✓ Copié') : t('📤 Partager')}</Text>
             </Pressable>
           )}
         </View>
@@ -499,37 +509,46 @@ function TournamentView({
         <Podium players={players} champions={champions} rankOf={rankOf} />
       ) : (
         <View style={styles.action}>
-          {t.room_code ? (
+          {tour.room_code ? (
             <>
               <Button
-                label={`Rejoindre la table ${t.room_code}`}
-                onPress={() => onPlay(current, t.room_code!)}
+                label={t('Rejoindre la table {code}', { code: tour.room_code })}
+                onPress={() => onPlay(current, tour.room_code!)}
               />
               <Text style={styles.hint}>
-                {GAME[current]?.title} : la table de la manche {t.round + 1} est ouverte.
+                {t('{game} : la table de la manche {n} est ouverte.', {
+                  game: GAME[current]?.title ?? current,
+                  n: tour.round + 1,
+                })}
               </Text>
             </>
           ) : isHost ? (
             <>
               <Button
-                label={`Lancer la manche ${t.round + 1} : ${GAME[current]?.title ?? current}`}
+                label={t('Lancer la manche {n} : {game}', {
+                  n: tour.round + 1,
+                  game: GAME[current]?.title ?? current,
+                })}
                 onPress={() => onPlay(current)}
               />
-              <Text style={styles.hint}>Les autres joueurs verront la table apparaître ici.</Text>
+              <Text style={styles.hint}>{t('Les autres joueurs verront la table apparaître ici.')}</Text>
             </>
           ) : (
             <Text style={styles.waiting}>
-              ⏳ En attente de l’organisateur pour lancer la manche {t.round + 1} : {GAME[current]?.title}
+              {t('⏳ En attente de l’organisateur pour lancer la manche {n} : {game}', {
+                n: tour.round + 1,
+                game: GAME[current]?.title ?? current,
+              })}
             </Text>
           )}
         </View>
       )}
 
-      <Text style={styles.section}>Programme</Text>
+      <Text style={styles.section}>{t('Programme')}</Text>
       <View style={[styles.card, styles.program]}>
-        {t.games.map((g, i) => {
-          const done = finished || i < t.round;
-          const now = !finished && i === t.round;
+        {tour.games.map((g, i) => {
+          const done = finished || i < tour.round;
+          const now = !finished && i === tour.round;
           return (
             <View key={i} style={[styles.step, now && styles.stepNow]}>
               <Text style={[styles.stepMark, done && styles.stepDone, now && styles.stepCurrent]}>
@@ -539,13 +558,13 @@ function TournamentView({
               <Text style={[styles.stepName, styles.flex, done && styles.stepNameDone]}>
                 {GAME[g]?.title ?? g}
               </Text>
-              {now && <Text style={styles.nowTag}>{t.room_code ? 'en cours' : 'à jouer'}</Text>}
+              {now && <Text style={styles.nowTag}>{tour.room_code ? t('en cours') : t('à jouer')}</Text>}
             </View>
           );
         })}
       </View>
 
-      <Text style={styles.section}>Classement</Text>
+      <Text style={styles.section}>{t('Classement')}</Text>
       <View style={[styles.card, styles.board]}>
         {players.map((p, i) => {
           const rank = rankOf(p);
@@ -556,21 +575,19 @@ function TournamentView({
               <View style={styles.flex}>
                 <Text style={styles.playerName} numberOfLines={1}>
                   {p.name}
-                  {p.user_id === userId ? ' (toi)' : ''}
-                  {p.user_id === t.host_id ? ' 👑' : ''}
+                  {p.user_id === userId ? t(' (toi)') : ''}
+                  {p.user_id === tour.host_id ? ' 👑' : ''}
                 </Text>
-                <Text style={styles.playerDetail}>
-                  {p.wins} victoire{p.wins > 1 ? 's' : ''}
-                </Text>
+                <Text style={styles.playerDetail}>{tn(p.wins, '{n} victoire', '{n} victoires')}</Text>
               </View>
               <Text style={styles.points}>{p.points}</Text>
-              <Text style={styles.pointsUnit}>pts</Text>
+              <Text style={styles.pointsUnit}>{t('pts')}</Text>
             </View>
           );
         })}
       </View>
       <Text style={styles.note}>
-        Victoire : 3 points · Participation : 1 point. Le champion gagne un grand coffre.
+        {t('Victoire : 3 points · Participation : 1 point. Le champion gagne un grand coffre.')}
       </Text>
     </ScrollView>
   );
@@ -592,7 +609,9 @@ function Podium({
     <View style={[styles.podiumCard, shadow]}>
       <LinearGradient colors={gradients.glass} style={StyleSheet.absoluteFill} />
       <Text style={styles.champion}>
-        Champion{champions.length > 1 ? 's' : ''} : {champions.map((p) => p.name).join(' et ')} 🏆
+        {tn(champions.length, 'Champion : {names} 🏆', 'Champions : {names} 🏆', {
+          names: champions.map((p) => p.name).join(t(' et ')),
+        })}
       </Text>
       <View style={styles.podium}>
         {order.map((p, slot) =>
@@ -602,7 +621,7 @@ function Podium({
               <Text style={styles.podiumName} numberOfLines={1}>
                 {p.name}
               </Text>
-              <Text style={styles.podiumPoints}>{p.points} pts</Text>
+              <Text style={styles.podiumPoints}>{t('{n} pts', { n: p.points })}</Text>
               <View style={[styles.step3d, { height: heights[slot] }]}>
                 <LinearGradient
                   colors={slot === 1 ? gradients.gold : gradients.wood}

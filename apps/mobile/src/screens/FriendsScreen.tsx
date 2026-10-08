@@ -34,6 +34,7 @@ import {
   useMyProgress,
 } from '../online/progress';
 import { sounds } from '../feedback';
+import { t, tn } from '../i18n';
 import { colors, gradients } from '../theme';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
@@ -62,7 +63,7 @@ export function FriendsScreen({ onBack }: { onBack: () => void }) {
     try {
       setRows(await loadFriends());
     } catch (e) {
-      setError((e as Error).message);
+      setError(t((e as Error).message));
     }
   }
 
@@ -78,11 +79,11 @@ export function FriendsScreen({ onBack }: { onBack: () => void }) {
     try {
       await addFriend(typed);
       setTyped('');
-      setMessage('Ami ajouté !');
+      setMessage(t('Ami ajouté !'));
       sounds.win();
       await reload();
     } catch (e) {
-      setError((e as Error).message);
+      setError(t((e as Error).message));
     } finally {
       setBusy(false);
     }
@@ -95,7 +96,7 @@ export function FriendsScreen({ onBack }: { onBack: () => void }) {
       setRemoving(null);
       await reload();
     } catch (e) {
-      setError((e as Error).message);
+      setError(t((e as Error).message));
     }
   }
 
@@ -104,15 +105,17 @@ export function FriendsScreen({ onBack }: { onBack: () => void }) {
     try {
       await claimPodium();
       sounds.win();
-      setMessage('Ton coffre t’attend dans la boutique !');
+      setMessage(t('Ton coffre t’attend dans la boutique !'));
     } catch (e) {
-      setError((e as Error).message);
+      setError(t((e as Error).message));
     }
   }
 
   function share() {
     if (!code) return;
-    Share.share({ message: `Ajoute-moi dans Jeux entre amis avec mon code ami : ${code}` }).catch(() => {});
+    Share.share({ message: t('Ajoute-moi dans Jeux entre amis avec mon code ami : {code}', { code }) }).catch(
+      () => {},
+    );
   }
 
   const me = rows?.find((r) => r.me);
@@ -127,12 +130,12 @@ export function FriendsScreen({ onBack }: { onBack: () => void }) {
 
   return (
     <ScrollView contentContainerStyle={[styles.container, { width }]} keyboardShouldPersistTaps="handled">
-      <TopBar onBack={onBack} backLabel="← Jeux">
-        <Text style={styles.topTitle}>Amis</Text>
+      <TopBar onBack={onBack} backLabel={t('← Jeux')}>
+        <Text style={styles.topTitle}>{t('Amis')}</Text>
       </TopBar>
 
       <LinearGradient colors={['#1d3b6b', '#0f2140']} style={styles.codeCard}>
-        <Text style={styles.codeLabel}>Mon code ami</Text>
+        <Text style={styles.codeLabel}>{t('Mon code ami')}</Text>
         {code ? (
           <Text selectable style={styles.code}>
             {code}
@@ -141,7 +144,7 @@ export function FriendsScreen({ onBack }: { onBack: () => void }) {
           <ActivityIndicator color={colors.gold} style={{ marginVertical: 10 }} />
         )}
         <Pressable accessibilityRole="button" onPress={share} disabled={!code} style={styles.shareButton}>
-          <Text style={styles.shareText}>📤 Envoyer mon code</Text>
+          <Text style={styles.shareText}>{t('📤 Envoyer mon code')}</Text>
         </Pressable>
       </LinearGradient>
 
@@ -149,8 +152,8 @@ export function FriendsScreen({ onBack }: { onBack: () => void }) {
         <TextInput
           style={styles.input}
           value={typed}
-          onChangeText={(t) => setTyped(t.toUpperCase())}
-          placeholder="Code de ton ami"
+          onChangeText={(text) => setTyped(text.toUpperCase())}
+          placeholder={t('Code de ton ami')}
           placeholderTextColor={colors.muted}
           autoCapitalize="characters"
           maxLength={8}
@@ -163,7 +166,11 @@ export function FriendsScreen({ onBack }: { onBack: () => void }) {
           style={[styles.addButton, (busy || typed.trim().length < 6) && styles.disabled]}
         >
           <LinearGradient colors={gradients.gold} style={styles.addInner}>
-            {busy ? <ActivityIndicator color={colors.onGold} /> : <Text style={styles.addText}>Ajouter</Text>}
+            {busy ? (
+              <ActivityIndicator color={colors.onGold} />
+            ) : (
+              <Text style={styles.addText}>{t('Ajouter')}</Text>
+            )}
           </LinearGradient>
         </Pressable>
       </View>
@@ -175,9 +182,11 @@ export function FriendsScreen({ onBack }: { onBack: () => void }) {
           <LinearGradient colors={['#6b4b00', '#3a2800']} style={styles.podiumInner}>
             <Text style={styles.podiumIcon}>{chest === 'grand' ? '🏆' : '🎖️'}</Text>
             <View style={{ flex: 1 }}>
-              <Text style={styles.podiumTitle}>Tu étais sur le podium la semaine dernière !</Text>
+              <Text style={styles.podiumTitle}>{t('Tu étais sur le podium la semaine dernière !')}</Text>
               <Text style={styles.podiumText}>
-                Touche pour prendre ton {chest === 'grand' ? 'grand coffre' : 'coffre'}.
+                {chest === 'grand'
+                  ? t('Touche pour prendre ton grand coffre.')
+                  : t('Touche pour prendre ton coffre.')}
               </Text>
             </View>
           </LinearGradient>
@@ -185,13 +194,11 @@ export function FriendsScreen({ onBack }: { onBack: () => void }) {
       )}
 
       <View style={styles.sectionRow}>
-        <Text style={styles.section}>Classement de la semaine</Text>
-        <Text style={styles.reset}>
-          Fin dans {daysToMonday()} jour{daysToMonday() > 1 ? 's' : ''}
-        </Text>
+        <Text style={styles.section}>{t('Classement de la semaine')}</Text>
+        <Text style={styles.reset}>{tn(daysToMonday(), 'Fin dans {n} jour', 'Fin dans {n} jours')}</Text>
       </View>
       <Text style={styles.hint}>
-        L’XP gagnée depuis lundi. Le podium gagne un coffre (le premier un grand coffre).
+        {t('L’XP gagnée depuis lundi. Le podium gagne un coffre (le premier un grand coffre).')}
       </Text>
 
       {rows === null ? (
@@ -203,7 +210,7 @@ export function FriendsScreen({ onBack }: { onBack: () => void }) {
           ))}
           {friends.length === 0 && (
             <Text style={styles.empty}>
-              Ajoute tes amis avec leur code pour vous affronter chaque semaine !
+              {t('Ajoute tes amis avec leur code pour vous affronter chaque semaine !')}
             </Text>
           )}
         </View>
@@ -212,7 +219,9 @@ export function FriendsScreen({ onBack }: { onBack: () => void }) {
       {removing && (
         <View style={styles.confirm}>
           <Text style={styles.confirmText}>
-            Retirer {rows?.find((r) => r.user_id === removing)?.name} de tes amis ?
+            {t('Retirer {name} de tes amis ?', {
+              name: rows?.find((r) => r.user_id === removing)?.name ?? '',
+            })}
           </Text>
           <View style={styles.confirmRow}>
             <Pressable
@@ -220,19 +229,19 @@ export function FriendsScreen({ onBack }: { onBack: () => void }) {
               onPress={() => setRemoving(null)}
               style={styles.confirmButton}
             >
-              <Text style={styles.confirmCancel}>Annuler</Text>
+              <Text style={styles.confirmCancel}>{t('Annuler')}</Text>
             </Pressable>
             <Pressable
               accessibilityRole="button"
               onPress={() => remove(removing)}
               style={styles.confirmButton}
             >
-              <Text style={styles.confirmOk}>Retirer</Text>
+              <Text style={styles.confirmOk}>{t('Retirer')}</Text>
             </Pressable>
           </View>
         </View>
       )}
-      {friends.length > 0 && <Text style={styles.tip}>Appui long sur un ami pour le retirer.</Text>}
+      {friends.length > 0 && <Text style={styles.tip}>{t('Appui long sur un ami pour le retirer.')}</Text>}
     </ScrollView>
   );
 }
@@ -248,7 +257,11 @@ function Row({ row, place, onLongPress }: { row: FriendRow; place: number; onLon
   return (
     <Pressable
       onLongPress={onLongPress}
-      accessibilityLabel={`${place + 1}e, ${row.name}, ${row.week_xp} XP cette semaine`}
+      accessibilityLabel={t('{place}e, {name}, {xp} XP cette semaine', {
+        place: place + 1,
+        name: row.name,
+        xp: row.week_xp,
+      })}
       style={[styles.row, row.me && styles.rowMe]}
     >
       <Text style={styles.place}>{MEDALS[place] ?? `${place + 1}`}</Text>
@@ -256,16 +269,14 @@ function Row({ row, place, onLongPress }: { row: FriendRow; place: number; onLon
       <View style={styles.rowBody}>
         <Text style={styles.rowName} numberOfLines={1}>
           {row.name}
-          {row.me ? ' (moi)' : ''}
+          {row.me ? t(' (moi)') : ''}
           {row.streak > 0 ? <Text style={styles.rowStreak}> 🔥{row.streak}</Text> : null}
         </Text>
         <TitleBadge id={equipped.title} small />
       </View>
       <View style={styles.rowScore}>
         <Text style={styles.rowXp}>{row.week_xp} XP</Text>
-        <Text style={styles.rowWins}>
-          {row.week_wins} victoire{row.week_wins > 1 ? 's' : ''}
-        </Text>
+        <Text style={styles.rowWins}>{tn(row.week_wins, '{n} victoire', '{n} victoires')}</Text>
       </View>
     </Pressable>
   );
