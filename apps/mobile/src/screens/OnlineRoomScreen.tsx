@@ -13,6 +13,8 @@ import { ActionPanel } from '../components/ActionPanel';
 import { AvatarBadge } from '../components/AvatarPicker';
 import { ChatPanel } from '../components/ChatPanel';
 import { HistoryPanel } from '../components/HistoryPanel';
+import { InviteFriends } from '../components/InviteFriends';
+import { NotifyPrompt } from '../components/Notifications';
 import { ManagePanel } from '../components/ManagePanel';
 import { Button } from '../components/Button';
 import { GameLayout } from '../components/GameLayout';
@@ -266,6 +268,8 @@ export function OnlineRoomScreen({ roomId, userId, onLeave, onSwitch }: Props) {
           <Text style={styles.code}>{room.code}</Text>
           <Button label={t('Inviter des amis')} variant="secondary" onPress={invite} />
         </View>
+        {!isSpectator && <InviteFriends game="poker" code={room.code} />}
+        {!isSpectator && <NotifyPrompt />}
         <Panel title={t('Joueurs ({n}/8)', { n: players.length })}>
           {players.map((p) => (
             <View key={p.user_id} style={styles.lobbyPlayer}>

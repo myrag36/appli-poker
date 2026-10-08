@@ -18,6 +18,7 @@ import {
   cleanTournamentName,
   firstFreeGameSeat,
   gameDef,
+  humanActors,
   newGameBot,
   playGameMove,
   playGameTimeout,
@@ -26,6 +27,8 @@ import {
   tournamentResults,
 } from './logic.ts';
 import { awardXp, unlockedEmojis } from '../_shared/xp.ts';
+import { inBackground, notify } from '../_shared/push.ts';
+import { newTurns, turnNotice } from '../_shared/notify.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -266,7 +269,18 @@ async function start(userId: string, roomId: string) {
     const { error } = await admin.from('game_players').insert(bots);
     if (error) throw error;
   }
-  return await save(room, snapshot);
+  const saved = await save(room, snapshot);
+  notifyTurns(room, null, snapshot);
+  return saved;
+}
+
+/** Tells the people who must now play, on their phones, that it is their turn. */
+function notifyTurns(room: GameRoomRow, before: GameSecret | null, after: GameSnapshot) {
+  const ids = newTurns(before ? humanActors(before) : [], humanActors(after.secret));
+  if (ids.length === 0) return;
+  inBackground(
+    notify(admin, ids, (lang) => turnNotice(lang, room.game, room.code), { ttl: 300, urgency: 'high' }),
+  );
 }
 
 async function move(userId: string, roomId: string, raw: unknown) {
@@ -278,6 +292,7 @@ async function move(userId: string, roomId: string, raw: unknown) {
 
 async function saveAndAward(room: GameRoomRow, before: GameSecret, after: GameSnapshot) {
   const saved = await save(room, after);
+  notifyTurns(room, before, after);
   await Promise.all(
     progressAwards(before, after).map((a) => awardXp(admin, a.userId, room.game, a.amount, a.finished)),
   );

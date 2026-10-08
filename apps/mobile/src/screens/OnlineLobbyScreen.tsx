@@ -12,14 +12,16 @@ import { tMessage } from '../online/messages';
 
 interface Props {
   initialName: string;
+  /** Code of a table to join (from an invitation or a notification). */
+  initialCode?: string;
   onEnter: (roomId: string, name: string) => void;
   onBack: () => void;
 }
 
 /** Create a private table or join one with the code a friend shared. */
-export function OnlineLobbyScreen({ initialName, onEnter, onBack }: Props) {
+export function OnlineLobbyScreen({ initialName, initialCode, onEnter, onBack }: Props) {
   const [name, setName] = useState(initialName);
-  const [code, setCode] = useState('');
+  const [code, setCode] = useState(initialCode ?? '');
   const [stack, setStack] = useState('1000');
   const [bigBlind, setBigBlind] = useState('20');
   const [levelMinutes, setLevelMinutes] = useState<number | null>(null);

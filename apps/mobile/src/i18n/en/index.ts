@@ -14,6 +14,7 @@ import defi from './defi';
 import tarotEnLigne from './tarotEnLigne';
 import unoEnLigne from './uno-en-ligne';
 import revanche from './revanche';
+import notifications from './notifications';
 
 export const EN: Record<string, string> = {
   ...accueil,
@@ -31,4 +32,5 @@ export const EN: Record<string, string> = {
   ...tarotEnLigne,
   ...unoEnLigne,
   ...revanche,
+  ...notifications,
 };

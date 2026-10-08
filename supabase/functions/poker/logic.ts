@@ -26,6 +26,8 @@ const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 export interface RoomRow {
   id: string;
+  /** The code friends join with (always read, optional for tests). */
+  code?: string;
   host_id: string;
   big_blind: number;
   starting_stack: number;

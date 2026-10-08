@@ -218,6 +218,16 @@ export function snapshot(secret: GameSecret, now: number): GameSnapshot {
   };
 }
 
+/** Ids of the people (not robots) who must play in this state, for the turn notifications. */
+export function humanActors(secret: GameSecret): string[] {
+  const def = gameDef(secret.game);
+  if (def.over(secret.state) || def.betweenRounds(secret.state)) return [];
+  return def
+    .actors(secret.state)
+    .filter((s) => !secret.seats[s].bot)
+    .map((s) => secret.seats[s].id);
+}
+
 /** Experience to give after a save: a little for each finished round, more at the end of the game. */
 export function progressAwards(before: GameSecret, after: GameSnapshot) {
   const def = gameDef(before.game);

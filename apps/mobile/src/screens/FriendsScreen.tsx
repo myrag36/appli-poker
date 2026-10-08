@@ -33,6 +33,9 @@ import {
   syncMe,
   useMyProgress,
 } from '../online/progress';
+import { type TableInvite, dismissInvite, loadInvites } from '../online/invites';
+import { ONLINE_UI } from '../online-games';
+import type { OnlineGameId } from '@appli-poker/engine';
 import { sounds } from '../feedback';
 import { t, tn } from '../i18n';
 import { colors, gradients } from '../theme';
@@ -47,7 +50,14 @@ function daysToMonday(): number {
 }
 
 /** My friend code, my friends, and the ranking of the week between us. */
-export function FriendsScreen({ onBack }: { onBack: () => void }) {
+export function FriendsScreen({
+  onBack,
+  onJoin,
+}: {
+  onBack: () => void;
+  /** Goes to a friend's table from an invitation. */
+  onJoin?: (game: string, code: string) => void;
+}) {
   const progress = useMyProgress();
   const { width: screenW } = useWindowDimensions();
   const width = Math.min(screenW, 520);
@@ -58,6 +68,7 @@ export function FriendsScreen({ onBack }: { onBack: () => void }) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
+  const [invites, setInvites] = useState<TableInvite[]>([]);
 
   async function reload() {
     try {
@@ -70,6 +81,7 @@ export function FriendsScreen({ onBack }: { onBack: () => void }) {
   useEffect(() => {
     syncMe().then(setCode);
     reload();
+    loadInvites().then(setInvites);
   }, []);
 
   async function add() {
@@ -176,6 +188,53 @@ export function FriendsScreen({ onBack }: { onBack: () => void }) {
       </View>
       {message && <Text style={styles.message}>{message}</Text>}
       {error && <Text style={styles.error}>{error}</Text>}
+
+      {invites.length > 0 && (
+        <View style={styles.invites}>
+          <Text style={styles.section}>{t('Invitations')}</Text>
+          {invites.map((inv) => (
+            <View key={inv.id} style={styles.invite}>
+              <Text style={styles.inviteIcon}>{ONLINE_UI[inv.game as OnlineGameId]?.emoji ?? '🃏'}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.inviteTitle} numberOfLines={1}>
+                  {t('{name} t’invite à sa table', { name: inv.from_name })}
+                </Text>
+                <Text style={styles.inviteText}>
+                  {t('{game} · code {code}', {
+                    game: t(ONLINE_UI[inv.game as OnlineGameId]?.title ?? 'Poker'),
+                    code: inv.room_code,
+                  })}
+                </Text>
+              </View>
+              {onJoin && (
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => {
+                    dismissInvite(inv.id);
+                    onJoin(inv.game, inv.room_code);
+                  }}
+                  style={styles.inviteJoin}
+                >
+                  <LinearGradient colors={gradients.gold} style={styles.inviteJoinInner}>
+                    <Text style={styles.inviteJoinText}>{t('Rejoindre')}</Text>
+                  </LinearGradient>
+                </Pressable>
+              )}
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('Ignorer l’invitation')}
+                hitSlop={8}
+                onPress={() => {
+                  dismissInvite(inv.id);
+                  setInvites((list) => list.filter((x) => x.id !== inv.id));
+                }}
+              >
+                <Text style={styles.inviteClose}>✕</Text>
+              </Pressable>
+            </View>
+          ))}
+        </View>
+      )}
 
       {podiumReady && (
         <Pressable accessibilityRole="button" onPress={podium} style={styles.podium}>
@@ -378,5 +437,23 @@ const styles = StyleSheet.create({
   confirmButton: { paddingHorizontal: 12, paddingVertical: 6 },
   confirmCancel: { color: colors.muted, fontSize: 15, fontWeight: '800' },
   confirmOk: { color: '#ff8a80', fontSize: 15, fontWeight: '900' },
+  invites: { marginTop: 8, gap: 8 },
+  invite: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,193,7,0.1)',
+    borderWidth: 1,
+    borderColor: colors.gold,
+  },
+  inviteIcon: { fontSize: 28 },
+  inviteTitle: { color: colors.text, fontSize: 15, fontWeight: '800' },
+  inviteText: { color: colors.muted, fontSize: 13 },
+  inviteJoin: { borderRadius: 10, overflow: 'hidden' },
+  inviteJoinInner: { paddingHorizontal: 12, paddingVertical: 8 },
+  inviteJoinText: { color: colors.onGold, fontWeight: '900', fontSize: 14 },
+  inviteClose: { color: colors.muted, fontSize: 16, fontWeight: '800', paddingHorizontal: 4 },
   tip: { color: colors.muted, fontSize: 11, textAlign: 'center', marginTop: 12, fontStyle: 'italic' },
 });

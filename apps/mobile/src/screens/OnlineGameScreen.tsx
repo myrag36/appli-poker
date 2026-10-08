@@ -38,6 +38,8 @@ import { type OtherProgress, useMyProgress, useProgressOf } from '../online/prog
 import { sounds } from '../feedback';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TitleBadge } from '../components/TitleBadge';
+import { InviteFriends } from '../components/InviteFriends';
+import { NotifyPrompt } from '../components/Notifications';
 import { colors } from '../theme';
 import { t, tn } from '../i18n';
 import { tMessage } from '../online/messages';
@@ -54,10 +56,12 @@ interface Props {
   initialName: string;
   onBack: () => void;
   tournament?: TournamentTable;
+  /** Code of a table to join straight away (from an invitation or a notification). */
+  joinCode?: string;
 }
 
 /** Blackjack, Président, Yams or Belote with friends, each on their own phone. */
-export function OnlineGameScreen({ game, initialName, onBack, tournament }: Props) {
+export function OnlineGameScreen({ game, initialName, onBack, tournament, joinCode }: Props) {
   const [table, setTable] = useState<{ roomId: string; userId: string } | null>(null);
 
   async function enter(roomId: string, name: string) {
@@ -68,7 +72,14 @@ export function OnlineGameScreen({ game, initialName, onBack, tournament }: Prop
 
   if (!table) {
     return (
-      <Lobby game={game} initialName={initialName} tournament={tournament} onEnter={enter} onBack={onBack} />
+      <Lobby
+        game={game}
+        initialName={initialName}
+        tournament={tournament}
+        joinCode={joinCode}
+        onEnter={enter}
+        onBack={onBack}
+      />
     );
   }
   return (
@@ -98,18 +109,20 @@ function Lobby({
   game,
   initialName,
   tournament,
+  joinCode,
   onEnter,
   onBack,
 }: {
   game: OnlineGameId;
   initialName: string;
   tournament?: TournamentTable;
+  joinCode?: string;
   onEnter: (roomId: string, name: string) => Promise<void>;
   onBack: () => void;
 }) {
   const ui = ONLINE_UI[game];
   const [name, setName] = useState(initialName);
-  const [code, setCode] = useState('');
+  const [code, setCode] = useState(joinCode ?? '');
   const [options, setOptions] = useState(ui.defaultOptions);
   const [avatar, setAvatar] = useState<Avatar>(() => defaultAvatar(Math.floor(Math.random() * 8)));
   const [pickingAvatar, setPickingAvatar] = useState(false);
@@ -117,7 +130,7 @@ function Lobby({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Joining the table of a tournament needs nothing more than my name: go straight in.
-  const [autoJoining, setAutoJoining] = useState(!!tournament?.join);
+  const [autoJoining, setAutoJoining] = useState(!!(tournament?.join ?? joinCode));
 
   useEffect(() => {
     loadAvatar().then((a) => a && setAvatar(cleanAvatar(a, a)));
@@ -131,7 +144,7 @@ function Lobby({
   useEffect(() => setName((n) => n || initialName), [initialName]);
 
   useEffect(() => {
-    const code = tournament?.join;
+    const code = tournament?.join ?? joinCode;
     if (!code) return;
     Promise.all([loadAvatar(), loadName()]).then(([a, saved]) => {
       const who = (saved || initialName).trim();
@@ -502,6 +515,8 @@ function WaitingRoom({
       </Text>
       <View style={styles.spacerSmall} />
       <Button label={t('Inviter des amis')} variant="secondary" onPress={invite} />
+      {!inTournament && <InviteFriends game={game} code={code} />}
+      <NotifyPrompt />
 
       <Text style={styles.section}>
         {t('À la table ({n}/{max})', { n: players.length, max: def.maxPlayers })}
