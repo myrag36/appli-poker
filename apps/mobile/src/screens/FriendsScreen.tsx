@@ -113,7 +113,7 @@ export function FriendsScreen({ onBack }: { onBack: () => void }) {
 
   function share() {
     if (!code) return;
-    Share.share({ message: t('Ajoute-moi dans Jeux entre amis avec mon code ami : {code}', { code }) }).catch(
+    Share.share({ message: t('Ajoute-moi dans La Tablée avec mon code ami : {code}', { code }) }).catch(
       () => {},
     );
   }

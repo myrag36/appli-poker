@@ -84,7 +84,7 @@ export function HomeScreen({ canResume, playerName, onOnline, onResume, onLocal,
             </View>
           ))}
         </View>
-        <Text style={styles.title}>Appli Poker</Text>
+        <Text style={styles.title}>Poker</Text>
         <Text style={styles.subtitle}>
           {playerName ? t('Salut {name} ! ', { name: playerName }) : ''}
           {t("Texas Hold'em entre amis, avec des jetons pour de faux.")}

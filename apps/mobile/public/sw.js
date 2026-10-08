@@ -10,7 +10,7 @@
  *
  * Bump VERSION when this file's caching rules change, to start from fresh caches.
  */
-const VERSION = 'v1';
+const VERSION = 'v2';
 const SHELL_CACHE = `jeux-shell-${VERSION}`;
 const STATIC_CACHE = `jeux-static-${VERSION}`;
 const SCOPE = new URL(self.registration.scope);

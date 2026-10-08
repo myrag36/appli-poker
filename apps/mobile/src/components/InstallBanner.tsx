@@ -101,7 +101,7 @@ export function InstallBanner() {
             <Step
               n={3}
               title={t('Touche « Ajouter »')}
-              text={t("L'icône Jeux amis rejoint tes autres applis.")}
+              text={t("L'icône La Tablée rejoint tes autres applis.")}
             />
             <Pressable
               accessibilityRole="button"

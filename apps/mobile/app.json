@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "Appli Poker",
+    "name": "La Tablée",
     "slug": "appli-poker",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -20,10 +20,10 @@
     },
     "web": {
       "favicon": "./assets/favicon.png",
-      "name": "Jeux entre amis",
+      "name": "La Tablée",
       "themeColor": "#0f5132",
       "backgroundColor": "#0f5132",
-      "shortName": "Jeux amis",
+      "shortName": "La Tablée",
       "lang": "fr"
     },
     "backgroundColor": "#0f5132",
