@@ -13,6 +13,7 @@ import { YamsScreen } from './src/screens/YamsScreen';
 import { BeloteScreen } from './src/screens/BeloteScreen';
 import { Puissance4Screen } from './src/screens/Puissance4Screen';
 import { RamiScreen } from './src/screens/RamiScreen';
+import { HuitScreen, UnoScreen } from './src/screens/UnoScreen';
 import { Backdrop } from './src/components/Backdrop';
 import { OnlineLobbyScreen } from './src/screens/OnlineLobbyScreen';
 import { OnlineRoomScreen } from './src/screens/OnlineRoomScreen';
@@ -25,6 +26,8 @@ import { TournamentScreen } from './src/screens/TournamentScreen';
 import { ProgressToast } from './src/components/ProgressToast';
 import { type GameSettings, SetupScreen } from './src/screens/SetupScreen';
 import { colors } from './src/theme';
+
+/** Games that can also be played online, each player on their own phone. */
 
 type Screen =
   | { name: 'games' }
@@ -108,6 +111,8 @@ export default function App() {
         )}
         {screen.name === 'game' && screen.game === 'puissance4' && <Puissance4Screen onBack={games} />}
         {screen.name === 'game' && screen.game === 'rami' && <RamiScreen onBack={games} />}
+        {screen.name === 'game' && screen.game === 'uno' && <UnoScreen onBack={games} />}
+        {screen.name === 'game' && screen.game === 'huit' && <HuitScreen onBack={games} />}
         {screen.name === 'game-online' && (
           <OnlineGameScreen
             key={screen.game}

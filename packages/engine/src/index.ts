@@ -16,3 +16,4 @@ export * from './quests.ts';
 export * from './achievements.ts';
 export * from './seasons.ts';
 export * from './rami.ts';
+export * from './uno.ts';

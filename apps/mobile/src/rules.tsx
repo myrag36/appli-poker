@@ -2,6 +2,7 @@
 import { View } from 'react-native';
 import { Die } from './components/Die';
 import { PlayingCard } from './components/PlayingCard';
+import { UnoCard } from './components/UnoCard';
 import { type GameRules, RuleExample } from './components/Rules';
 import { Token } from './components/Token';
 
@@ -9,6 +10,14 @@ const Cards = ({ cards, label, width = 34 }: { cards: string[]; label?: string; 
   <RuleExample label={label}>
     {cards.map((c, i) => (
       <PlayingCard key={`${c}${i}`} card={c} width={width} />
+    ))}
+  </RuleExample>
+);
+
+const UnoCards = ({ cards, label, width = 34 }: { cards: string[]; label?: string; width?: number }) => (
+  <RuleExample label={label}>
+    {cards.map((c, i) => (
+      <UnoCard key={`${c}${i}`} card={c} width={width} />
     ))}
   </RuleExample>
 );
@@ -331,4 +340,108 @@ export const RAMI_RULES: GameRules = {
     },
   ],
   tip: 'La partie s’arrête quand quelqu’un atteint le score visé : le plus petit score gagne.',
+};
+
+export const UNO_RULES: GameRules = {
+  game: 'uno',
+  title: 'Uno',
+  goal: 'Sois le premier à poser toutes tes cartes.',
+  steps: [
+    {
+      icon: '🃏',
+      title: 'La donne',
+      text: '108 cartes : des chiffres de 0 à 9 en 4 couleurs, des cartes spéciales et des Jokers. Chacun reçoit 7 cartes, une carte est retournée au milieu.',
+    },
+    {
+      icon: '🎨',
+      title: 'Couleur ou symbole',
+      text: 'À ton tour, pose une carte de la même couleur ou du même chiffre (ou symbole) que celle du dessus.',
+      visual: (
+        <>
+          <UnoCards cards={['r7a', 'r2a']} label="Même couleur ✓" />
+          <UnoCards cards={['r7a', 'b7a']} label="Même chiffre ✓" />
+        </>
+      ),
+    },
+    {
+      icon: '🎴',
+      title: 'Pas de carte ? Pioche',
+      text: 'Tu peux toujours piocher une carte. Si elle va, tu peux la poser tout de suite, sinon le tour passe.',
+    },
+    {
+      icon: '⚡',
+      title: 'Les cartes spéciales',
+      text: 'Passe : le suivant saute son tour. Inverse : le sens du jeu change. +2 : le suivant pioche 2 cartes et passe son tour.',
+      visual: <UnoCards cards={['gSa', 'yRa', 'bDa']} label="Passe · Inverse · +2" />,
+    },
+    {
+      icon: '🌈',
+      title: 'Joker et +4',
+      text: 'Le Joker se pose sur tout : tu choisis la couleur. Le +4 aussi, et le suivant pioche 4 cartes, mais seulement si tu n’as aucune carte de la couleur demandée.',
+      visual: <UnoCards cards={['wWa', 'wFa']} label="Joker · +4" />,
+    },
+    {
+      icon: '📣',
+      title: 'Uno !',
+      text: 'Quand tu poses ton avant-dernière carte, appuie sur « Uno ! ». Si quelqu’un te prend avant, tu pioches 2 cartes. Et toi aussi, attrape les étourdis !',
+    },
+    {
+      icon: '🏆',
+      title: 'Les points',
+      text: 'Le gagnant de la manche marque les cartes restées chez les autres : chiffres à leur valeur, cartes spéciales 20, Jokers et +4 50.',
+    },
+  ],
+  tip: 'Garde tes Jokers pour la fin : ils te sortent de toutes les impasses.',
+};
+
+export const HUIT_RULES: GameRules = {
+  game: 'huit',
+  title: '8 américain',
+  goal: 'Sois le premier à poser toutes tes cartes, avec un jeu classique de 52 cartes.',
+  steps: [
+    {
+      icon: '🃏',
+      title: 'La donne',
+      text: 'Chacun reçoit 7 cartes, une carte est retournée au milieu. Le reste forme la pioche.',
+    },
+    {
+      icon: '♥️',
+      title: 'Couleur ou valeur',
+      text: 'Pose une carte de la même couleur (cœur, pique…) ou de la même valeur que celle du dessus.',
+      visual: (
+        <>
+          <Cards cards={['9h', '3h']} label="Même couleur ✓" />
+          <Cards cards={['9h', '9s']} label="Même valeur ✓" />
+        </>
+      ),
+    },
+    {
+      icon: '🎴',
+      title: 'Pas de carte ? Pioche',
+      text: 'Pioche une carte : si elle va, tu peux la poser tout de suite, sinon le tour passe.',
+    },
+    {
+      icon: '8️⃣',
+      title: 'Le 8 change la couleur',
+      text: 'Le 8 se pose sur n’importe quelle carte, et tu choisis la couleur que le suivant doit jouer.',
+      visual: <Cards cards={['8s', '8h', '8d', '8c']} label="Les 4 huit, les meilleures cartes" />,
+    },
+    {
+      icon: '⚡',
+      title: 'Les cartes spéciales',
+      text: 'Le 2 fait piocher 2 cartes au suivant, sauf s’il pose un autre 2 : ça se cumule (+4, +6…). Le Valet fait sauter le tour du suivant. L’As change le sens du jeu (à deux, tu rejoues).',
+      visual: <Cards cards={['2c', 'Jd', 'Ah']} label="+2 · Passe ton tour · Change de sens" />,
+    },
+    {
+      icon: '📣',
+      title: 'Carte !',
+      text: 'Quand tu poses ton avant-dernière carte, appuie sur « Carte ! ». Si quelqu’un te prend avant, tu pioches 2 cartes. Et toi aussi, attrape les étourdis !',
+    },
+    {
+      icon: '🏆',
+      title: 'Les points',
+      text: 'Le gagnant de la manche marque les cartes restées chez les autres : 8 = 50, 2, Valet et As = 20, Roi, Dame et 10 = 10, les autres leur valeur.',
+    },
+  ],
+  tip: 'Un 8 en fin de partie, c’est la sortie assurée.',
 };
