@@ -27,6 +27,7 @@ import { InstallBanner } from '../components/InstallBanner';
 import { Tutorial, tutorialPending } from '../components/Tutorial';
 import { AvatarBadge } from '../components/AvatarPicker';
 import { achievementsReady } from '../components/Achievements';
+import { DailyChallenge } from '../components/DailyChallenge';
 import { useMyProgress } from '../online/progress';
 import { loadAvatar } from '../online/supabase';
 import { PlayingCard } from '../components/PlayingCard';
@@ -230,7 +231,7 @@ export function GamesScreen({
   const insets = useSafeAreaInsets();
   const [tutorial, setTutorial] = useState(tutorialPending);
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const cardHeight = Math.max(340, Math.min(CARD_HEIGHT, screenHeight - 480));
+  const cardHeight = Math.max(250, Math.min(CARD_HEIGHT, screenHeight - 570));
   const viewWidth = Math.min(screenWidth, 520);
   const cardWidth = Math.round(viewWidth * 0.76);
   const step = cardWidth + GAP;
@@ -275,6 +276,8 @@ export function GamesScreen({
         </Pressable>
         <SeasonPill onPress={onShop} />
       </View>
+
+      <DailyChallenge width={Math.min(viewWidth - 32, 440)} />
 
       {canResume && (
         <Pressable

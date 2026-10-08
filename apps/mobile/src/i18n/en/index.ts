@@ -10,6 +10,7 @@ import divers from './divers';
 import tutoriel from './tutoriel';
 import puissance4 from './puissance4';
 import ramiEnLigne from './ramiEnLigne';
+import defi from './defi';
 
 export const EN: Record<string, string> = {
   ...accueil,
@@ -23,4 +24,5 @@ export const EN: Record<string, string> = {
   ...tutoriel,
   ...puissance4,
   ...ramiEnLigne,
+  ...defi,
 };

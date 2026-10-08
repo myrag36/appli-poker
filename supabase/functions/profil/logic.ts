@@ -30,6 +30,9 @@ import {
   ownedKey,
   questProgress,
   questsFor,
+  type Challenge,
+  challengeFor,
+  challengeProgress,
 } from '../_shared/engine/index.ts';
 import { GameError } from '../poker/logic.ts';
 
@@ -75,6 +78,16 @@ export function finishedQuest(day: string, questId: unknown, statsDay: unknown, 
   const today = statsDay === day ? ((stats ?? {}) as DayStats) : {};
   if (questProgress(quest, today) < quest.target) throw new GameError('Quête pas encore finie');
   return quest;
+}
+
+/** Today's challenge, once it is done, to take its coins. */
+export function finishedChallenge(day: string, statsDay: unknown, stats: unknown, games: unknown): Challenge {
+  const challenge = challengeFor(day);
+  const today = statsDay === day ? ((stats ?? {}) as DayStats) : {};
+  if (challengeProgress(challenge, today, (games ?? {}) as GameCounters) < challenge.target) {
+    throw new GameError('Défi pas encore réussi');
+  }
+  return challenge;
 }
 
 /** Draws what a chest holds; the item is a shop item the player does not own yet. */

@@ -13,6 +13,7 @@ export * from './puissance4.ts';
 export * from './online.ts';
 export * from './progress.ts';
 export * from './quests.ts';
+export * from './challenge.ts';
 export * from './achievements.ts';
 export * from './seasons.ts';
 export * from './rami.ts';

@@ -1,7 +1,14 @@
 // Profile server: records games played on one phone, changes what a player wears, sells
-// shop items and pays finished quests.
+// shop items and pays finished quests and daily challenges.
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { XP_DAILY, cleanAvatar, defaultAvatar, parisDay } from '../_shared/engine/index.ts';
+import {
+  CHALLENGE_STREAK_MAX,
+  CHALLENGE_STREAK_STEP,
+  XP_DAILY,
+  cleanAvatar,
+  defaultAvatar,
+  parisDay,
+} from '../_shared/engine/index.ts';
 import { GameError, cleanName, makeRoomCode } from '../poker/logic.ts';
 import { levelChests, unlockedEmojis } from '../_shared/xp.ts';
 import {
@@ -11,6 +18,7 @@ import {
   podiumChest,
   equip,
   finishedQuest,
+  finishedChallenge,
   localGame,
   reachedAchievement,
   shopItem,
@@ -85,6 +93,19 @@ async function claim(userId: string, body: Record<string, unknown>) {
   const progress = await loadProgress(userId);
   const quest = finishedQuest(day, body.quest, progress.stats_day, progress.day_stats);
   return await rpc('claim_quest', { p_user: userId, p_day: day, p_quest: quest.id, p_coins: quest.coins });
+}
+
+async function claimChallenge(userId: string) {
+  const day = parisDay();
+  const progress = await loadProgress(userId);
+  const c = finishedChallenge(day, progress.stats_day, progress.day_stats, progress.games);
+  return await rpc('claim_challenge', {
+    p_user: userId,
+    p_day: day,
+    p_coins: c.coins,
+    p_step: CHALLENGE_STREAK_STEP,
+    p_cap: CHALLENGE_STREAK_MAX,
+  });
 }
 
 async function openChest(userId: string, body: Record<string, unknown>) {
@@ -195,6 +216,8 @@ Deno.serve(async (req) => {
         return json(await buy(user.id, body));
       case 'claim':
         return json(await claim(user.id, body));
+      case 'challenge':
+        return json(await claimChallenge(user.id));
       case 'open':
         return json(await openChest(user.id, body));
       case 'achieve':
