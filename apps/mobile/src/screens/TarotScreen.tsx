@@ -9,6 +9,7 @@ import {
   type TarotMove,
   type TarotPlayedCard,
   type TarotState,
+  type TarotView,
   TAROT_CONTRACTS,
   TAROT_CONTRACT_NAMES,
   TAROT_MULTIPLIERS,
@@ -31,6 +32,7 @@ import {
 import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
 import { reportLocalGame } from '../online/progress';
+import { OnlineButton } from '../components/OnlineButton';
 import { RulesButton } from '../components/Rules';
 import { TAROT_RULES } from '../rules';
 import { GameLayout } from '../components/GameLayout';
@@ -39,7 +41,9 @@ import { Appear } from '../components/Motion';
 import { Panel, PanelText } from '../components/Panel';
 import { TAROT_RATIO, TarotCard } from '../components/TarotCard';
 import { TopBar } from '../components/TopBar';
+import { TurnTimer } from '../components/TurnTimer';
 import { sounds } from '../feedback';
+import type { OnlineBoardProps, OnlineOptionsProps } from '../online-games/types';
 import { deviceRng } from '../rng';
 import { lang, t, tn } from '../i18n';
 import { colors, gradients, seatColors, shadow } from '../theme';
@@ -62,10 +66,10 @@ const half = (n: number) =>
   Number.isInteger(n) ? String(n) : lang === 'fr' ? n.toFixed(1).replace('.', ',') : n.toFixed(1);
 const signed = (n: number) => (n > 0 ? `+${n}` : String(n));
 
-export function TarotScreen({ onBack }: { onBack: () => void }) {
+export function TarotScreen({ onBack, onOnline }: { onBack: () => void; onOnline?: () => void }) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [round, setRound] = useState(0);
-  if (!settings) return <TarotSetup onStart={setSettings} onBack={onBack} />;
+  if (!settings) return <TarotSetup onStart={setSettings} onBack={onBack} onOnline={onOnline} />;
   return (
     <TarotGame
       key={round}
@@ -79,7 +83,15 @@ export function TarotScreen({ onBack }: { onBack: () => void }) {
 
 // ------------------------------------------------------------------ Setup
 
-function TarotSetup({ onStart, onBack }: { onStart: (s: Settings) => void; onBack: () => void }) {
+function TarotSetup({
+  onStart,
+  onBack,
+  onOnline,
+}: {
+  onStart: (s: Settings) => void;
+  onBack: () => void;
+  onOnline?: () => void;
+}) {
   const [name, setName] = useState('');
   const [avatar, setAvatar] = useState<Avatar>(defaultAvatar(0));
   const [picking, setPicking] = useState(false);
@@ -96,6 +108,7 @@ function TarotSetup({ onStart, onBack }: { onStart: (s: Settings) => void; onBac
       <Text style={styles.subtitle}>
         {t('Toi contre trois robots : à chaque donne, un preneur seul contre tous.')}
       </Text>
+      {onOnline && <OnlineButton onPress={onOnline} />}
       <RulesButton rules={TAROT_RULES} />
 
       <Text style={styles.section}>{t('Joueurs')}</Text>
@@ -253,7 +266,7 @@ function TarotGame({
 
   const result = game.result;
   const overlay = !result ? null : game.phase === 'gameOver' ? (
-    <FinalPanel game={game} names={names}>
+    <FinalPanel game={game} names={names} me={ME}>
       <View style={styles.finalButtons}>
         <Button compact label={t('Rejouer')} onPress={onReplay} />
         <Button compact variant="secondary" label={t('Réglages')} onPress={onSettings} />
@@ -275,7 +288,7 @@ function TarotGame({
     </Appear>
   ) : (
     <Appear>
-      <DealSummary game={game} names={names} />
+      <DealSummary game={game} names={names} me={ME} />
       <View style={styles.nextButton}>
         <Button compact label={t('Donne suivante')} onPress={onNext} />
       </View>
@@ -298,11 +311,14 @@ function TarotGame({
       table={({ width, height }) => (
         <TarotTable
           game={game}
+          counts={game.hands.map((h) => h.length)}
           holding={holding}
           width={width}
           height={height}
           names={names}
           avatars={settings.avatars}
+          bottom={ME}
+          me={ME}
           overlay={overlay}
         />
       )}
@@ -352,7 +368,10 @@ function TarotGame({
   );
 }
 
-function playHint(game: TarotState, hand: Card[], legal: Card[]): string {
+/** What the table shows: the local game's state, or what the server lets me see of an online one. */
+type TableGame = Omit<TarotView, 'hands' | 'handCounts'>;
+
+function playHint(game: TableGame, hand: Card[], legal: Card[]): string {
   const led = tarotLedSuit(game.trick);
   if (game.trick.length === 0) return t('À toi d’entamer');
   if (led === null || legal.length === hand.length) return t('À toi : joue ce que tu veux');
@@ -365,7 +384,15 @@ function playHint(game: TarotState, hand: Card[], legal: Card[]): string {
 }
 
 /** Pass or a contract higher than the best one so far. */
-function BidButtons({ game, onBid }: { game: TarotState; onBid: (bid: TarotBid) => void }) {
+function BidButtons({
+  game,
+  disabled,
+  onBid,
+}: {
+  game: TableGame;
+  disabled?: boolean;
+  onBid: (bid: TarotBid) => void;
+}) {
   const best = game.bids.reduce(
     (m, b) => (b.bid !== 'pass' && TAROT_CONTRACTS.indexOf(b.bid) > m ? TAROT_CONTRACTS.indexOf(b.bid) : m),
     -1,
@@ -381,6 +408,7 @@ function BidButtons({ game, onBid }: { game: TarotState; onBid: (bid: TarotBid) 
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={t('Passe')}
+        disabled={disabled}
         onPress={() => onBid('pass')}
         style={({ pressed }) => [styles.bid, styles.bidPass, pressed && styles.pressed]}
       >
@@ -393,7 +421,7 @@ function BidButtons({ game, onBid }: { game: TarotState; onBid: (bid: TarotBid) 
             key={c}
             accessibilityRole="button"
             accessibilityLabel={t(TAROT_CONTRACT_NAMES[c])}
-            disabled={!allowed}
+            disabled={!allowed || disabled}
             onPress={() => onBid(c)}
             style={({ pressed }) => [styles.bid, !allowed && styles.bidOff, pressed && styles.pressed]}
           >
@@ -494,19 +522,28 @@ function bidText(bid: TarotBid): string {
 
 function TarotTable({
   game,
+  counts,
   holding,
   width,
   height,
   names,
   avatars,
+  bottom,
+  me,
   overlay,
 }: {
-  game: TarotState;
+  game: TableGame;
+  /** How many cards each seat holds. */
+  counts: number[];
   holding: boolean;
   width: number;
   height: number;
   names: string[];
   avatars: Avatar[];
+  /** The seat drawn at the bottom of the screen. */
+  bottom: number;
+  /** My seat, or -1 when I am only watching. */
+  me: number;
   overlay: ReactNode;
 }) {
   const w = Math.min(width, 480);
@@ -516,7 +553,7 @@ function TarotTable({
   const cw = Math.max(40, Math.min(56, Math.floor(Math.min(w, h) * 0.14)));
   const ch = Math.round(cw * TAROT_RATIO);
   /** Play goes round counter-clockwise: after me, the player on my right. */
-  const place = (seat: number) => [0, 3, 2, 1][seat];
+  const place = (seat: number) => [0, 3, 2, 1][(seat - bottom + 4) % 4];
 
   // Where each place sits: bottom, left, top, right.
   const seatPos = [
@@ -561,7 +598,7 @@ function TarotTable({
         <Appear style={styles.contractBox} from={-10}>
           <Text style={styles.contractLabel}>{t(TAROT_CONTRACT_NAMES[game.contract])}</Text>
           <Text style={styles.contractTaker} numberOfLines={1}>
-            {game.taker === ME ? t('prise par toi') : t('par {name}', { name: names[game.taker] })}
+            {game.taker === me ? t('prise par toi') : t('par {name}', { name: names[game.taker] })}
           </Text>
           {game.contract === 'gardeSans' && <Text style={styles.contractNote}>{t('chien au preneur')}</Text>}
           {game.contract === 'gardeContre' && (
@@ -582,7 +619,7 @@ function TarotTable({
         const pos = seatPos[p];
         const turn = game.toAct === seat && !holding;
         const bid = game.phase === 'bidding' ? game.bids.find((b) => b.player === seat) : undefined;
-        const count = game.hands[seat].length;
+        const count = counts[seat];
         const side = p === 1 || p === 3;
         const isTaker = game.taker === seat && game.phase !== 'bidding';
         return (
@@ -642,8 +679,12 @@ function TarotTable({
       {(chienHidden || chienShown) && (
         <View style={[styles.chien, { top: cy - ch * 0.62, width: w }]} pointerEvents="none">
           <View style={styles.chienCards}>
-            {game.chien.map((c, i) => (
-              <View key={c} style={{ marginLeft: i === 0 ? 0 : chienShown ? -miniW * 0.18 : -miniW * 0.6 }}>
+            {/* Online, the cards of a hidden chien never reach the phone: only its six backs. */}
+            {(chienShown ? game.chien : ['', '', '', '', '', '']).map((c, i) => (
+              <View
+                key={c || i}
+                style={{ marginLeft: i === 0 ? 0 : chienShown ? -miniW * 0.18 : -miniW * 0.6 }}
+              >
                 {chienShown ? (
                   <Appear from={-20} delay={i * 80}>
                     <TarotCard card={c} width={miniW} />
@@ -656,7 +697,7 @@ function TarotTable({
           </View>
           <Text style={styles.chienLabel}>
             {chienShown
-              ? game.taker === ME
+              ? game.taker === me
                 ? t('Le chien, pour toi')
                 : t('Le chien, pour {name}', { name: names[game.taker!] })
               : t('Le chien')}
@@ -687,10 +728,10 @@ function TarotTable({
   );
 }
 
-function DealSummary({ game, names }: { game: TarotState; names: string[] }) {
+function DealSummary({ game, names, me }: { game: TableGame; names: string[]; me: number }) {
   const r = game.result;
   if (!r || r.kind !== 'played') return null;
-  const mine = r.taker === ME;
+  const mine = r.taker === me;
   const title = mine
     ? r.made
       ? t('Contrat réussi ! 🎉')
@@ -756,8 +797,18 @@ function DealSummary({ game, names }: { game: TarotState; names: string[] }) {
   );
 }
 
-function FinalPanel({ game, names, children }: { game: TarotState; names: string[]; children: ReactNode }) {
-  const won = game.winners?.includes(ME) ?? false;
+function FinalPanel({
+  game,
+  names,
+  me,
+  children,
+}: {
+  game: TableGame;
+  names: string[];
+  me: number;
+  children: ReactNode;
+}) {
+  const won = game.winners?.includes(me) ?? false;
   const ranking = [0, 1, 2, 3].sort((a, b) => game.scores[b] - game.scores[a]);
   const first = game.winners ?? [];
   const title = won
@@ -776,7 +827,7 @@ function FinalPanel({ game, names, children }: { game: TarotState; names: string
           {ranking.map((p, i) => (
             <View
               key={p}
-              style={[styles.rankRow, first.includes(p) && styles.rankRowWin, p === ME && styles.rankRowMe]}
+              style={[styles.rankRow, first.includes(p) && styles.rankRowWin, p === me && styles.rankRowMe]}
             >
               <Text style={styles.rankPos}>{i + 1}</Text>
               <Text style={styles.rankName} numberOfLines={1}>
@@ -792,6 +843,238 @@ function FinalPanel({ game, names, children }: { game: TarotState; names: string
         {children}
       </View>
     </Appear>
+  );
+}
+
+// ------------------------------------------------------------------ Online
+
+/** Length of the game, chosen when creating an online table. */
+export function TarotOnlineOptions({ value, onChange }: OnlineOptionsProps) {
+  const deals = value.deals === 8 ? 8 : 4;
+  return (
+    <View>
+      <Text style={styles.section}>{t('Partie en')}</Text>
+      <View style={styles.pills}>
+        <Pill
+          label={t('{n} donnes', { n: 4 })}
+          active={deals === 4}
+          onPress={() => onChange({ ...value, deals: 4 })}
+        />
+        <Pill
+          label={t('{n} donnes', { n: 8 })}
+          active={deals === 8}
+          onPress={() => onChange({ ...value, deals: 8 })}
+        />
+      </View>
+      <Text style={styles.hint}>
+        {deals === 4
+          ? t('Chacun donne une fois : une partie rapide.')
+          : t('Chacun donne deux fois : la partie complète.')}
+      </Text>
+    </View>
+  );
+}
+
+/** The same table, each player on their own phone: I always sit at the bottom. */
+export function TarotOnlineBoard({
+  view: game,
+  mySeat,
+  seats,
+  actors,
+  deadline,
+  now,
+  busy,
+  error,
+  onMove,
+  onLeave,
+}: OnlineBoardProps<TarotView>) {
+  const names = seats.map((s) => s.name);
+  const avatars = seats.map((s) => s.avatar);
+  const me = mySeat;
+  const bottom = me >= 0 ? me : 0;
+  const active = game.phase === 'bidding' || game.phase === 'ecart' || game.phase === 'playing';
+  const myTurn = active && me >= 0 && game.toAct === me && actors.includes(seats[me].id);
+  const actor = active ? seats[game.toAct] : undefined;
+  const hand = me >= 0 ? game.hands[me] : [];
+
+  /** Cards I picked for my écart. */
+  const [selected, setSelected] = useState<Card[]>([]);
+  /** A finished trick stays in the middle for a moment, until the next card is played. */
+  const [holding, setHolding] = useState(false);
+  const shownHold = holding && game.trick.length === 0;
+  useEffect(() => {
+    if (!holding) return;
+    const id = setTimeout(() => setHolding(false), TRICK_PAUSE);
+    return () => clearTimeout(id);
+  }, [holding]);
+
+  // Sounds and the trick pause follow what happens at the table, whoever played.
+  const last = useRef(game);
+  useEffect(() => {
+    const before = last.current;
+    last.current = game;
+    if (before === game) return;
+    const cardsLeft = (v: TarotView) => v.handCounts.reduce((a, b) => a + b, 0);
+    const played = before.phase === 'playing' && cardsLeft(game) < cardsLeft(before);
+    if (played) sounds.card();
+    if (played && game.trick.length === 0 && game.lastTrick) setHolding(true);
+    if (game.phase !== 'ecart') setSelected([]);
+    if (game.phase === 'gameOver' && before.phase !== 'gameOver' && game.winners?.includes(me)) sounds.win();
+    if (myTurn && !(before.toAct === me && before.phase === game.phase)) sounds.myTurn();
+  }, [game]);
+
+  const legal = myTurn && game.phase === 'playing' ? tarotLegalCards(hand, game.trick) : [];
+  const ecarting = myTurn && game.phase === 'ecart';
+  const candidates = ecarting ? tarotEcartCandidates(hand) : [];
+  const ecartError = ecarting ? tarotEcartError(hand, selected) : null;
+
+  function toggle(card: Card) {
+    if (selected.includes(card)) setSelected(selected.filter((c) => c !== card));
+    else if (selected.length < 6) setSelected([...selected, card]);
+  }
+
+  let prompt: string;
+  if (shownHold && game.lastTrick) {
+    const w = game.lastTrick.winner;
+    prompt = w === me ? t('Tu remportes le pli !') : t('Pli pour {name}', { name: names[w] });
+  } else if (game.phase === 'dealOver' || game.phase === 'gameOver') {
+    prompt = game.phase === 'gameOver' ? t('Partie terminée') : t('Fin de la donne');
+  } else if (myTurn) {
+    prompt =
+      game.phase === 'bidding'
+        ? t('À toi d’annoncer : prends-tu ?')
+        : ecarting
+          ? t('Choisis 6 cartes pour ton écart ({n}/6)', { n: selected.length })
+          : playHint(game, hand, legal);
+  } else if (actor) {
+    const who = `${actor.bot ? '🤖 ' : ''}${actor.name}`;
+    prompt =
+      game.phase === 'bidding'
+        ? t('{name} réfléchit…', { name: who })
+        : game.phase === 'ecart'
+          ? t('{name} prend le chien et fait son écart…', { name: who })
+          : t('{name} joue…', { name: who });
+  } else {
+    prompt = '';
+  }
+
+  const nextIn = deadline ? Math.max(0, Math.ceil((deadline - now) / 1000)) : null;
+  const nextHint = (
+    <Text style={styles.summaryNote}>
+      {nextIn
+        ? t('La suite commence toute seule dans {n} s.', { n: nextIn })
+        : t('La suite commence toute seule.')}
+    </Text>
+  );
+  const nextButton = (label: string) =>
+    me >= 0 && <Button compact label={label} disabled={busy} onPress={() => onMove({ type: 'next' })} />;
+  const result = game.result;
+  const overlay = !result ? null : game.phase === 'gameOver' ? (
+    <FinalPanel game={game} names={names} me={me}>
+      <Button compact label={t('Quitter la table')} onPress={onLeave} />
+    </FinalPanel>
+  ) : result.kind === 'redeal' ? (
+    <Appear>
+      <Panel compact title={result.reason === 'petitSec' ? t('Petit sec !') : t('Personne ne prend')}>
+        <PanelText>
+          {result.reason === 'petitSec'
+            ? result.player === me
+              ? t('Tu as le Petit pour seul atout : la donne est annulée.')
+              : t('{name} a le Petit pour seul atout : la donne est annulée.', { name: names[result.player] })
+            : t('Tout le monde passe : on redistribue, c’est au joueur suivant de donner.')}
+        </PanelText>
+        {nextButton(t('Redistribuer'))}
+        {nextHint}
+      </Panel>
+    </Appear>
+  ) : (
+    <Appear>
+      <DealSummary game={game} names={names} me={me} />
+      <View style={styles.nextButton}>
+        {nextButton(t('Donne suivante'))}
+        {nextHint}
+      </View>
+    </Appear>
+  );
+
+  return (
+    <GameLayout
+      top={
+        <>
+          <TopBar onBack={onLeave} backLabel={t('← Quitter')}>
+            <Text style={styles.dealCount}>
+              {t('Donne {n}/{total}', { n: Math.min(game.dealNumber, game.deals), total: game.deals })}
+            </Text>
+            {me >= 0 && (
+              <View style={[styles.score, styles.scoreMine]}>
+                <Text style={styles.scoreLabel}>{t('Toi')}</Text>
+                <Text style={styles.scoreValue}>{signed(game.scores[me])}</Text>
+              </View>
+            )}
+          </TopBar>
+          {deadline && actor && !actor.bot && (
+            <TurnTimer deadline={deadline} now={now} name={myTurn ? t('Toi') : actor.name} seconds={60} />
+          )}
+        </>
+      }
+      table={({ width, height }) => (
+        <TarotTable
+          game={game}
+          counts={game.handCounts}
+          holding={shownHold}
+          width={width}
+          height={height}
+          names={names}
+          avatars={avatars}
+          bottom={bottom}
+          me={me}
+          overlay={overlay}
+        />
+      )}
+      bottom={
+        <>
+          <View style={styles.controls}>
+            <View style={[styles.prompt, myTurn && styles.promptMine]}>
+              <Text style={[styles.promptText, myTurn && styles.promptTextMine]} numberOfLines={1}>
+                {prompt}
+              </Text>
+            </View>
+            {error && <Text style={styles.errorLine}>{error}</Text>}
+            {myTurn && game.phase === 'bidding' && (
+              <BidButtons game={game} disabled={busy} onBid={(bid) => onMove({ type: 'bid', bid })} />
+            )}
+            {ecarting && (
+              <View style={styles.ecartButtons}>
+                <Button
+                  compact
+                  variant="secondary"
+                  label={t('Suggestion')}
+                  onPress={() => setSelected(tarotBotEcart(hand))}
+                />
+                <Button
+                  compact
+                  disabled={ecartError !== null || busy}
+                  label={
+                    selected.length === 6 && ecartError
+                      ? t(ecartError)
+                      : t('Écarter {n}/6', { n: selected.length })
+                  }
+                  onPress={() => onMove({ type: 'ecart', cards: selected })}
+                />
+              </View>
+            )}
+          </View>
+          <TarotHand
+            hand={hand}
+            playable={busy ? [] : ecarting ? candidates : legal}
+            selected={selected}
+            fresh={ecarting ? game.chien : []}
+            dimOthers={(game.phase === 'playing' && myTurn) || ecarting}
+            onPress={(card) => (ecarting ? toggle(card) : onMove({ type: 'play', card }))}
+          />
+        </>
+      }
+    />
   );
 }
 
@@ -1106,4 +1389,5 @@ const styles = StyleSheet.create({
   rankName: { flex: 1, color: colors.text, fontSize: 15, fontWeight: '800' },
   rankScore: { color: colors.gold, fontSize: 18, fontWeight: '900' },
   finalButtons: { flexDirection: 'row', gap: 6 },
+  errorLine: { color: colors.gold, textAlign: 'center', fontSize: 13 },
 });

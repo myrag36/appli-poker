@@ -11,6 +11,7 @@ import tutoriel from './tutoriel';
 import puissance4 from './puissance4';
 import ramiEnLigne from './ramiEnLigne';
 import defi from './defi';
+import tarotEnLigne from './tarotEnLigne';
 
 export const EN: Record<string, string> = {
   ...accueil,
@@ -25,4 +26,5 @@ export const EN: Record<string, string> = {
   ...puissance4,
   ...ramiEnLigne,
   ...defi,
+  ...tarotEnLigne,
 };

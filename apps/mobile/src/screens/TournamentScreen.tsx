@@ -46,6 +46,7 @@ const GAMES: { id: OnlineGameId; title: string; emoji: string }[] = [
   { id: 'yams', title: t('Yams'), emoji: '🎲' },
   { id: 'belote', title: t('Belote'), emoji: '♠️' },
   { id: 'puissance4', title: t('Puissance 4'), emoji: '🔴' },
+  { id: 'tarot', title: t('Tarot'), emoji: '🃏' },
 ];
 const GAME = Object.fromEntries(GAMES.map((g) => [g.id, g])) as Record<OnlineGameId, (typeof GAMES)[number]>;
 const MEDALS = ['🥇', '🥈', '🥉'];

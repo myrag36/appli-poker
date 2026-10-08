@@ -5,6 +5,7 @@ import { PresidentOnlineBoard, PresidentOnlineOptions } from '../screens/Preside
 import { Puissance4OnlineBoard, Puissance4OnlineOptions } from '../screens/Puissance4Screen';
 import { RamiOnlineBoard, RamiOnlineOptions } from '../screens/RamiScreen';
 import { YamsOnlineBoard } from '../screens/YamsScreen';
+import { TarotOnlineBoard, TarotOnlineOptions } from '../screens/TarotScreen';
 import { t } from '../i18n';
 import type { OnlineGameUi } from './types';
 
@@ -56,5 +57,13 @@ export const ONLINE_UI: Record<OnlineGameId, OnlineGameUi> = {
     Board: RamiOnlineBoard,
     Options: RamiOnlineOptions,
     defaultOptions: { target: 300 },
+  },
+  tarot: {
+    title: t('Tarot'),
+    emoji: '🃏',
+    players: t('1 à 4 joueurs, un preneur contre les autres, les robots complètent'),
+    Board: TarotOnlineBoard,
+    Options: TarotOnlineOptions,
+    defaultOptions: { deals: 4 },
   },
 };
