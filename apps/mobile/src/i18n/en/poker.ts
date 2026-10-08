@@ -341,7 +341,7 @@ const en: Record<string, string> = {
   'Cette carte ne remplace pas le joker': "That card doesn't replace the joker",
   'Combinaison introuvable': 'Meld not found',
   'La défausse est vide': 'The discard pile is empty',
-  'Le rami se joue de 2 à 4': 'Rami is played with 2 to 4',
+  'Le rami se joue de 2 à 6': 'Rami is played with 2 to 6',
   'Paquet de 108 cartes invalide': 'Invalid 108-card deck',
   'Pioche d’abord une carte': 'Draw a card first',
   'Rien à poser': 'Nothing to lay down',

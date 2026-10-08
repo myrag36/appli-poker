@@ -1,7 +1,7 @@
 import { type Card, type Rng, secureRng, shuffle } from './cards.ts';
 
 /**
- * French rummy ("Rami") for 2 to 4 players, with two 52-card decks and four jokers.
+ * French rummy ("Rami") for 2 to 6 players, with two 52-card decks and four jokers.
  *
  * Cards carry a third character so the two copies of a card stay apart: "Ah1" and "Ah2" are both
  * the ace of hearts. Jokers are "Xr1", "Xb1", "Xr2", "Xb2" (red and black). The first two
@@ -22,7 +22,7 @@ export const RAMI_OPENING = 51;
 export const RAMI_NOT_OPENED_PENALTY = 100;
 export const RAMI_JOKER_PENALTY = 20;
 export const RAMI_MIN_PLAYERS = 2;
-export const RAMI_MAX_PLAYERS = 4;
+export const RAMI_MAX_PLAYERS = 6;
 /** A round nobody can finish ends after this many turns (or once the stock is used up three times). */
 const MAX_TURNS = 400;
 const MAX_RESHUFFLES = 2;
@@ -336,7 +336,7 @@ function deal(
 
 export function ramiNewGame(opts: RamiOptions): RamiState {
   const n = opts.players.length;
-  if (n < RAMI_MIN_PLAYERS || n > RAMI_MAX_PLAYERS) throw new Error('Le rami se joue de 2 à 4');
+  if (n < RAMI_MIN_PLAYERS || n > RAMI_MAX_PLAYERS) throw new Error('Le rami se joue de 2 à 6');
   const rng = opts.rng ?? secureRng;
   return deal(
     {
@@ -527,9 +527,28 @@ export function ramiApply(state: RamiState, move: RamiMove, rng: Rng = secureRng
   };
 }
 
+/** What one seat may see: its own hand only, and the size of the stock instead of its cards. */
+export interface RamiView extends Omit<RamiState, 'stock'> {
+  /** Other players' hands are empty arrays; their sizes are in `handCounts`. */
+  hands: Card[][];
+  handCounts: number[];
+  stockCount: number;
+}
+
+/** Removes the hidden cards for `seat` (null: a spectator). Hands are shown again once a round ends. */
+export function ramiView(state: RamiState, seat: number | null): RamiView {
+  const { stock, ...rest } = state;
+  return {
+    ...rest,
+    hands: state.hands.map((h, i) => (i === seat ? h.slice() : [])),
+    handCounts: state.hands.map((h) => h.length),
+    stockCount: stock.length,
+  };
+}
+
 /** Players from the best (lowest score) to the worst, with shared places on ties. */
 export function ramiRanking(
-  state: RamiState,
+  state: Pick<RamiState, 'players' | 'scores'>,
 ): { player: number; name: string; score: number; place: number }[] {
   const rows = state.players
     .map((p, i) => ({ player: i, name: p.name, score: state.scores[i], place: 0 }))

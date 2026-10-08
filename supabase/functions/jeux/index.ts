@@ -1,4 +1,4 @@
-// Server of the online tables for Blackjack, Président, Yams and Belote: the only code
+// Server of the online tables for Blackjack, Président, Yams, Belote and Rami: the only code
 // allowed to write these tables, deal cards and apply moves.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import { cleanAvatar, defaultAvatar, secureRng } from '../_shared/engine/index.ts';

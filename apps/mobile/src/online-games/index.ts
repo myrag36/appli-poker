@@ -3,9 +3,10 @@ import { BeloteOnlineBoard, BeloteOnlineOptions } from '../screens/BeloteScreen'
 import { BlackjackOnlineBoard, BlackjackOnlineOptions } from '../screens/BlackjackScreen';
 import { PresidentOnlineBoard, PresidentOnlineOptions } from '../screens/PresidentScreen';
 import { Puissance4OnlineBoard, Puissance4OnlineOptions } from '../screens/Puissance4Screen';
+import { RamiOnlineBoard, RamiOnlineOptions } from '../screens/RamiScreen';
 import { YamsOnlineBoard } from '../screens/YamsScreen';
-import type { OnlineGameUi } from './types';
 import { t } from '../i18n';
+import type { OnlineGameUi } from './types';
 
 /** How each game looks at an online table. */
 export const ONLINE_UI: Record<OnlineGameId, OnlineGameUi> = {
@@ -47,5 +48,13 @@ export const ONLINE_UI: Record<OnlineGameId, OnlineGameUi> = {
     Board: Puissance4OnlineBoard,
     Options: Puissance4OnlineOptions,
     defaultOptions: { rounds: 3 },
+  },
+  rami: {
+    title: 'Rami',
+    emoji: '🃏',
+    players: t('2 à 6 joueurs, un robot complète si tu es seul'),
+    Board: RamiOnlineBoard,
+    Options: RamiOnlineOptions,
+    defaultOptions: { target: 300 },
   },
 };

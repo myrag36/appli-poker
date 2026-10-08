@@ -1,4 +1,4 @@
-// Rules of the online tables for Blackjack, Président, Yams and Belote, without any database
+// Rules of the online tables for Blackjack, Président, Yams, Belote and Rami, without any database
 // access so they can be tested on their own. The games themselves live in the engine.
 import {
   ONLINE_BOT_NAMES,
