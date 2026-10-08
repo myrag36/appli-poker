@@ -33,6 +33,7 @@ import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Banner } from '../components/Banner';
 import { AchievementList, StreakCard } from '../components/Achievements';
 import { RewardPreview } from '../components/RewardPreview';
+import { NotificationSettings } from '../components/Notifications';
 import { TitleBadge } from '../components/TitleBadge';
 import { TopBar } from '../components/TopBar';
 import { equipReward, syncMe, useMyProgress } from '../online/progress';
@@ -276,6 +277,8 @@ export function ProfileScreen({ onBack, onShop }: { onBack: () => void; onShop: 
 
       {Platform.OS === 'web' && (
         <>
+          <Text style={styles.section}>{t('Notifications')}</Text>
+          <NotificationSettings />
           <Text style={styles.section}>{t('Langue')}</Text>
           <View style={styles.langs}>
             {LANGS.map((l) => (

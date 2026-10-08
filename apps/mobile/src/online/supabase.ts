@@ -90,7 +90,11 @@ type ProfileRequest =
   | { type: 'me'; name?: string; avatar?: Avatar }
   | { type: 'addFriend'; code: string }
   | { type: 'removeFriend'; userId: string }
-  | { type: 'podium' };
+  | { type: 'podium' }
+  | { type: 'pushKey' }
+  | { type: 'pushSubscribe'; subscription: unknown; lang: string }
+  | { type: 'pushUnsubscribe'; endpoint: string }
+  | { type: 'invite'; friendId: string; game: string; code: string };
 
 /** Calls the profile server (games on one phone, rewards worn, shop and quests). */
 export function callProfile<T>(body: ProfileRequest): Promise<T> {

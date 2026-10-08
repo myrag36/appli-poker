@@ -30,6 +30,8 @@ import {
   playTimeout,
 } from './logic.ts';
 import { awardXp, unlockedEmojis } from '../_shared/xp.ts';
+import { inBackground, notify } from '../_shared/push.ts';
+import { newTurns, pokerToAct, turnNotice } from '../_shared/notify.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -231,12 +233,21 @@ async function watchRoom(userId: string, body: Record<string, unknown>) {
   return { roomId: room.id };
 }
 
+/** Tells the player who must now act, on their phone, that it is their turn. */
+function notifyTurn(room: RoomRow, before: HandState | null, saved: SaveParams) {
+  const ids = newTurns(pokerToAct(before), pokerToAct(saved.p_secret), saved.p_public.bots ?? []);
+  if (ids.length === 0 || !room.code) return;
+  const code = room.code;
+  inBackground(notify(admin, ids, (lang) => turnNotice(lang, 'poker', code), { ttl: 300, urgency: 'high' }));
+}
+
 async function nextHand(userId: string, roomId: string) {
   const room = await loadRoom(admin, roomId);
   if (room.host_id !== userId) throw new GameError('Seul le créateur de la table peut distribuer');
   const [players, previous] = await Promise.all([loadPlayers(admin, roomId), loadHand(admin, roomId)]);
   const saved = dealNextHand(room, players, previous, Date.now());
   const version = await save(admin, saved);
+  notifyTurn(room, null, saved);
   // With only all-in players left, a hand can be over as soon as it is dealt.
   await recordHand(room, saved);
   return { version };
@@ -250,6 +261,7 @@ async function act(userId: string, roomId: string, rawAction: unknown) {
   if (!hand) throw new GameError('Aucune main en cours');
   const saved = playAction(room, hand, userId, action, Date.now());
   const version = await save(admin, saved);
+  notifyTurn(room, hand, saved);
   await recordHand(room, saved);
   return { version };
 }
@@ -261,6 +273,7 @@ async function timeout(userId: string, roomId: string) {
   if (!hand) throw new GameError('Aucune main en cours');
   const saved = playTimeout(room, hand, Date.now());
   const version = await save(admin, saved);
+  notifyTurn(room, hand, saved);
   await recordHand(room, saved);
   return { version };
 }
