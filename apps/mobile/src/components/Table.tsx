@@ -18,6 +18,7 @@ const STREET_NAMES: Record<string, string> = {
 };
 
 const SEAT_WIDTH = 84;
+const WIDE_SEAT_WIDTH = 112;
 const BUBBLE_WIDTH = 150;
 
 interface Props {
@@ -34,23 +35,45 @@ interface Props {
   avatars?: Record<string, Avatar>;
   /** Chat message each player just sent, shown in a bubble by their seat. */
   bubbles?: Record<string, { text: string; key: number }>;
+  /** On a computer: a wide oval seen from above, with bigger seats and cards. */
+  wide?: boolean;
 }
 
 /**
  * Oval table seen from above, with players seated around it. `meId` sits at the bottom;
  * hole cards are shown only once revealed at showdown.
  */
-export function Table({ hand, meId, maxWidth, maxHeight, reactions, nextLevelAt, avatars, bubbles }: Props) {
-  let w = Math.min(maxWidth, 440);
-  let h = Math.min(Math.round(w * 1.45), maxHeight);
-  // On short screens, narrow the table too so it stays an oval rather than a circle.
-  if (h < w * 1.05) w = Math.round(h / 1.05);
+export function Table({
+  hand,
+  meId,
+  maxWidth,
+  maxHeight,
+  reactions,
+  nextLevelAt,
+  avatars,
+  bubbles,
+  wide,
+}: Props) {
+  const seatWidth = wide ? WIDE_SEAT_WIDTH : SEAT_WIDTH;
+  let w: number;
+  let h: number;
+  if (wide) {
+    // Lying across the screen like a real table, about twice as wide as it is deep.
+    h = Math.min(maxHeight, 640);
+    w = Math.min(maxWidth, Math.round(h * 1.95), 1100);
+    if (h > w / 1.45) h = Math.round(w / 1.45);
+  } else {
+    w = Math.min(maxWidth, 440);
+    h = Math.min(Math.round(w * 1.45), maxHeight);
+    // On short screens, narrow the table too so it stays an oval rather than a circle.
+    if (h < w * 1.05) w = Math.round(h / 1.05);
+  }
   const cx = w / 2;
   const cy = h / 2;
   // Seats sit on an ellipse slightly inside the rail.
-  const rx = w / 2 - SEAT_WIDTH / 2 + 4;
+  const rx = w / 2 - seatWidth / 2 + (wide ? 0 : 4);
   // Leave room under the bottom seat for its name plate and hand name.
-  const ry = h / 2 - 50;
+  const ry = h / 2 - (wide ? 66 : 50);
 
   const n = hand.players.length;
   const meIndex = Math.max(
@@ -63,24 +86,30 @@ export function Table({ hand, meId, maxWidth, maxHeight, reactions, nextLevelAt,
     const angle = Math.PI / 2 + (((i - meIndex + n) % n) * 2 * Math.PI) / n;
     return { x: cx + rx * Math.cos(angle), y: cy + ry * Math.sin(angle) };
   };
-  const cardWidth = Math.max(26, Math.min(46, Math.floor((w * 0.62) / 5) - 4, Math.floor(h / 13)));
+  const cardWidth = wide
+    ? Math.max(40, Math.min(66, Math.floor(h / 8.5)))
+    : Math.max(26, Math.min(46, Math.floor((w * 0.62) / 5) - 4, Math.floor(h / 13)));
+  // The middle of the table (board, pot, blinds) sits a little above centre when the table lies wide.
+  const centerTop = cy - (cardWidth * 1.4) / 2 - (wide ? 24 : 0);
 
   return (
     <View style={[styles.wrap, { width: w, height: h }]}>
-      <View style={[styles.rail, { borderRadius: w / 2 }]}>
+      <View style={[styles.rail, wide && styles.railWide, { borderRadius: w / 2 }]}>
         <LinearGradient colors={gradients.wood} style={StyleSheet.absoluteFill} />
         <View style={[styles.felt, { borderRadius: w / 2 }]}>
           <LinearGradient colors={gradients.felt} style={StyleSheet.absoluteFill} />
           <View style={[styles.feltGlow, { borderRadius: w / 2 }]} />
-          <View style={[styles.feltLine, { borderRadius: w / 2 }]} />
+          <View style={[styles.feltLine, wide && styles.feltLineWide, { borderRadius: w / 2 }]} />
           {theme.feltMark && (
-            <Text style={[styles.feltMark, { fontSize: Math.round(w * 0.32) }]}>{theme.feltMark}</Text>
+            <Text style={[styles.feltMark, { fontSize: Math.round(Math.min(w, h * 1.2) * 0.32) }]}>
+              {theme.feltMark}
+            </Text>
           )}
         </View>
       </View>
 
-      <View style={[styles.center, { top: cy - (cardWidth * 1.4) / 2, width: w }]}>
-        <View style={styles.board}>
+      <View style={[styles.center, { top: centerTop, width: w }]}>
+        <View style={[styles.board, wide && styles.boardWide]}>
           {[0, 1, 2, 3, 4].map((i) =>
             hand.board[i] ? (
               // The flop's three cards land one after the other.
@@ -97,7 +126,7 @@ export function Table({ hand, meId, maxWidth, maxHeight, reactions, nextLevelAt,
             <ChipStack amount={pot} large />
           </View>
         )}
-        <Text style={styles.street}>{STREET_NAMES[hand.street]}</Text>
+        <Text style={[styles.street, wide && styles.streetWide]}>{STREET_NAMES[hand.street]}</Text>
         <BlindsInfo smallBlind={hand.smallBlind} bigBlind={hand.bigBlind} nextLevelAt={nextLevelAt} />
       </View>
 
@@ -129,7 +158,7 @@ export function Table({ hand, meId, maxWidth, maxHeight, reactions, nextLevelAt,
       {hand.players.map((p, i) => {
         const { x, y } = seatAt(i);
         // Bets sit a fixed distance from the seat, towards the middle of the table.
-        const along = Math.min(0.45, Math.min(75, h * 0.17) / Math.hypot(cx - x, cy - y));
+        const along = Math.min(0.45, Math.min(wide ? 110 : 75, h * 0.17) / Math.hypot(cx - x, cy - y));
         const bx = x + (cx - x) * along;
         const by = y + (cy - y) * along;
         const shown = hand.showdown[p.id];
@@ -145,17 +174,24 @@ export function Table({ hand, meId, maxWidth, maxHeight, reactions, nextLevelAt,
                 <ChipStack amount={p.bet} />
               </Appear>
             )}
-            <View style={[styles.seat, { left: x - SEAT_WIDTH / 2, top: y - 30 }, p.folded && styles.folded]}>
+            <View
+              style={[
+                styles.seat,
+                { width: seatWidth, left: x - seatWidth / 2, top: y - (wide ? 38 : 30) },
+                p.folded && styles.folded,
+              ]}
+            >
               {shown && p.hole.length > 0 && (
-                <View style={styles.shownCards}>
+                <View style={[styles.shownCards, wide && styles.shownCardsWide]}>
                   {p.hole.map((c) => (
-                    <PlayingCard key={c} card={c} width={p.hole.length > 2 ? 20 : 28} />
+                    <PlayingCard key={c} card={c} width={(p.hole.length > 2 ? 20 : 28) * (wide ? 1.35 : 1)} />
                   ))}
                 </View>
               )}
               <View
                 style={[
                   styles.avatar,
+                  wide && styles.avatarWide,
                   shadow,
                   { backgroundColor: color },
                   active && styles.avatarActive,
@@ -163,9 +199,11 @@ export function Table({ hand, meId, maxWidth, maxHeight, reactions, nextLevelAt,
                 ]}
               >
                 {avatar ? (
-                  <Text style={styles.emoji}>{avatar.emoji}</Text>
+                  <Text style={[styles.emoji, wide && styles.emojiWide]}>{avatar.emoji}</Text>
                 ) : (
-                  <Text style={styles.initial}>{p.name.slice(0, 1).toUpperCase()}</Text>
+                  <Text style={[styles.initial, wide && styles.initialWide]}>
+                    {p.name.slice(0, 1).toUpperCase()}
+                  </Text>
                 )}
                 {i === hand.dealer && (
                   <View style={styles.dealer}>
@@ -173,18 +211,29 @@ export function Table({ hand, meId, maxWidth, maxHeight, reactions, nextLevelAt,
                   </View>
                 )}
               </View>
-              <View style={[styles.plate, active && styles.plateActive]}>
-                <Text style={styles.name} numberOfLines={1}>
+              <View style={[styles.plate, wide && styles.plateWide, active && styles.plateActive]}>
+                <Text style={[styles.name, wide && styles.nameWide]} numberOfLines={1}>
                   {p.id === meId ? t('Toi') : p.name}
                 </Text>
-                <Text style={styles.stack}>
+                <Text style={[styles.stack, wide && styles.nameWide]}>
                   {p.folded ? t('Couché') : p.allIn ? t('Tapis !') : `${p.stack}`}
                 </Text>
               </View>
-              {shown && <Text style={[styles.handName, won && styles.handNameWon]}>{t(shown.name)}</Text>}
+              {shown && (
+                <Text style={[styles.handName, wide && styles.handNameWide, won && styles.handNameWon]}>
+                  {t(shown.name)}
+                </Text>
+              )}
               {!shown && hand.street !== 'finished' && p.lastAction && !p.folded && (
                 <Appear key={p.lastAction} from={-6}>
-                  <Text style={[styles.lastAction, p.allIn && styles.lastActionAllIn]} numberOfLines={1}>
+                  <Text
+                    style={[
+                      styles.lastAction,
+                      wide && styles.lastActionWide,
+                      p.allIn && styles.lastActionAllIn,
+                    ]}
+                    numberOfLines={1}
+                  >
                     {tMessage(p.lastAction)}
                   </Text>
                 </Appear>
@@ -204,7 +253,7 @@ export function Table({ hand, meId, maxWidth, maxHeight, reactions, nextLevelAt,
                   styles.bubble,
                   {
                     left: Math.max(2, Math.min(w - BUBBLE_WIDTH - 2, x - BUBBLE_WIDTH / 2)),
-                    ...(y < cy ? { top: y + 46 } : { bottom: h - y + 34 }),
+                    ...(y < cy ? { top: y + (wide ? 58 : 46) } : { bottom: h - y + (wide ? 42 : 34) }),
                   },
                 ]}
               >
@@ -261,6 +310,8 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: 'rgba(255, 213, 120, 0.22)',
   },
+  railWide: { top: 22, bottom: 22, left: 30, right: 30, padding: 14 },
+  feltLineWide: { top: 22, bottom: 22, left: 26, right: 26 },
   feltMark: { position: 'absolute', opacity: 0.1, color: '#ffffff' },
   center: { position: 'absolute', left: 0, alignItems: 'center' },
   street: {
@@ -271,12 +322,15 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     marginTop: 6,
   },
+  streetWide: { fontSize: 13, marginTop: 8 },
   board: { flexDirection: 'row' },
+  boardWide: { gap: 4 },
   pot: { marginTop: 10 },
   bet: { position: 'absolute', width: 60, alignItems: 'center' },
   seat: { position: 'absolute', width: SEAT_WIDTH, alignItems: 'center' },
   folded: { opacity: 0.4 },
   shownCards: { flexDirection: 'row', position: 'absolute', top: -30, zIndex: 2 },
+  shownCardsWide: { top: -40, gap: 2 },
   avatar: {
     width: 44,
     height: 44,
@@ -286,10 +340,13 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.8)',
   },
+  avatarWide: { width: 58, height: 58, borderRadius: 29, borderWidth: 2.5 },
   avatarActive: { borderColor: colors.gold, borderWidth: 3, boxShadow: '0 0 14px rgba(255, 193, 7, 0.9)' },
   avatarWon: { borderColor: colors.gold, borderWidth: 3 },
   emoji: { fontSize: 24 },
   initial: { color: '#fff', fontWeight: '900', fontSize: 18 },
+  emojiWide: { fontSize: 32 },
+  initialWide: { fontSize: 24 },
   dealer: { position: 'absolute', right: -10, top: -4 },
   plate: {
     marginTop: -6,
@@ -303,9 +360,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.12)',
   },
+  plateWide: {
+    minWidth: 84,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    borderRadius: 10,
+    maxWidth: WIDE_SEAT_WIDTH,
+  },
   plateActive: { borderColor: colors.gold },
   name: { color: colors.text, fontWeight: '700', fontSize: 12 },
   stack: { color: colors.gold, fontWeight: '700', fontSize: 12 },
+  nameWide: { fontSize: 14 },
   handName: {
     marginTop: 2,
     color: colors.text,
@@ -316,6 +381,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     overflow: 'hidden',
   },
+  handNameWide: { fontSize: 13, paddingHorizontal: 8, paddingVertical: 1 },
   handNameWon: { color: colors.gold },
   lastAction: {
     marginTop: 2,
@@ -329,6 +395,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     maxWidth: SEAT_WIDTH,
   },
+  lastActionWide: { fontSize: 12, paddingHorizontal: 8, maxWidth: WIDE_SEAT_WIDTH },
   lastActionAllIn: { backgroundColor: colors.danger, color: '#fff' },
   reaction: { position: 'absolute', top: -34, zIndex: 5 },
   bubble: {

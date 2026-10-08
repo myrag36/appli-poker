@@ -22,6 +22,10 @@ interface Props {
   roomId: string;
   meId: string;
   avatars: Record<string, Avatar>;
+  /** On a computer: drawn in place, in a side panel next to the table, instead of a sheet. */
+  inline?: boolean;
+  /** Changes when a hand ends, so the panel left open loads the new one. */
+  reloadKey?: number;
 }
 
 function signed(n: number) {
@@ -90,7 +94,7 @@ function HandCard({
 }
 
 /** The table's last finished hands: board, cards shown, winners and what each player won or lost. */
-export function HistoryPanel({ visible, onClose, roomId, meId, avatars }: Props) {
+export function HistoryPanel({ visible, onClose, roomId, meId, avatars, inline, reloadKey }: Props) {
   const insets = useSafeAreaInsets();
   const [hands, setHands] = useState<PastHand[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -113,7 +117,20 @@ export function HistoryPanel({ visible, onClose, roomId, meId, avatars }: Props)
     return () => {
       cancelled = true;
     };
-  }, [visible, roomId]);
+  }, [visible, roomId, reloadKey]);
+
+  const list = (
+    <ScrollView contentContainerStyle={[styles.list, inline && styles.listInline]}>
+      {error && <Text style={styles.empty}>{error}</Text>}
+      {!hands && !error && <ActivityIndicator color={colors.gold} style={styles.loading} />}
+      {hands?.length === 0 && <Text style={styles.empty}>{t("Aucune main terminée pour l'instant.")}</Text>}
+      {hands?.map((h) => (
+        <HandCard key={h.hand_number} hand={h.summary} number={h.hand_number} meId={meId} avatars={avatars} />
+      ))}
+    </ScrollView>
+  );
+
+  if (inline) return <View style={styles.inline}>{list}</View>;
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -132,22 +149,7 @@ export function HistoryPanel({ visible, onClose, roomId, meId, avatars }: Props)
               <Text style={styles.closeText}>✕</Text>
             </Pressable>
           </View>
-          <ScrollView contentContainerStyle={styles.list}>
-            {error && <Text style={styles.empty}>{error}</Text>}
-            {!hands && !error && <ActivityIndicator color={colors.gold} style={styles.loading} />}
-            {hands?.length === 0 && (
-              <Text style={styles.empty}>{t("Aucune main terminée pour l'instant.")}</Text>
-            )}
-            {hands?.map((h) => (
-              <HandCard
-                key={h.hand_number}
-                hand={h.summary}
-                number={h.hand_number}
-                meId={meId}
-                avatars={avatars}
-              />
-            ))}
-          </ScrollView>
+          {list}
         </View>
       </View>
     </Modal>
@@ -195,6 +197,8 @@ const styles = StyleSheet.create({
   },
   closeText: { color: colors.text, fontSize: 15, fontWeight: '700' },
   list: { paddingHorizontal: 12, paddingBottom: 12, gap: 10 },
+  listInline: { paddingTop: 4 },
+  inline: { flex: 1, minHeight: 0 },
   loading: { marginTop: 30 },
   empty: { color: colors.muted, textAlign: 'center', marginTop: 30 },
   card: {

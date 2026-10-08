@@ -5,6 +5,7 @@ import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
 import { LevelPicker } from '../components/LevelPicker';
 import { VariantPicker } from '../components/VariantPicker';
+import { useDesktop } from '../layout';
 import { colors } from '../theme';
 import { t } from '../i18n';
 
@@ -39,6 +40,7 @@ export function SetupScreen({ onStart, onBack }: Props) {
   const [bigBlind, setBigBlind] = useState('20');
   const [levelMinutes, setLevelMinutes] = useState<number | null>(null);
   const [variant, setVariant] = useState<Variant>('holdem');
+  const desktop = useDesktop();
 
   const cleaned = names.map((n, i) => n.trim() || t('Joueur {n}', { n: i + 1 }));
   const stackValue = parseInt(stack, 10);
@@ -59,10 +61,8 @@ export function SetupScreen({ onStart, onBack }: Props) {
     setBots([...bots, bot]);
   }
 
-  return (
-    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-      <Text style={styles.title}>{t('Sur ce téléphone')}</Text>
-
+  const playersSection = (
+    <>
       <Text style={styles.section}>{t('Joueurs')}</Text>
       {names.map((name, i) => (
         <View key={i}>
@@ -131,7 +131,10 @@ export function SetupScreen({ onStart, onBack }: Props) {
       <Text style={styles.hint}>
         {t('Les robots jouent tout seuls. Seul contre des robots, tu n’as pas besoin de cacher tes cartes.')}
       </Text>
-
+    </>
+  );
+  const settingsSection = (
+    <>
       <Text style={styles.section}>{t('Réglages')}</Text>
       <VariantPicker value={variant} onChange={setVariant} />
       <View style={styles.row}>
@@ -159,24 +162,55 @@ export function SetupScreen({ onStart, onBack }: Props) {
         <Text style={styles.error}>{t('Deux joueurs ont le même nom.')}</Text>
       )}
       {!bots.includes(false) && <Text style={styles.error}>{t('Il faut au moins un joueur humain.')}</Text>}
+    </>
+  );
+  const start = (
+    <Button
+      label={t('Lancer la partie')}
+      disabled={!valid}
+      onPress={() =>
+        onStart({
+          names: cleaned,
+          stack: stackValue,
+          bigBlind: bbValue,
+          levelMinutes,
+          avatars,
+          bots,
+          variant,
+        })
+      }
+    />
+  );
+  const back = <Button label={t('Retour')} variant="secondary" onPress={onBack} />;
 
+  if (desktop) {
+    // On a computer: one card, the players on the left and the settings on the right.
+    return (
+      <ScrollView contentContainerStyle={styles.containerWide} keyboardShouldPersistTaps="handled">
+        <Text style={[styles.title, styles.titleWide]}>{t('Sur ce téléphone')}</Text>
+        <View style={styles.card}>
+          <View style={styles.columns}>
+            <View style={styles.column}>{playersSection}</View>
+            <View style={styles.divider} />
+            <View style={styles.column}>{settingsSection}</View>
+          </View>
+          <View style={styles.footer}>
+            <View>{back}</View>
+            <View style={styles.startWide}>{start}</View>
+          </View>
+        </View>
+      </ScrollView>
+    );
+  }
+
+  return (
+    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <Text style={styles.title}>{t('Sur ce téléphone')}</Text>
+      {playersSection}
+      {settingsSection}
       <View style={styles.spacer} />
-      <Button
-        label={t('Lancer la partie')}
-        disabled={!valid}
-        onPress={() =>
-          onStart({
-            names: cleaned,
-            stack: stackValue,
-            bigBlind: bbValue,
-            levelMinutes,
-            avatars,
-            bots,
-            variant,
-          })
-        }
-      />
-      <Button label={t('Retour')} variant="secondary" onPress={onBack} />
+      {start}
+      {back}
     </ScrollView>
   );
 }
@@ -206,4 +240,31 @@ const styles = StyleSheet.create({
   botTag: { color: colors.gold, fontSize: 12, fontWeight: '800', textTransform: 'uppercase' },
   error: { color: colors.gold, marginTop: 8 },
   spacer: { height: 24 },
+  containerWide: { paddingHorizontal: 32, paddingTop: 48, paddingBottom: 40 },
+  titleWide: { fontSize: 34, marginBottom: 20 },
+  card: {
+    width: '100%',
+    maxWidth: 1040,
+    alignSelf: 'center',
+    padding: 28,
+    paddingTop: 12,
+    borderRadius: 18,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    boxShadow: '0 12px 40px rgba(0,0,0,0.35)',
+  },
+  columns: { flexDirection: 'row', gap: 28 },
+  column: { flex: 1, minWidth: 0 },
+  divider: { width: 1, marginTop: 24, backgroundColor: colors.glassBorder },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 28,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: colors.glassBorder,
+  },
+  startWide: { minWidth: 260 },
 });
