@@ -8,7 +8,11 @@ import {
   type GameRoomRow,
   type GameSecret,
   type GameSnapshot,
+  type Rematch,
+  type SeatedGamePlayerRow,
   checkJoin,
+  gameRematch,
+  gameRematchJoin,
   cleanOptions,
   cleanTournamentGames,
   cleanTournamentName,
@@ -56,7 +60,11 @@ async function loadPlayers(roomId: string) {
 }
 
 async function loadSecret(roomId: string) {
-  const { data, error } = await admin.from('game_secrets').select('state').eq('room_id', roomId).maybeSingle();
+  const { data, error } = await admin
+    .from('game_secrets')
+    .select('state')
+    .eq('room_id', roomId)
+    .maybeSingle();
   if (error) throw error;
   if (!data) throw new GameError('La partie n’a pas commencé');
   return data.state as GameSecret;
@@ -85,7 +93,9 @@ function avatarColumns(raw: unknown, seat: number, extra: string[]) {
 async function createRoom(userId: string, body: Record<string, unknown>) {
   const name = cleanName(body.name);
   const options = cleanOptions(body.game, body.options);
-  const tournament = body.tournamentId ? await tournamentTable(userId, String(body.tournamentId), body.game) : null;
+  const tournament = body.tournamentId
+    ? await tournamentTable(userId, String(body.tournamentId), body.game)
+    : null;
   for (let attempt = 0; attempt < 5; attempt++) {
     const { data: room, error } = await admin
       .from('game_rooms')
@@ -102,7 +112,13 @@ async function createRoom(userId: string, body: Record<string, unknown>) {
     if (error) throw error;
     const { error: seatError } = await admin
       .from('game_players')
-      .insert({ room_id: room.id, user_id: userId, name, seat: 0, ...avatarColumns(body.avatar, 0, await unlockedEmojis(admin, userId)) });
+      .insert({
+        room_id: room.id,
+        user_id: userId,
+        name,
+        seat: 0,
+        ...avatarColumns(body.avatar, 0, await unlockedEmojis(admin, userId)),
+      });
     if (seatError) throw seatError;
     if (tournament) {
       const { error: linkError } = await admin
@@ -157,8 +173,14 @@ async function createTournament(userId: string, body: Record<string, unknown>) {
 }
 
 async function joinTournament(userId: string, body: Record<string, unknown>) {
-  const code = String(body.code ?? '').trim().toUpperCase();
-  const { data: t, error } = await admin.from('tournaments').select('id, status').eq('code', code).maybeSingle();
+  const code = String(body.code ?? '')
+    .trim()
+    .toUpperCase();
+  const { data: t, error } = await admin
+    .from('tournaments')
+    .select('id, status')
+    .eq('code', code)
+    .maybeSingle();
   if (error) throw error;
   if (!t) throw new GameError('Aucun tournoi avec ce code');
   const { count } = await admin
@@ -181,7 +203,9 @@ async function joinTournament(userId: string, body: Record<string, unknown>) {
 
 async function joinRoom(userId: string, body: Record<string, unknown>) {
   const name = cleanName(body.name);
-  const code = String(body.code ?? '').trim().toUpperCase();
+  const code = String(body.code ?? '')
+    .trim()
+    .toUpperCase();
   const { data: room, error } = await admin.from('game_rooms').select('*').eq('code', code).maybeSingle();
   if (error) throw error;
   if (!room) throw new GameError('Aucune table avec ce code');
@@ -194,7 +218,13 @@ async function joinRoom(userId: string, body: Record<string, unknown>) {
   const seat = firstFreeGameSeat(players);
   const { error: insertError } = await admin
     .from('game_players')
-    .insert({ room_id: room.id, user_id: userId, name, seat, ...avatarColumns(body.avatar, seat, await unlockedEmojis(admin, userId)) });
+    .insert({
+      room_id: room.id,
+      user_id: userId,
+      name,
+      seat,
+      ...avatarColumns(body.avatar, seat, await unlockedEmojis(admin, userId)),
+    });
   if (insertError?.code === '23505') throw new GameError('Cette place vient d’être prise, réessaie');
   if (insertError) throw insertError;
   return { roomId: room.id, game: room.game };
@@ -266,6 +296,68 @@ async function tick(userId: string, roomId: string) {
   return await saveAndAward(room, secret, playGameTimeout(secret, secureRng, Date.now()));
 }
 
+/**
+ * Revanche: the first player to ask opens a new table for the same game and writes it on
+ * the finished one; everyone who asks after that is seated there directly.
+ */
+async function rematch(userId: string, roomId: string) {
+  const room = await loadRoom(roomId);
+  const { data, error: playersError } = await admin
+    .from('game_players')
+    .select('user_id, name, seat, is_bot, avatar, avatar_color')
+    .eq('room_id', roomId);
+  if (playersError) throw playersError;
+  const players = data as SeatedGamePlayerRow[];
+  let target = room.rematch ?? null;
+  if (!target) {
+    const plan = gameRematch(room, await loadSecret(roomId), players, userId);
+    const created = await insertRematchRoom(plan.room);
+    const { error: seatError } = await admin
+      .from('game_players')
+      .insert(plan.players.map((p) => ({ ...p, room_id: created.id })));
+    if (seatError) throw seatError;
+    const me = players.find((p) => p.user_id === userId)!;
+    const mine: Rematch = { roomId: created.id, code: created.code, byId: userId, by: me.name };
+    // Only one rematch per game: if someone else was faster, drop ours and follow theirs.
+    const { data: claimed, error } = await admin
+      .from('game_rooms')
+      .update({ rematch: mine })
+      .eq('id', roomId)
+      .is('rematch', null)
+      .select('id')
+      .maybeSingle();
+    if (error) throw error;
+    if (claimed) return { roomId: created.id };
+    await admin.from('game_rooms').delete().eq('id', created.id);
+    target = (await loadRoom(roomId)).rematch ?? null;
+    if (!target) throw new GameError('Quelqu’un a joué en même temps, réessaie');
+  }
+  const next = await loadRoom(target.roomId).catch(() => {
+    throw new GameError('Cette revanche n’existe plus');
+  });
+  const row = gameRematchJoin(next, await loadPlayers(next.id), players, userId);
+  if (row) {
+    const { error } = await admin.from('game_players').insert(row);
+    if (error?.code === '23505') throw new GameError('Cette place vient d’être prise, réessaie');
+    if (error) throw error;
+  }
+  return { roomId: next.id };
+}
+
+async function insertRematchRoom(settings: ReturnType<typeof gameRematch>['room']) {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const { data, error } = await admin
+      .from('game_rooms')
+      .insert({ code: makeRoomCode(), ...settings })
+      .select('id, code')
+      .single();
+    if (error?.code === '23505') continue;
+    if (error) throw error;
+    return data as { id: string; code: string };
+  }
+  throw new GameError('Impossible de créer la table, réessaie');
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
 
@@ -297,6 +389,8 @@ Deno.serve(async (req) => {
         return json(await move(user.id, roomId, body.move));
       case 'tick':
         return json(await tick(user.id, roomId));
+      case 'rematch':
+        return json(await rematch(user.id, roomId));
       default:
         return json({ error: 'Requête inconnue' }, 400);
     }

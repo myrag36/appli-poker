@@ -5,6 +5,7 @@ import {
   ONLINE_GAMES,
   cleanAvatar,
   defaultAvatar,
+  emotesFor,
 } from '@appli-poker/engine';
 import {
   ActivityIndicator,
@@ -18,6 +19,8 @@ import {
 } from 'react-native';
 import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
+import { ReactionButton } from '../components/ReactionButton';
+import { RematchPanel } from '../components/RematchPanel';
 import { ONLINE_UI } from '../online-games';
 import type { BoardSeat } from '../online-games/types';
 import {
@@ -31,7 +34,9 @@ import {
   saveLastGameRoom,
 } from '../online/supabase';
 import { type GamePlayer, useGameRoom } from '../online/useGameRoom';
-import { type OtherProgress, useProgressOf } from '../online/progress';
+import { type OtherProgress, useMyProgress, useProgressOf } from '../online/progress';
+import { sounds } from '../feedback';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TitleBadge } from '../components/TitleBadge';
 import { colors } from '../theme';
 import { t, tn } from '../i18n';
@@ -68,10 +73,13 @@ export function OnlineGameScreen({ game, initialName, onBack, tournament }: Prop
   }
   return (
     <Room
+      // A rematch moves everyone to a new table: start that one afresh.
+      key={table.roomId}
       game={game}
       roomId={table.roomId}
       userId={table.userId}
       inTournament={!!tournament}
+      onSwitch={enter}
       // A tournament table goes back to the tournament, not to the lobby.
       onLeave={() => (tournament ? onBack() : setTable(null))}
       onGone={() => {
@@ -301,6 +309,7 @@ function Room({
   roomId,
   userId,
   inTournament,
+  onSwitch,
   onLeave,
   onGone,
 }: {
@@ -308,13 +317,28 @@ function Room({
   roomId: string;
   userId: string;
   inTournament: boolean;
+  /** Goes to another table: the rematch of this one. */
+  onSwitch: (roomId: string, name: string) => Promise<void>;
   onLeave: () => void;
   onGone: () => void;
 }) {
-  const { room, players, myView, error, removed, refresh, now } = useGameRoom(roomId, userId);
+  const { room, players, myView, error, removed, refresh, now, reactions, sendReaction } = useGameRoom(
+    roomId,
+    userId,
+  );
   const progressOf = useProgressOf(players.filter((p) => !p.is_bot).map((p) => p.user_id));
+  const myEmotes = emotesFor(useMyProgress()?.owned ?? []);
+  const insets = useSafeAreaInsets();
   const [busy, setBusy] = useState(false);
   const [moveError, setMoveError] = useState<string | null>(null);
+
+  // A little sound when someone else reacts.
+  const lastOtherReaction = Object.entries(reactions)
+    .filter(([from]) => from !== userId)
+    .reduce((m, [, r]) => Math.max(m, r.key), 0);
+  useEffect(() => {
+    if (lastOtherReaction) sounds.reaction();
+  }, [lastOtherReaction]);
 
   useEffect(() => {
     if (removed) onGone();
@@ -372,25 +396,46 @@ function Room({
   const byId = new Map(players.map((p) => [p.user_id, p]));
   const seats: BoardSeat[] = state.seats.map((s, i) => ({
     ...s,
-    avatar: avatarOf(byId.get(s.id), i, progressOf[s.id]),
+    avatar: { ...avatarOf(byId.get(s.id), i, progressOf[s.id]), reaction: reactions[s.id] },
   }));
   const mySeat = state.seats.findIndex((s) => s.id === userId);
   const Board = ui.Board;
+  const rematch = async () => {
+    const { roomId: next } = await callGames<{ roomId: string }>({ type: 'rematch', roomId });
+    await onSwitch(next, byId.get(userId)?.name ?? '');
+  };
   return (
-    <Board
-      view={mySeat >= 0 && myView != null ? myView : state.view}
-      mySeat={mySeat}
-      seats={seats}
-      actors={state.actors}
-      deadline={state.deadline}
-      now={now}
-      betweenRounds={state.betweenRounds}
-      over={state.over}
-      busy={busy}
-      error={moveError}
-      onMove={(move) => send({ type: 'move', roomId, move })}
-      onLeave={state.over ? onGone : onLeave}
-    />
+    <View style={styles.flex}>
+      <View style={styles.flex}>
+        <Board
+          view={mySeat >= 0 && myView != null ? myView : state.view}
+          mySeat={mySeat}
+          seats={seats}
+          actors={state.actors}
+          deadline={state.deadline}
+          now={now}
+          betweenRounds={state.betweenRounds}
+          over={state.over}
+          busy={busy}
+          error={moveError}
+          onMove={(move) => send({ type: 'move', roomId, move })}
+          onLeave={state.over ? onGone : onLeave}
+        />
+      </View>
+      {state.over && mySeat >= 0 && !inTournament && (
+        <View style={[styles.rematch, { paddingBottom: insets.bottom + 10 }]}>
+          <RematchPanel rematch={room.rematch} meId={userId} onRematch={rematch} />
+        </View>
+      )}
+      {mySeat >= 0 && (
+        <ReactionButton
+          emojis={myEmotes}
+          onSend={sendReaction}
+          // In the middle of the top bar, the one place every game leaves free.
+          style={[styles.react, { top: insets.top + 6 }]}
+        />
+      )}
+    </View>
   );
 }
 
@@ -578,4 +623,6 @@ const styles = StyleSheet.create({
   error: { color: colors.gold, marginTop: 12, textAlign: 'center' },
   spacer: { height: 24 },
   spacerSmall: { height: 10 },
+  rematch: { paddingHorizontal: 10, paddingTop: 6 },
+  react: { left: 0, right: 0, alignItems: 'center' },
 });

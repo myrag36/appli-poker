@@ -21,6 +21,6 @@ test('dates: month, days left and the Monday of the week', () => {
 });
 
 test('bought emotes join the free ones', () => {
-  assert.equal(emotesFor([]).length, 6);
+  assert.equal(emotesFor([]).length, 8);
   assert.ok(emotesFor(['emote:🐔']).includes('🐔'));
 });

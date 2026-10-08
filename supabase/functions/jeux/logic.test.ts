@@ -8,6 +8,8 @@ import {
   TURN_MS,
   checkJoin,
   cleanOptions,
+  gameRematch,
+  gameRematchJoin,
   cleanTournamentGames,
   cleanTournamentName,
   tournamentResults,
@@ -76,7 +78,10 @@ test('starting gives each person their own view and the first turn to the first 
 
 test('only the host starts, and only once', () => {
   assert.throws(() => startGame(room(), [player('a', 0)], 'b', newId, rng, NOW), /créateur/);
-  assert.throws(() => startGame(room({ status: 'playing' }), [player('a', 0)], 'a', newId, rng, NOW), /commencé/);
+  assert.throws(
+    () => startGame(room({ status: 'playing' }), [player('a', 0)], 'a', newId, rng, NOW),
+    /commencé/,
+  );
 });
 
 test('a player can only move on their turn, and the move is applied', () => {
@@ -103,14 +108,7 @@ test('robots play once their short pause is over, and a slow player is played fo
 });
 
 test('robots fill the table when a game needs more players', () => {
-  const { bots, snapshot } = startGame(
-    room({ game: 'yams' }),
-    [player('a', 0)],
-    'a',
-    newId,
-    rng,
-    NOW,
-  );
+  const { bots, snapshot } = startGame(room({ game: 'yams' }), [player('a', 0)], 'a', newId, rng, NOW);
   assert.equal(bots.length, 0);
   assert.equal(snapshot.public.seats.length, 1);
 });
@@ -208,4 +206,54 @@ test('tournaments: valid games only, and results once a table ends', () => {
   }
   assert.equal(results?.length, 1);
   assert.equal(results![0].userId, 'a');
+});
+
+test('revanche: once the game is over, a new table with the asker, the robots and old seats', () => {
+  const seated = [
+    { ...player('a', 0), avatar: '🦊', avatar_color: '#f00' },
+    { ...player('r', 1, true), avatar: '🤖', avatar_color: '#0f0' },
+    { ...player('b', 2), avatar: null, avatar_color: null },
+  ];
+  const finished = room({ options: { x: 1 }, status: 'playing' });
+  const { snapshot } = startGame(room(), seated, 'a', newId, rng, NOW);
+  assert.throws(() => gameRematch(finished, snapshot.secret, seated, 'b'), /pas finie/);
+  assert.throws(() => gameRematch(finished, null, seated, 'b'), /pas finie/);
+  let s = snapshot;
+  for (let i = 0; i < 5000 && !s.public.over; i++) s = playGameTimeout(s.secret, rng, s.secret.deadline!);
+  assert.ok(s.public.over);
+  assert.throws(() => gameRematch(finished, s.secret, seated, 'z'), /pas à cette table/);
+  assert.throws(() => gameRematch(finished, s.secret, seated, 'r'), /pas à cette table/);
+  assert.throws(() => gameRematch({ ...finished, tournament_id: 't' }, s.secret, seated, 'b'), /tournoi/);
+
+  const plan = gameRematch(finished, s.secret, seated, 'b');
+  assert.deepEqual(plan.room, { game: 'yams', host_id: 'b', options: { x: 1 } });
+  assert.deepEqual(
+    plan.players.map((p) => [p.user_id, p.seat, p.is_bot, p.avatar]),
+    [
+      ['r', 1, true, '🤖'],
+      ['b', 2, false, null],
+    ],
+  );
+
+  // The others follow with one tap, back in their old seat if it is still free.
+  const next = room({ id: 'next', host_id: 'b' });
+  const there = plan.players.map((p) => ({
+    user_id: p.user_id,
+    name: p.name,
+    seat: p.seat,
+    is_bot: p.is_bot,
+  }));
+  assert.deepEqual(gameRematchJoin(next, there, seated, 'a'), {
+    room_id: 'next',
+    user_id: 'a',
+    name: 'A',
+    seat: 0,
+    is_bot: false,
+    avatar: '🦊',
+    avatar_color: '#f00',
+  });
+  assert.equal(gameRematchJoin(next, [...there, player('a', 0)], seated, 'a'), null);
+  assert.equal(gameRematchJoin(next, [...there, player('x', 0)], seated, 'a')!.seat, 3);
+  assert.throws(() => gameRematchJoin(next, there, seated, 'z'), /pas à cette table/);
+  assert.throws(() => gameRematchJoin({ ...next, status: 'playing' }, there, seated, 'a'), /commencé/);
 });

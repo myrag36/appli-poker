@@ -3,6 +3,7 @@ import { Animated, Easing, Platform, Pressable, StyleSheet, Text, View } from 'r
 import { LinearGradient } from 'expo-linear-gradient';
 import { AVATAR_COLORS, AVATAR_EMOJIS, REWARDS, type Avatar, ownedKey } from '@appli-poker/engine';
 import { t } from '../i18n';
+import { FloatUp } from './Motion';
 import { colors, shadow } from '../theme';
 
 const native = Platform.OS !== 'web';
@@ -305,8 +306,35 @@ function useLoop(motion: FrameLook['motion']) {
   return t;
 }
 
-/** A round avatar: an emoji on a colored disc, with its frame and level when it has them. */
-export function AvatarBadge({ avatar, size = 44 }: { avatar: Avatar; size?: number }) {
+/** An avatar at an online table, with the emoji reaction its player just sent. */
+export type SeatAvatar = Avatar & { reaction?: { emoji: string; key: number } };
+
+/**
+ * A round avatar: an emoji on a colored disc, with its frame and level when it has them.
+ * A reaction carried by the avatar floats up above it, wherever the game draws the seat.
+ */
+export function AvatarBadge({ avatar, size = 44 }: { avatar: SeatAvatar; size?: number }) {
+  const reaction = avatar.reaction;
+  return (
+    <View style={[{ width: size, height: size }, reaction && styles.reacting]}>
+      <AvatarDisc avatar={avatar} size={size} />
+      <SeatReaction avatar={avatar} size={size} />
+    </View>
+  );
+}
+
+/** Just the floating reaction, for a seat a game draws without its avatar (like my own). */
+export function SeatReaction({ avatar, size = 44 }: { avatar: SeatAvatar; size?: number }) {
+  const reaction = avatar.reaction;
+  if (!reaction) return null;
+  return (
+    <FloatUp key={reaction.key} style={[styles.reaction, { bottom: size * 0.55 }]}>
+      <Text style={{ fontSize: Math.max(28, Math.round(size * 0.8)) }}>{reaction.emoji}</Text>
+    </FloatUp>
+  );
+}
+
+function AvatarDisc({ avatar, size }: { avatar: Avatar; size: number }) {
   const look = avatar.frame ? FRAMES[avatar.frame] : undefined;
   const t = useLoop(look?.motion);
   const chip =
@@ -1299,6 +1327,8 @@ export function AvatarPicker({
 
 const styles = StyleSheet.create({
   abs: { position: 'absolute' },
+  reacting: { zIndex: 40 },
+  reaction: { position: 'absolute', left: -60, right: -60, alignItems: 'center', zIndex: 40 },
   badge: {
     alignItems: 'center',
     justifyContent: 'center',

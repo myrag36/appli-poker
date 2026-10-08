@@ -21,7 +21,7 @@ import {
   botName,
   defaultAvatar,
 } from '@appli-poker/engine';
-import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
+import { AvatarBadge, AvatarPicker, SeatReaction } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
 import { reportLocalGame, useFeat } from '../online/progress';
 import { OnlineButton } from '../components/OnlineButton';
@@ -607,6 +607,7 @@ function BeloteTable({
               </Text>
               {p === 0 && game.dealer === seat && <Text style={styles.dealerInline}>D</Text>}
             </View>
+            {p === 0 && <SeatReaction avatar={avatars[seat]} size={30} />}
             {p !== 0 && count > 0 && (
               <View style={styles.backs}>
                 {Array.from({ length: count }, (_, i) => (
