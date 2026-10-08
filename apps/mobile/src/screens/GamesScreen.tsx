@@ -28,16 +28,29 @@ import { achievementsReady } from '../components/Achievements';
 import { useMyProgress } from '../online/progress';
 import { loadAvatar } from '../online/supabase';
 import { PlayingCard } from '../components/PlayingCard';
+import { Token } from '../components/Token';
+import { UnoCard } from '../components/UnoCard';
+import { TarotCard } from '../components/TarotCard';
 import { colors, gradients, shadow } from '../theme';
 
-export type GameId = 'poker' | 'blackjack' | 'president' | 'yams' | 'belote';
+export type GameId =
+  | 'poker'
+  | 'blackjack'
+  | 'president'
+  | 'yams'
+  | 'belote'
+  | 'puissance4'
+  | 'rami'
+  | 'uno'
+  | 'huit'
+  | 'tarot';
 
 interface Game {
   id: GameId;
   title: string;
   tagline: string;
   players: string;
-  /** Cards fanned on the game's card, or dice faces for dice games. */
+  /** Cards fanned on the game's card, dice faces for dice games, or 'r'/'y' tokens for Puissance 4. */
   art: string[];
   ready: boolean;
 }
@@ -83,6 +96,46 @@ const GAMES: Game[] = [
     art: ['Jh', '9h', 'Ah', 'Kh', 'Qh'],
     ready: true,
   },
+  {
+    id: 'puissance4',
+    title: 'Puissance 4',
+    tagline: 'Fais tomber tes jetons et aligne-en quatre avant l’autre.',
+    players: '2 joueurs ou contre le robot',
+    art: ['r', 'y', 'r', 'y', 'r'],
+    ready: true,
+  },
+  {
+    id: 'rami',
+    title: 'Rami',
+    tagline: 'Pose tes suites et tes brelans, ouvre à 51 et vide ta main le premier.',
+    players: '2 à 4 joueurs',
+    art: ['7d', '8d', 'Xr', '9d'],
+    ready: true,
+  },
+  {
+    id: 'uno',
+    title: 'Uno',
+    tagline: 'Couleur ou chiffre, +2, +4 et Joker : crie « Uno ! » avant de gagner.',
+    players: '2 à 6 joueurs',
+    art: ['bSa', 'y7a', 'wFa', 'rDa', 'g2a'],
+    ready: true,
+  },
+  {
+    id: 'huit',
+    title: '8 américain',
+    tagline: 'Le 8 change la couleur, le 2 fait piocher : vide ta main le premier.',
+    players: '2 à 6 joueurs',
+    art: ['2h', '8s', '8h', 'Jd'],
+    ready: true,
+  },
+  {
+    id: 'tarot',
+    title: 'Tarot',
+    tagline: 'Prends, garde ou passe : seul contre trois, avec les bouts pour alliés.',
+    players: '4 joueurs',
+    art: ['1t', 'EX', '21t', 'Rh', 'Cs'],
+    ready: true,
+  },
 ];
 
 const GAP = 14;
@@ -100,6 +153,20 @@ interface Props {
 }
 
 function Art({ game }: { game: Game }) {
+  if (game.id === 'puissance4') {
+    return (
+      <View style={styles.tokens}>
+        {game.art.map((t, i) => (
+          <Token
+            key={i}
+            player={t === 'r' ? 0 : 1}
+            size={46}
+            style={{ transform: [{ translateY: (i % 2 ? 10 : -8) + Math.abs(i - 2) * 3 }] }}
+          />
+        ))}
+      </View>
+    );
+  }
   if (game.id === 'yams') {
     return (
       <View style={styles.dice}>
@@ -112,6 +179,24 @@ function Art({ game }: { game: Game }) {
     );
   }
   const mid = (game.art.length - 1) / 2;
+  const tarot = game.id === 'tarot';
+  if (game.id === 'uno') {
+    return (
+      <View style={styles.fan}>
+        {game.art.map((c, i) => (
+          <View
+            key={c}
+            style={[
+              styles.fanCard,
+              { transform: [{ rotate: `${(i - mid) * 13}deg` }, { translateY: Math.abs(i - mid) * 8 }] },
+            ]}
+          >
+            <UnoCard card={c} width={62} />
+          </View>
+        ))}
+      </View>
+    );
+  }
   return (
     <View style={styles.fan}>
       {game.art.map((c, i) => (
@@ -122,7 +207,7 @@ function Art({ game }: { game: Game }) {
             { transform: [{ rotate: `${(i - mid) * 13}deg` }, { translateY: Math.abs(i - mid) * 8 }] },
           ]}
         >
-          <PlayingCard card={c} width={62} />
+          {tarot ? <TarotCard card={c} width={56} /> : <PlayingCard card={c} width={62} />}
         </View>
       ))}
     </View>
@@ -440,6 +525,7 @@ const styles = StyleSheet.create({
   fan: { flexDirection: 'row', justifyContent: 'center', height: 110 },
   fanCard: { marginHorizontal: -9 },
   dice: { flexDirection: 'row', gap: 4 },
+  tokens: { flexDirection: 'row', gap: 3 },
   die: {
     width: 44,
     height: 44,

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { Alert, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import type { OnlineGameId } from '@appli-poker/engine';
 import { type SavedRoom, ensureSignedIn, loadLastRoom, loadName } from './src/online/supabase';
 import { GameScreen } from './src/screens/GameScreen';
 import { HomeScreen } from './src/screens/HomeScreen';
@@ -10,6 +11,10 @@ import { BlackjackScreen } from './src/screens/BlackjackScreen';
 import { PresidentScreen } from './src/screens/PresidentScreen';
 import { YamsScreen } from './src/screens/YamsScreen';
 import { BeloteScreen } from './src/screens/BeloteScreen';
+import { Puissance4Screen } from './src/screens/Puissance4Screen';
+import { RamiScreen } from './src/screens/RamiScreen';
+import { HuitScreen, UnoScreen } from './src/screens/UnoScreen';
+import { TarotScreen } from './src/screens/TarotScreen';
 import { Backdrop } from './src/components/Backdrop';
 import { OnlineLobbyScreen } from './src/screens/OnlineLobbyScreen';
 import { OnlineRoomScreen } from './src/screens/OnlineRoomScreen';
@@ -23,10 +28,12 @@ import { ProgressToast } from './src/components/ProgressToast';
 import { type GameSettings, SetupScreen } from './src/screens/SetupScreen';
 import { colors } from './src/theme';
 
+/** Games that can also be played online, each player on their own phone. */
+
 type Screen =
   | { name: 'games' }
   | { name: 'game'; game: Exclude<GameId, 'poker'> }
-  | { name: 'game-online'; game: Exclude<GameId, 'poker'>; tournament?: TournamentTable }
+  | { name: 'game-online'; game: OnlineGameId; tournament?: TournamentTable }
   | { name: 'home' }
   | { name: 'local-setup' }
   | { name: 'local-game'; settings: GameSettings }
@@ -59,7 +66,7 @@ export default function App() {
 
   const home = () => setScreen({ name: 'home' });
   const games = () => setScreen({ name: 'games' });
-  const online = (game: Exclude<GameId, 'poker'>) => () => setScreen({ name: 'game-online', game });
+  const online = (game: OnlineGameId) => () => setScreen({ name: 'game-online', game });
 
   return (
     <SafeAreaProvider>
@@ -103,6 +110,11 @@ export default function App() {
         {screen.name === 'game' && screen.game === 'belote' && (
           <BeloteScreen onBack={games} onOnline={online('belote')} />
         )}
+        {screen.name === 'game' && screen.game === 'puissance4' && <Puissance4Screen onBack={games} />}
+        {screen.name === 'game' && screen.game === 'rami' && <RamiScreen onBack={games} />}
+        {screen.name === 'game' && screen.game === 'uno' && <UnoScreen onBack={games} />}
+        {screen.name === 'game' && screen.game === 'huit' && <HuitScreen onBack={games} />}
+        {screen.name === 'game' && screen.game === 'tarot' && <TarotScreen onBack={games} />}
         {screen.name === 'game-online' && (
           <OnlineGameScreen
             key={screen.game}
