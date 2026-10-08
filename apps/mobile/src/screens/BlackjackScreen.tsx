@@ -24,11 +24,12 @@ import {
   bjRoundNet,
   bjTotalLabel,
   botName,
+  bjIsBlackjack,
   defaultAvatar,
 } from '@appli-poker/engine';
 import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
-import { reportLocalGame } from '../online/progress';
+import { reportLocalGame, useFeat } from '../online/progress';
 import { OnlineButton } from '../components/OnlineButton';
 import { RulesButton } from '../components/Rules';
 import { BLACKJACK_RULES } from '../rules';
@@ -89,6 +90,14 @@ export function BlackjackScreen({ onBack, onOnline }: { onBack: () => void; onOn
   const [settings, setSettings] = useState<Settings | null>(null);
   const [game, setGame] = useState<BjState | null>(null);
   const [stopped, setStopped] = useState(false);
+  useFeat(
+    'blackjack',
+    !!game?.seats.some(
+      (s) =>
+        !game.players.find((p) => p.id === s.playerId)?.bot &&
+        s.hands.some((h) => !h.split && bjIsBlackjack(h.cards)),
+    ),
+  );
 
   if (!settings || !game) {
     return (

@@ -21,7 +21,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GameDecor } from '../components/GameDecor';
 import { ThemeChooser } from '../components/ThemeChooser';
+import { InstallBanner } from '../components/InstallBanner';
 import { AvatarBadge } from '../components/AvatarPicker';
+import { achievementsReady } from '../components/Achievements';
 import { useMyProgress } from '../online/progress';
 import { loadAvatar } from '../online/supabase';
 import { PlayingCard } from '../components/PlayingCard';
@@ -241,6 +243,8 @@ export function GamesScreen({ canResume, onPlay, onResume, onProfile, onShop }: 
       <View style={{ width: cardWidth }}>
         <ThemeChooser />
       </View>
+
+      <InstallBanner />
     </View>
   );
 }
@@ -262,7 +266,12 @@ function ProfileChip({ onPress }: { onPress: () => void }) {
     >
       <AvatarBadge avatar={{ ...avatar, frame: progress?.equipped.frame }} size={40} />
       <View style={styles.profileBody}>
-        <Text style={styles.profileLevel}>Niveau {level}</Text>
+        <Text style={styles.profileLevel}>
+          Niveau {level}
+          {progress && progress.streak > 0 ? (
+            <Text style={styles.profileStreak}> 🔥{progress.streak}</Text>
+          ) : null}
+        </Text>
         <View style={styles.profileTrack}>
           <View style={[styles.profileFill, { width: `${Math.max(4, ratio * 100)}%` }]} />
         </View>
@@ -278,12 +287,14 @@ function CoinsChip({ onPress }: { onPress: () => void }) {
   const ready = progress
     ? questsFor(parisDay()).filter(
         (q) => questProgress(q, progress.today) >= q.target && !progress.claimed.includes(q.id),
-      ).length
+      ).length +
+      progress.chests.length +
+      achievementsReady(progress)
     : 0;
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${progress?.coins ?? 0} pièces, quêtes et boutique${ready ? `, ${ready} quêtes à prendre` : ''}`}
+      accessibilityLabel={`${progress?.coins ?? 0} pièces, quêtes et boutique${ready ? `, ${ready} récompenses à prendre` : ''}`}
       onPress={onPress}
       style={({ pressed }) => [styles.coins, pressed && styles.pressed]}
     >
@@ -340,6 +351,7 @@ const styles = StyleSheet.create({
   },
   profileBody: { width: 76, gap: 4 },
   profileLevel: { color: colors.gold, fontSize: 14, fontWeight: '900' },
+  profileStreak: { color: '#ffb36b', fontSize: 13, fontWeight: '900' },
   profileTrack: { height: 6, borderRadius: 3, backgroundColor: 'rgba(0,0,0,0.4)', overflow: 'hidden' },
   profileFill: { height: 6, borderRadius: 3, backgroundColor: colors.gold },
   profileGo: { color: colors.text, fontSize: 14, fontWeight: '800' },

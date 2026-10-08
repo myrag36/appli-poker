@@ -23,7 +23,7 @@ import {
 } from '@appli-poker/engine';
 import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
-import { reportLocalGame } from '../online/progress';
+import { reportLocalGame, useFeat } from '../online/progress';
 import { OnlineButton } from '../components/OnlineButton';
 import { RulesButton } from '../components/Rules';
 import { BELOTE_RULES } from '../rules';
@@ -172,6 +172,7 @@ function BeloteGame({
   /** A finished trick stays in the middle for a moment before play goes on. */
   const [holding, setHolding] = useState(false);
   const names = settings.names;
+  useFeat('capot', game.result?.kind === 'played' && game.result.capot === 0);
 
   const bidding = game.phase === 'bidding1' || game.phase === 'bidding2';
   const active = bidding || game.phase === 'playing';

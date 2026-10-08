@@ -22,6 +22,7 @@ import {
 } from '@appli-poker/engine';
 import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Banner } from '../components/Banner';
+import { AchievementList, StreakCard } from '../components/Achievements';
 import { RewardPreview } from '../components/RewardPreview';
 import { TitleBadge } from '../components/TitleBadge';
 import { TopBar } from '../components/TopBar';
@@ -147,6 +148,8 @@ export function ProfileScreen({ onBack, onShop }: { onBack: () => void; onShop: 
         {!progress && <Text style={styles.offline}>Connexion au serveur… ton niveau s’affichera ici.</Text>}
       </View>
 
+      <StreakCard progress={progress} />
+
       <Text style={styles.section}>Mes récompenses</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
         {TABS.map((t) => (
@@ -211,6 +214,9 @@ export function ProfileScreen({ onBack, onShop }: { onBack: () => void; onShop: 
         <Text style={styles.more}>Encore plus de choix à la boutique ›</Text>
       </Pressable>
       {error && <Text style={styles.error}>{error}</Text>}
+
+      <Text style={styles.section}>Succès</Text>
+      <AchievementList progress={progress} />
 
       <Text style={styles.section}>Mes parties</Text>
       <View style={styles.card}>

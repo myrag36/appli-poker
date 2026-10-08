@@ -2,7 +2,15 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { questsFor, xpForLevel } from '../_shared/engine/index.ts';
 import { GameError } from '../poker/logic.ts';
-import { equip, finishedQuest, localGame, shopItem } from './logic.ts';
+import {
+  chestContents,
+  cleanFeat,
+  equip,
+  finishedQuest,
+  localGame,
+  reachedAchievement,
+  shopItem,
+} from './logic.ts';
 
 test('only unlocked rewards can be worn, the rest of the outfit stays', () => {
   assert.throws(() => equip(0, {}, 'frame', 'gold'), /Pas encore/);
@@ -42,4 +50,21 @@ test('a quest pays only when finished, today', () => {
   assert.throws(() => finishedQuest(day, easy.id, day, { played: { yams: 1 } }), /pas encore/);
   assert.throws(() => finishedQuest(day, easy.id, '2026-10-06', enough), /pas encore/);
   assert.throws(() => finishedQuest(day, 'play:99', day, enough), /terminée/);
+});
+
+test('a chest gives coins and maybe a shop item the player does not have', () => {
+  const always = () => 0;
+  const got = chestContents('grand', [], always);
+  assert.equal(got.coins, 100);
+  assert.equal(got.item, 'frame:sakura');
+  assert.equal(chestContents('grand', ['frame:sakura'], always).item, 'frame:lagoon');
+  assert.equal(chestContents('normal', [], () => 0.99).item, null);
+});
+
+test('achievements pay only once reached', () => {
+  assert.equal(reachedAchievement('first-win', { games: { yams: { played: 1, won: 1 } } }).coins, 30);
+  assert.throws(() => reachedAchievement('first-win', { games: {} }), /pas encore/);
+  assert.throws(() => reachedAchievement('nope', {}), /inconnu/);
+  assert.equal(reachedAchievement('feat-yams', { feats: ['yams'] }).id, 'feat-yams');
+  assert.throws(() => cleanFeat('triche'), /inconnu/);
 });

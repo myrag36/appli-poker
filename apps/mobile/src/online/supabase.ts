@@ -73,7 +73,10 @@ type ProfileRequest =
   | { type: 'equip'; slot: string; id: string }
   | { type: 'local'; game: string; won: boolean }
   | { type: 'buy'; kind: string; id: string }
-  | { type: 'claim'; quest: string };
+  | { type: 'claim'; quest: string }
+  | { type: 'open'; chest: string }
+  | { type: 'achieve'; id: string }
+  | { type: 'feat'; feat: string };
 
 /** Calls the profile server (games on one phone, rewards worn, shop and quests). */
 export function callProfile<T>(body: ProfileRequest): Promise<T> {
