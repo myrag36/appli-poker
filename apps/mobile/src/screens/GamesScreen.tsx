@@ -24,6 +24,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { GameDecor } from '../components/GameDecor';
 import { ThemeChooser } from '../components/ThemeChooser';
 import { InstallBanner } from '../components/InstallBanner';
+import { Tutorial, tutorialPending } from '../components/Tutorial';
 import { AvatarBadge } from '../components/AvatarPicker';
 import { achievementsReady } from '../components/Achievements';
 import { useMyProgress } from '../online/progress';
@@ -227,6 +228,7 @@ export function GamesScreen({
   onTournaments,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const [tutorial, setTutorial] = useState(tutorialPending);
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const cardHeight = Math.max(340, Math.min(CARD_HEIGHT, screenHeight - 480));
   const viewWidth = Math.min(screenWidth, 520);
@@ -364,7 +366,8 @@ export function GamesScreen({
         <ThemeChooser />
       </View>
 
-      <InstallBanner />
+      {!tutorial && <InstallBanner />}
+      <Tutorial visible={tutorial} onClose={() => setTutorial(false)} />
     </View>
   );
 }
