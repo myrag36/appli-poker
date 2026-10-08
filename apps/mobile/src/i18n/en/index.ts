@@ -16,6 +16,7 @@ import unoEnLigne from './uno-en-ligne';
 import revanche from './revanche';
 import notifications from './notifications';
 import pcAccueil from './pcAccueil';
+import pcAutres from './pcAutres';
 
 export const EN: Record<string, string> = {
   ...accueil,
@@ -35,4 +36,5 @@ export const EN: Record<string, string> = {
   ...revanche,
   ...notifications,
   ...pcAccueil,
+  ...pcAutres,
 };

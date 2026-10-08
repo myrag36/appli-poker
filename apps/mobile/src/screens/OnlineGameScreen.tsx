@@ -41,6 +41,7 @@ import { TitleBadge } from '../components/TitleBadge';
 import { InviteFriends } from '../components/InviteFriends';
 import { NotifyPrompt } from '../components/Notifications';
 import { colors } from '../theme';
+import { COLUMN_MAX_WIDTH, useDesktop } from '../layout';
 import { t, tn } from '../i18n';
 import { tMessage } from '../online/messages';
 
@@ -131,6 +132,7 @@ function Lobby({
   const [error, setError] = useState<string | null>(null);
   // Joining the table of a tournament needs nothing more than my name: go straight in.
   const [autoJoining, setAutoJoining] = useState(!!(tournament?.join ?? joinCode));
+  const desktop = useDesktop();
 
   useEffect(() => {
     loadAvatar().then((a) => a && setAvatar(cleanAvatar(a, a)));
@@ -189,7 +191,10 @@ function Lobby({
   const Options = ui.Options;
   if (tournament) {
     return (
-      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={[styles.container, desktop && styles.column]}
+        keyboardShouldPersistTaps="handled"
+      >
         <Text style={styles.emoji}>{ui.emoji}</Text>
         <Text style={styles.title}>{t(ui.title)}</Text>
         <Text style={styles.subtitle}>
@@ -259,19 +264,24 @@ function Lobby({
     );
   }
   return (
-    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-      <Text style={styles.emoji}>{ui.emoji}</Text>
-      <Text style={styles.title}>{t('{game} en ligne', { game: t(ui.title) })}</Text>
+    <ScrollView
+      contentContainerStyle={[styles.container, desktop && styles.wide]}
+      keyboardShouldPersistTaps="handled"
+    >
+      <Text style={[styles.emoji, desktop && styles.emojiLarge]}>{ui.emoji}</Text>
+      <Text style={[styles.title, desktop && styles.titleLarge]}>
+        {t('{game} en ligne', { game: t(ui.title) })}
+      </Text>
       <Text style={styles.subtitle}>{t(ui.players)}</Text>
 
       {last && (
-        <View style={styles.resume}>
+        <View style={[styles.resume, desktop && styles.narrow]}>
           <Button label={t('▶ Reprendre ma table')} disabled={busy} onPress={() => run(async () => last)} />
         </View>
       )}
 
       <Text style={styles.label}>{t('Ton prénom et ton avatar')}</Text>
-      <View style={styles.row}>
+      <View style={[styles.row, desktop && styles.identity]}>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={t("Changer d'avatar")}
@@ -289,29 +299,63 @@ function Lobby({
           placeholderTextColor={colors.muted}
         />
       </View>
-      {pickingAvatar && <AvatarPicker value={avatar} onChange={changeAvatar} />}
+      {pickingAvatar && (
+        <View style={desktop && styles.identity}>
+          <AvatarPicker value={avatar} onChange={changeAvatar} />
+        </View>
+      )}
 
-      <Text style={styles.section}>{t('Rejoindre des amis')}</Text>
-      <TextInput
-        style={[styles.input, styles.code]}
-        value={code}
-        onChangeText={(v) => setCode(v.toUpperCase())}
-        maxLength={6}
-        autoCapitalize="characters"
-        autoCorrect={false}
-        placeholder={t('CODE')}
-        placeholderTextColor={colors.muted}
-        accessibilityLabel={t('Code de la table')}
-      />
-      <Button label={t('Rejoindre')} disabled={busy || !trimmed || code.trim().length !== 6} onPress={join} />
+      {/* On a computer, joining and creating sit side by side, each in its own card. */}
+      <View style={desktop && styles.columns}>
+        <View style={desktop && styles.card}>
+          <View>
+            <Text style={[styles.section, desktop && styles.cardTitle]}>{t('Rejoindre des amis')}</Text>
+            {desktop && <Text style={styles.cardHint}>{t('Entre le code que ton ami t’a donné.')}</Text>}
+            <TextInput
+              style={[styles.input, styles.code, desktop && styles.codeLarge]}
+              value={code}
+              onChangeText={(v) => setCode(v.toUpperCase())}
+              maxLength={6}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              placeholder={t('CODE')}
+              placeholderTextColor={colors.muted}
+              accessibilityLabel={t('Code de la table')}
+            />
+          </View>
+          <View>
+            <Button
+              label={t('Rejoindre')}
+              disabled={busy || !trimmed || code.trim().length !== 6}
+              onPress={join}
+            />
+          </View>
+        </View>
 
-      <Text style={styles.section}>{t('Ou créer une table')}</Text>
-      {Options && <Options value={options} onChange={setOptions} />}
-      <Button label={t('Créer la table')} variant="secondary" disabled={busy || !trimmed} onPress={create} />
+        <View style={desktop && styles.card}>
+          <View>
+            <Text style={[styles.section, desktop && styles.cardTitle]}>{t('Ou créer une table')}</Text>
+            {desktop && (
+              <Text style={styles.cardHint}>{t('Tu reçois un code à partager avec tes amis.')}</Text>
+            )}
+            {Options && <Options value={options} onChange={setOptions} />}
+          </View>
+          <View>
+            <Button
+              label={t('Créer la table')}
+              variant={desktop ? 'primary' : 'secondary'}
+              disabled={busy || !trimmed}
+              onPress={create}
+            />
+          </View>
+        </View>
+      </View>
 
       {error && <Text style={styles.error}>{error}</Text>}
       <View style={styles.spacer} />
-      <Button label={t('Retour')} variant="secondary" onPress={onBack} />
+      <View style={desktop && styles.back}>
+        <Button label={t('Retour')} variant="secondary" onPress={onBack} />
+      </View>
     </ScrollView>
   );
 }
@@ -346,6 +390,7 @@ function Room({
   const insets = useSafeAreaInsets();
   const [busy, setBusy] = useState(false);
   const [moveError, setMoveError] = useState<string | null>(null);
+  const desktop = useDesktop();
 
   // A little sound when someone else reacts.
   const lastOtherReaction = Object.entries(reactions)
@@ -374,7 +419,7 @@ function Room({
 
   if (!room) {
     return (
-      <View style={styles.center}>
+      <View style={[styles.center, desktop && styles.column]}>
         {error ? <Text style={styles.error}>{error}</Text> : <ActivityIndicator color={colors.gold} />}
         <View style={styles.spacer} />
         <Button label={t('Retour')} variant="secondary" onPress={error ? onGone : onLeave} />
@@ -438,7 +483,9 @@ function Room({
         />
       </View>
       {state.over && mySeat >= 0 && !inTournament && (
-        <View style={[styles.rematch, { paddingBottom: insets.bottom + 10 }]}>
+        <View
+          style={[styles.rematch, desktop && styles.rematchDesktop, { paddingBottom: insets.bottom + 10 }]}
+        >
           <RematchPanel rematch={room.rematch} meId={userId} onRematch={rematch} />
         </View>
       )}
@@ -497,88 +544,129 @@ function WaitingRoom({
   const full = players.length >= def.maxPlayers;
   const fillTo = Math.max(def.fillTo ?? 0, def.minPlayers);
   const missing = Math.max(0, fillTo - players.length);
+  const desktop = useDesktop();
   const invite = () =>
     Share.share({
       message: t('Viens jouer au {game} avec moi ! Code de la table : {code}', { game: title, code }),
     }).catch(() => {});
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.title}>{title}</Text>
-      <Text style={styles.label}>{t('Code de la table')}</Text>
-      <Text style={styles.bigCode} accessibilityLabel={t('Code de la table {code}', { code })}>
-        {code}
-      </Text>
-      <Text style={styles.subtitle}>
-        {inTournament
-          ? t('Les joueurs du tournoi la rejoignent depuis l’écran du tournoi.')
-          : t('Donne ce code à tes amis : ils choisissent {game} puis « Rejoindre ».', { game: title })}
-      </Text>
-      <View style={styles.spacerSmall} />
-      <Button label={t('Inviter des amis')} variant="secondary" onPress={invite} />
-      {!inTournament && <InviteFriends game={game} code={code} />}
-      <NotifyPrompt />
-
-      <Text style={styles.section}>
-        {t('À la table ({n}/{max})', { n: players.length, max: def.maxPlayers })}
-      </Text>
-      {players.map((p, i) => (
-        <View key={p.user_id} style={styles.playerRow}>
-          <AvatarBadge avatar={avatarOf(p, i, progressOf[p.user_id])} size={40} />
-          <View style={styles.flex}>
-            <Text style={styles.playerName} numberOfLines={1}>
-              {p.name}
-              {p.user_id === userId ? t(' (toi)') : ''}
-            </Text>
-            {!p.is_bot && <TitleBadge id={progressOf[p.user_id]?.title ?? 'debutant'} small />}
-          </View>
-          {p.is_bot && <Text style={styles.tag}>{t('Robot')}</Text>}
-          {isHost && p.user_id !== userId && (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('Retirer {name}', { name: p.name })}
-              onPress={() => onRemove(p.user_id)}
-              disabled={busy}
-            >
-              <Text style={styles.remove}>✕</Text>
-            </Pressable>
-          )}
-        </View>
-      ))}
-
-      {isHost ? (
-        <>
-          {!full && (
-            <Button
-              label={t('+ Ajouter un robot 🤖')}
-              variant="secondary"
-              disabled={busy}
-              onPress={onAddBot}
-            />
-          )}
-          {missing > 0 && (
-            <Text style={styles.hint}>
-              {tn(
-                missing,
-                'Un robot complétera la table au lancement.',
-                '{n} robots compléteront la table au lancement.',
-              )}
-            </Text>
-          )}
+    <ScrollView contentContainerStyle={[styles.container, desktop && styles.wide]}>
+      <Text style={[styles.title, desktop && styles.titleLarge]}>{title}</Text>
+      {/* On a computer: the code and invitations on the left, the players on the right. */}
+      <View style={desktop && styles.columns}>
+        <View style={desktop && [styles.card, styles.cardTop]}>
+          <Text style={[styles.label, desktop && styles.labelTop]}>{t('Code de la table')}</Text>
+          <Text
+            style={[styles.bigCode, desktop && styles.bigCodeLarge]}
+            accessibilityLabel={t('Code de la table {code}', { code })}
+          >
+            {code}
+          </Text>
+          <Text style={styles.subtitle}>
+            {inTournament
+              ? t('Les joueurs du tournoi la rejoignent depuis l’écran du tournoi.')
+              : t('Donne ce code à tes amis : ils choisissent {game} puis « Rejoindre ».', { game: title })}
+          </Text>
           <View style={styles.spacerSmall} />
-          <Button label={t('Lancer la partie')} disabled={busy} onPress={onStart} />
-        </>
-      ) : (
-        <Text style={styles.hint}>{t('En attente du lancement par le créateur de la table…')}</Text>
-      )}
-      {error && <Text style={styles.error}>{error}</Text>}
+          <Button label={t('Inviter des amis')} variant="secondary" onPress={invite} />
+          {!inTournament && <InviteFriends game={game} code={code} />}
+          <NotifyPrompt />
+        </View>
+
+        <View style={desktop && [styles.card, styles.cardTop]}>
+          <Text style={[styles.section, desktop && styles.cardTitle]}>
+            {t('À la table ({n}/{max})', { n: players.length, max: def.maxPlayers })}
+          </Text>
+          {players.map((p, i) => (
+            <View key={p.user_id} style={styles.playerRow}>
+              <AvatarBadge avatar={avatarOf(p, i, progressOf[p.user_id])} size={40} />
+              <View style={styles.flex}>
+                <Text style={styles.playerName} numberOfLines={1}>
+                  {p.name}
+                  {p.user_id === userId ? t(' (toi)') : ''}
+                </Text>
+                {!p.is_bot && <TitleBadge id={progressOf[p.user_id]?.title ?? 'debutant'} small />}
+              </View>
+              {p.is_bot && <Text style={styles.tag}>{t('Robot')}</Text>}
+              {isHost && p.user_id !== userId && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('Retirer {name}', { name: p.name })}
+                  onPress={() => onRemove(p.user_id)}
+                  disabled={busy}
+                >
+                  <Text style={styles.remove}>✕</Text>
+                </Pressable>
+              )}
+            </View>
+          ))}
+
+          {isHost ? (
+            <>
+              {!full && (
+                <Button
+                  label={t('+ Ajouter un robot 🤖')}
+                  variant="secondary"
+                  disabled={busy}
+                  onPress={onAddBot}
+                />
+              )}
+              {missing > 0 && (
+                <Text style={styles.hint}>
+                  {tn(
+                    missing,
+                    'Un robot complétera la table au lancement.',
+                    '{n} robots compléteront la table au lancement.',
+                  )}
+                </Text>
+              )}
+              <View style={styles.spacerSmall} />
+              <Button label={t('Lancer la partie')} disabled={busy} onPress={onStart} />
+            </>
+          ) : (
+            <Text style={styles.hint}>{t('En attente du lancement par le créateur de la table…')}</Text>
+          )}
+          {error && <Text style={styles.error}>{error}</Text>}
+        </View>
+      </View>
       <View style={styles.spacer} />
-      <Button label={t('Quitter la table')} variant="secondary" onPress={onLeave} />
+      <View style={desktop && styles.back}>
+        <Button label={t('Quitter la table')} variant="secondary" onPress={onLeave} />
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { padding: 20, paddingTop: 50, paddingBottom: 30 },
+  /** On a computer: a readable column, or a wider page with two cards side by side. */
+  column: { width: '100%', maxWidth: COLUMN_MAX_WIDTH, alignSelf: 'center' },
+  wide: { width: '100%', maxWidth: 980, alignSelf: 'center', paddingHorizontal: 32, paddingTop: 44 },
+  narrow: { width: '100%', maxWidth: 360, alignSelf: 'center' },
+  identity: { width: '100%', maxWidth: 440, alignSelf: 'center' },
+  columns: { flexDirection: 'row', alignItems: 'stretch', gap: 20, marginTop: 28 },
+  card: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: 'space-between',
+    gap: 14,
+    padding: 22,
+    borderRadius: 16,
+    backgroundColor: colors.glass,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+  },
+  cardTop: { alignSelf: 'flex-start', justifyContent: 'flex-start', gap: 4 },
+  cardTitle: { marginTop: 0, color: colors.gold, fontSize: 20 },
+  cardHint: { color: colors.muted, fontSize: 13, marginBottom: 10 },
+  back: { width: 280, alignSelf: 'center' },
+  emojiLarge: { fontSize: 52 },
+  titleLarge: { fontSize: 36 },
+  labelTop: { marginTop: 0 },
+  codeLarge: { fontSize: 30, paddingVertical: 14 },
+  bigCodeLarge: { fontSize: 56, letterSpacing: 12, marginVertical: 6 },
+  rematchDesktop: { width: '100%', maxWidth: 760, alignSelf: 'center' },
   center: { flex: 1, justifyContent: 'center', padding: 24 },
   emoji: { fontSize: 40, textAlign: 'center' },
   title: { color: colors.gold, fontSize: 30, fontWeight: '800', textAlign: 'center' },
