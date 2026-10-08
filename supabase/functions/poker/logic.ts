@@ -26,6 +26,8 @@ const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 export interface RoomRow {
   id: string;
+  /** The code friends join with (always read, optional for tests). */
+  code?: string;
   host_id: string;
   big_blind: number;
   starting_stack: number;
@@ -41,6 +43,8 @@ export interface RoomRow {
   /** Missing on tables created before Omaha existed, which are Hold'em. */
   variant?: Variant;
   public_state?: PublicState | null;
+  /** Set once someone asked for a rematch of this finished game. */
+  rematch?: Rematch | null;
 }
 
 /** Tournament level of the hand being played and when the next one starts (epoch ms). */
@@ -53,7 +57,11 @@ export interface LevelInfo {
  * The public view plus when the player to act runs out of time (epoch ms), in a
  * tournament the blind level, and which players are robots.
  */
-export type PublicState = HandView & { deadline: number | null; tournament?: LevelInfo | null; bots?: string[] };
+export type PublicState = HandView & {
+  deadline: number | null;
+  tournament?: LevelInfo | null;
+  bots?: string[];
+};
 
 export const LEVEL_CHOICES = [5, 10, 15, 20, 30];
 export const VARIANTS: Variant[] = ['holdem', 'omaha'];
@@ -107,7 +115,12 @@ function deadlineFor(hand: HandView, bots: string[], now: number): number | null
   return now + (bots.includes(hand.players[hand.toAct].id) ? BOT_MS : TURN_MS);
 }
 
-function publicState(hand: HandState, now: number, tournament: LevelInfo | null, bots: string[]): PublicState {
+function publicState(
+  hand: HandState,
+  now: number,
+  tournament: LevelInfo | null,
+  bots: string[],
+): PublicState {
   return { ...viewFor(hand, null), deadline: deadlineFor(hand, bots, now), tournament, bots };
 }
 
@@ -132,7 +145,7 @@ export function dealNextHand(
   rng?: Rng,
 ): SaveParams {
   if (room.paused) throw new GameError(PAUSED);
-  if (previous && previous.street !== 'finished') throw new GameError('La main en cours n\'est pas finie');
+  if (previous && previous.street !== 'finished') throw new GameError("La main en cours n'est pas finie");
   const seated = players.filter((p) => p.stack > 0).sort((a, b) => a.seat - b.seat);
   if (seated.length < 2) throw new GameError('Il faut au moins 2 joueurs avec des jetons');
 
@@ -210,7 +223,7 @@ export function playTimeout(room: RoomRow, hand: HandState, now: number): SavePa
   if (room.paused) throw new GameError(PAUSED);
   const deadline = room.public_state?.deadline;
   if (hand.toAct < 0 || !deadline) throw new GameError('Personne ne doit jouer');
-  if (now < deadline) throw new GameError('Le temps n\'est pas encore écoulé');
+  if (now < deadline) throw new GameError("Le temps n'est pas encore écoulé");
   const actor = hand.players[hand.toAct];
   if (room.public_state?.bots?.includes(actor.id)) {
     return playAction(room, hand, actor.id, chooseBotAction(hand, actor.id, botRng), now);
@@ -304,5 +317,90 @@ export function newBot(room: RoomRow, players: PlayerRow[], hostId: string, id: 
     is_bot: true,
     avatar: '🤖',
     avatar_color: AVATAR_COLORS[seat % AVATAR_COLORS.length],
+  };
+}
+
+/**
+ * A rematch: a new table with the same settings, written on the finished one so the
+ * other players can follow with one tap instead of typing a code.
+ */
+export interface Rematch {
+  roomId: string;
+  code: string;
+  /** Who asked for it. */
+  byId: string;
+  by: string;
+}
+
+/** The seat someone gets at the rematch table: their old one if it is still free. */
+export function rematchSeat(oldSeat: number, taken: { seat: number }[], max = MAX_PLAYERS): number {
+  const used = new Set(taken.map((p) => p.seat));
+  if (oldSeat >= 0 && oldSeat < max && !used.has(oldSeat)) return oldSeat;
+  for (let s = 0; s < max; s++) if (!used.has(s)) return s;
+  throw new GameError('La table est pleine');
+}
+
+/** A poker game is over once a hand ended with a single player holding chips. */
+export function pokerGameOver(room: RoomRow, players: PlayerRow[]): boolean {
+  return room.public_state?.street === 'finished' && players.filter((p) => p.stack > 0).length < 2;
+}
+
+/** A player row with its avatar, as copied to the rematch table. */
+export type SeatedPlayerRow = PlayerRow & { avatar: string | null; avatar_color: string | null };
+
+function seatRow(p: SeatedPlayerRow, seat: number, stack: number) {
+  return {
+    user_id: p.user_id,
+    name: p.name,
+    seat,
+    stack,
+    is_bot: Boolean(p.is_bot),
+    avatar: p.avatar,
+    avatar_color: p.avatar_color,
+  };
+}
+
+/**
+ * The rematch table a player asks for: same blinds, chips, levels and variant, with the
+ * asker as host. The asker and the robots sit right away, in their old seats.
+ */
+export function pokerRematch(room: RoomRow, players: SeatedPlayerRow[], userId: string) {
+  const me = players.find((p) => p.user_id === userId);
+  if (!me || me.is_bot) throw new GameError("Tu n'es pas à cette table");
+  if (!pokerGameOver(room, players)) throw new GameError('La partie n’est pas finie');
+  return {
+    room: {
+      host_id: userId,
+      big_blind: room.big_blind,
+      starting_stack: room.starting_stack,
+      level_minutes: room.level_minutes ?? null,
+      variant: room.variant ?? 'holdem',
+    },
+    players: players
+      .filter((p) => p.is_bot || p.user_id === userId)
+      .map((p) => seatRow(p, p.seat, room.starting_stack)),
+  };
+}
+
+/**
+ * Seats a player of the finished game at its rematch table, or returns null when they
+ * already sit there.
+ */
+export function pokerRematchJoin(
+  rematch: { id: string; starting_stack: number },
+  rematchPlayers: PlayerRow[],
+  oldPlayers: SeatedPlayerRow[],
+  userId: string,
+) {
+  const me = oldPlayers.find((p) => p.user_id === userId);
+  if (!me || me.is_bot) throw new GameError("Tu n'es pas à cette table");
+  if (rematchPlayers.some((p) => p.user_id === userId)) return null;
+  if (rematchPlayers.length >= MAX_PLAYERS) throw new GameError('La table est pleine (8 joueurs maximum)');
+  if (rematchPlayers.some((p) => p.name.toLowerCase() === me.name.toLowerCase())) {
+    throw new GameError('Ce prénom est déjà pris à cette table');
+  }
+  return {
+    room_id: rematch.id,
+    ...seatRow(me, rematchSeat(me.seat, rematchPlayers), rematch.starting_stack),
   };
 }

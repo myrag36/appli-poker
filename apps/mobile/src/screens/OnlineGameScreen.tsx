@@ -5,6 +5,7 @@ import {
   ONLINE_GAMES,
   cleanAvatar,
   defaultAvatar,
+  emotesFor,
 } from '@appli-poker/engine';
 import {
   ActivityIndicator,
@@ -18,6 +19,8 @@ import {
 } from 'react-native';
 import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
+import { ReactionButton } from '../components/ReactionButton';
+import { RematchPanel } from '../components/RematchPanel';
 import { ONLINE_UI } from '../online-games';
 import type { BoardSeat } from '../online-games/types';
 import {
@@ -31,8 +34,12 @@ import {
   saveLastGameRoom,
 } from '../online/supabase';
 import { type GamePlayer, useGameRoom } from '../online/useGameRoom';
-import { type OtherProgress, useProgressOf } from '../online/progress';
+import { type OtherProgress, useMyProgress, useProgressOf } from '../online/progress';
+import { sounds } from '../feedback';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TitleBadge } from '../components/TitleBadge';
+import { InviteFriends } from '../components/InviteFriends';
+import { NotifyPrompt } from '../components/Notifications';
 import { colors } from '../theme';
 import { t, tn } from '../i18n';
 import { tMessage } from '../online/messages';
@@ -49,10 +56,12 @@ interface Props {
   initialName: string;
   onBack: () => void;
   tournament?: TournamentTable;
+  /** Code of a table to join straight away (from an invitation or a notification). */
+  joinCode?: string;
 }
 
 /** Blackjack, Président, Yams or Belote with friends, each on their own phone. */
-export function OnlineGameScreen({ game, initialName, onBack, tournament }: Props) {
+export function OnlineGameScreen({ game, initialName, onBack, tournament, joinCode }: Props) {
   const [table, setTable] = useState<{ roomId: string; userId: string } | null>(null);
 
   async function enter(roomId: string, name: string) {
@@ -63,15 +72,25 @@ export function OnlineGameScreen({ game, initialName, onBack, tournament }: Prop
 
   if (!table) {
     return (
-      <Lobby game={game} initialName={initialName} tournament={tournament} onEnter={enter} onBack={onBack} />
+      <Lobby
+        game={game}
+        initialName={initialName}
+        tournament={tournament}
+        joinCode={joinCode}
+        onEnter={enter}
+        onBack={onBack}
+      />
     );
   }
   return (
     <Room
+      // A rematch moves everyone to a new table: start that one afresh.
+      key={table.roomId}
       game={game}
       roomId={table.roomId}
       userId={table.userId}
       inTournament={!!tournament}
+      onSwitch={enter}
       // A tournament table goes back to the tournament, not to the lobby.
       onLeave={() => (tournament ? onBack() : setTable(null))}
       onGone={() => {
@@ -90,18 +109,20 @@ function Lobby({
   game,
   initialName,
   tournament,
+  joinCode,
   onEnter,
   onBack,
 }: {
   game: OnlineGameId;
   initialName: string;
   tournament?: TournamentTable;
+  joinCode?: string;
   onEnter: (roomId: string, name: string) => Promise<void>;
   onBack: () => void;
 }) {
   const ui = ONLINE_UI[game];
   const [name, setName] = useState(initialName);
-  const [code, setCode] = useState('');
+  const [code, setCode] = useState(joinCode ?? '');
   const [options, setOptions] = useState(ui.defaultOptions);
   const [avatar, setAvatar] = useState<Avatar>(() => defaultAvatar(Math.floor(Math.random() * 8)));
   const [pickingAvatar, setPickingAvatar] = useState(false);
@@ -109,7 +130,7 @@ function Lobby({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Joining the table of a tournament needs nothing more than my name: go straight in.
-  const [autoJoining, setAutoJoining] = useState(!!tournament?.join);
+  const [autoJoining, setAutoJoining] = useState(!!(tournament?.join ?? joinCode));
 
   useEffect(() => {
     loadAvatar().then((a) => a && setAvatar(cleanAvatar(a, a)));
@@ -123,7 +144,7 @@ function Lobby({
   useEffect(() => setName((n) => n || initialName), [initialName]);
 
   useEffect(() => {
-    const code = tournament?.join;
+    const code = tournament?.join ?? joinCode;
     if (!code) return;
     Promise.all([loadAvatar(), loadName()]).then(([a, saved]) => {
       const who = (saved || initialName).trim();
@@ -170,8 +191,10 @@ function Lobby({
     return (
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <Text style={styles.emoji}>{ui.emoji}</Text>
-        <Text style={styles.title}>{ui.title}</Text>
-        <Text style={styles.subtitle}>{t('🏆 Manche de tournoi · {players}', { players: ui.players })}</Text>
+        <Text style={styles.title}>{t(ui.title)}</Text>
+        <Text style={styles.subtitle}>
+          {t('🏆 Manche de tournoi · {players}', { players: t(ui.players) })}
+        </Text>
         {autoJoining && !error ? (
           <>
             <View style={styles.spacer} />
@@ -238,8 +261,8 @@ function Lobby({
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.emoji}>{ui.emoji}</Text>
-      <Text style={styles.title}>{t('{game} en ligne', { game: ui.title })}</Text>
-      <Text style={styles.subtitle}>{ui.players}</Text>
+      <Text style={styles.title}>{t('{game} en ligne', { game: t(ui.title) })}</Text>
+      <Text style={styles.subtitle}>{t(ui.players)}</Text>
 
       {last && (
         <View style={styles.resume}>
@@ -301,6 +324,7 @@ function Room({
   roomId,
   userId,
   inTournament,
+  onSwitch,
   onLeave,
   onGone,
 }: {
@@ -308,13 +332,28 @@ function Room({
   roomId: string;
   userId: string;
   inTournament: boolean;
+  /** Goes to another table: the rematch of this one. */
+  onSwitch: (roomId: string, name: string) => Promise<void>;
   onLeave: () => void;
   onGone: () => void;
 }) {
-  const { room, players, myView, error, removed, refresh, now } = useGameRoom(roomId, userId);
+  const { room, players, myView, error, removed, refresh, now, reactions, sendReaction } = useGameRoom(
+    roomId,
+    userId,
+  );
   const progressOf = useProgressOf(players.filter((p) => !p.is_bot).map((p) => p.user_id));
+  const myEmotes = emotesFor(useMyProgress()?.owned ?? []);
+  const insets = useSafeAreaInsets();
   const [busy, setBusy] = useState(false);
   const [moveError, setMoveError] = useState<string | null>(null);
+
+  // A little sound when someone else reacts.
+  const lastOtherReaction = Object.entries(reactions)
+    .filter(([from]) => from !== userId)
+    .reduce((m, [, r]) => Math.max(m, r.key), 0);
+  useEffect(() => {
+    if (lastOtherReaction) sounds.reaction();
+  }, [lastOtherReaction]);
 
   useEffect(() => {
     if (removed) onGone();
@@ -349,7 +388,7 @@ function Room({
     return (
       <WaitingRoom
         code={room.code}
-        title={ui.title}
+        title={t(ui.title)}
         inTournament={inTournament}
         players={players}
         progressOf={progressOf}
@@ -372,25 +411,46 @@ function Room({
   const byId = new Map(players.map((p) => [p.user_id, p]));
   const seats: BoardSeat[] = state.seats.map((s, i) => ({
     ...s,
-    avatar: avatarOf(byId.get(s.id), i, progressOf[s.id]),
+    avatar: { ...avatarOf(byId.get(s.id), i, progressOf[s.id]), reaction: reactions[s.id] },
   }));
   const mySeat = state.seats.findIndex((s) => s.id === userId);
   const Board = ui.Board;
+  const rematch = async () => {
+    const { roomId: next } = await callGames<{ roomId: string }>({ type: 'rematch', roomId });
+    await onSwitch(next, byId.get(userId)?.name ?? '');
+  };
   return (
-    <Board
-      view={mySeat >= 0 && myView != null ? myView : state.view}
-      mySeat={mySeat}
-      seats={seats}
-      actors={state.actors}
-      deadline={state.deadline}
-      now={now}
-      betweenRounds={state.betweenRounds}
-      over={state.over}
-      busy={busy}
-      error={moveError}
-      onMove={(move) => send({ type: 'move', roomId, move })}
-      onLeave={state.over ? onGone : onLeave}
-    />
+    <View style={styles.flex}>
+      <View style={styles.flex}>
+        <Board
+          view={mySeat >= 0 && myView != null ? myView : state.view}
+          mySeat={mySeat}
+          seats={seats}
+          actors={state.actors}
+          deadline={state.deadline}
+          now={now}
+          betweenRounds={state.betweenRounds}
+          over={state.over}
+          busy={busy}
+          error={moveError}
+          onMove={(move) => send({ type: 'move', roomId, move })}
+          onLeave={state.over ? onGone : onLeave}
+        />
+      </View>
+      {state.over && mySeat >= 0 && !inTournament && (
+        <View style={[styles.rematch, { paddingBottom: insets.bottom + 10 }]}>
+          <RematchPanel rematch={room.rematch} meId={userId} onRematch={rematch} />
+        </View>
+      )}
+      {mySeat >= 0 && (
+        <ReactionButton
+          emojis={myEmotes}
+          onSend={sendReaction}
+          // In the middle of the top bar, the one place every game leaves free.
+          style={[styles.react, { top: insets.top + 6 }]}
+        />
+      )}
+    </View>
   );
 }
 
@@ -455,6 +515,8 @@ function WaitingRoom({
       </Text>
       <View style={styles.spacerSmall} />
       <Button label={t('Inviter des amis')} variant="secondary" onPress={invite} />
+      {!inTournament && <InviteFriends game={game} code={code} />}
+      <NotifyPrompt />
 
       <Text style={styles.section}>
         {t('À la table ({n}/{max})', { n: players.length, max: def.maxPlayers })}
@@ -578,4 +640,6 @@ const styles = StyleSheet.create({
   error: { color: colors.gold, marginTop: 12, textAlign: 'center' },
   spacer: { height: 24 },
   spacerSmall: { height: 10 },
+  rematch: { paddingHorizontal: 10, paddingTop: 6 },
+  react: { left: 0, right: 0, alignItems: 'center' },
 });

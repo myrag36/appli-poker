@@ -161,3 +161,84 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(openFresh(request));
   }
 });
+
+/*
+ * Notifications (Web Push): a friend invites me to their table, or it is my turn in an online
+ * game. The server sends small JSON messages: { kind, title, body, tag, url }.
+ */
+
+// Safari and every browser on iPhone (WebKit) drop the subscription of a site that receives a
+// message without showing a notification.
+const WEBKIT =
+  /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+  (/Safari\//.test(navigator.userAgent) && !/Chrome|Chromium|Edg|Android/.test(navigator.userAgent));
+
+function readPush(event) {
+  if (!event.data) return {};
+  try {
+    return event.data.json();
+  } catch {
+    return { body: event.data.text() };
+  }
+}
+
+async function showPush(data) {
+  const tag = typeof data.tag === 'string' ? data.tag : undefined;
+  const title = typeof data.title === 'string' && data.title ? data.title : 'La Tablée';
+  const options = {
+    body: typeof data.body === 'string' ? data.body : '',
+    tag,
+    renotify: !!tag,
+    icon: new URL('icons/icon-192.png', SHELL_URL).href,
+    badge: new URL('icons/icon-192.png', SHELL_URL).href,
+    data: { url: new URL(typeof data.url === 'string' ? data.url : './', SHELL_URL).href },
+  };
+  if (data.kind === 'turn') {
+    // The turn notice is for when the app is in the background: on screen, the table shows it.
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    if (windows.some((c) => c.visibilityState === 'visible')) {
+      if (!WEBKIT) return;
+      await self.registration.showNotification(title, { ...options, silent: true });
+      for (const n of await self.registration.getNotifications({ tag })) n.close();
+      return;
+    }
+  }
+  await self.registration.showNotification(title, options);
+}
+
+self.addEventListener('push', (event) => {
+  event.waitUntil(showPush(readPush(event)));
+});
+
+/** A tap on a notification: back to the open app (which goes to the table), or opens it. */
+async function openFromNotification(href) {
+  const url = new URL(href || SHELL_URL);
+  if (url.origin !== SCOPE.origin || !url.pathname.startsWith(SCOPE.pathname)) return;
+  const game = url.searchParams.get('jeu');
+  const code = url.searchParams.get('table');
+  const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  const open = windows.find((c) => c.url.startsWith(SHELL_URL));
+  if (open) {
+    await open.focus().catch(() => {});
+    if (game && code) open.postMessage({ type: 'open-table', game, code });
+    return;
+  }
+  await self.clients.openWindow(url.href);
+}
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  event.waitUntil(openFromNotification(event.notification.data && event.notification.data.url));
+});
+
+// The browser renewed the subscription: make a new one with the same server key; the app sends
+// it to the server the next time it opens.
+self.addEventListener('pushsubscriptionchange', (event) => {
+  const key = event.oldSubscription && event.oldSubscription.options.applicationServerKey;
+  if (!key) return;
+  event.waitUntil(
+    self.registration.pushManager
+      .subscribe({ userVisibleOnly: true, applicationServerKey: key })
+      .catch(() => {}),
+  );
+});

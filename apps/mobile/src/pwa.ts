@@ -20,7 +20,7 @@ let installed = false;
 const listeners = new Set<() => void>();
 const notify = () => listeners.forEach((l) => l());
 
-function isStandalone() {
+export function isStandalone() {
   try {
     return (
       window.matchMedia('(display-mode: standalone)').matches ||
@@ -32,7 +32,7 @@ function isStandalone() {
 }
 
 /** iPhone and iPad (iPadOS says it is a Mac, but has a touch screen): no install prompt there. */
-function isIos() {
+export function isIos() {
   const ua = navigator.userAgent;
   return /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
 }

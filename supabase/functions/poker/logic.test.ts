@@ -15,6 +15,9 @@ import {
   playAction,
   pausedState,
   playTimeout,
+  pokerRematch,
+  pokerRematchJoin,
+  rematchSeat,
 } from './logic.ts';
 
 const NOW = 1_000_000;
@@ -103,7 +106,13 @@ test('temps écoulé : le joueur se couche, ou checke quand il peut', () => {
   assert.ok(late.p_secret.players.some((p) => p.folded));
 
   // La grosse blinde peut checker quand tout le monde a suivi : elle checke.
-  const called = playAction(r, deal.p_secret, deal.p_secret.players[deal.p_secret.toAct].id, { type: 'call' }, NOW);
+  const called = playAction(
+    r,
+    deal.p_secret,
+    deal.p_secret.players[deal.p_secret.toAct].id,
+    { type: 'call' },
+    NOW,
+  );
   const r2 = room({ public_state: called.p_public });
   const checked = playTimeout(r2, called.p_secret, NOW + 2 * TURN_MS);
   assert.equal(checked.p_public.street, 'flop');
@@ -116,13 +125,21 @@ test('en tournoi, les blindes montent avec le temps et les actions gardent le ni
   assert.equal(first.p_secret.bigBlind, 20);
   assert.deepEqual(first.p_public.tournament, { level: 0, nextLevelAt: NOW + 600_000 });
 
-  const finished = applyAction(first.p_secret, first.p_secret.players[first.p_secret.toAct].id, { type: 'fold' });
+  const finished = applyAction(first.p_secret, first.p_secret.players[first.p_secret.toAct].id, {
+    type: 'fold',
+  });
   const later = dealNextHand({ ...t, hand_number: 1 }, players, finished, NOW + 25 * 60_000);
   assert.equal(later.p_secret.bigBlind, 40);
   assert.equal(later.p_secret.smallBlind, 20);
   assert.equal(later.p_public.tournament?.level, 2);
 
-  const acted = playAction({ ...t, public_state: later.p_public }, later.p_secret, later.p_secret.players[later.p_secret.toAct].id, { type: 'fold' }, NOW + 26 * 60_000);
+  const acted = playAction(
+    { ...t, public_state: later.p_public },
+    later.p_secret,
+    later.p_secret.players[later.p_secret.toAct].id,
+    { type: 'fold' },
+    NOW + 26 * 60_000,
+  );
   assert.deepEqual(acted.p_public.tournament, later.p_public.tournament);
 });
 
@@ -192,7 +209,10 @@ test('la pause arrête le chrono, la reprise redonne un tour complet', () => {
   const dealt = dealNextHand(room(), players, null, NOW);
   const r = room({ hand_number: 1, public_state: dealt.p_public });
   assert.equal(pausedState(r, true, NOW + 5000)!.deadline, null);
-  assert.equal(pausedState({ ...r, public_state: pausedState(r, true, NOW) }, false, NOW + 60_000)!.deadline, NOW + 60_000 + TURN_MS);
+  assert.equal(
+    pausedState({ ...r, public_state: pausedState(r, true, NOW) }, false, NOW + 60_000)!.deadline,
+    NOW + 60_000 + TURN_MS,
+  );
   assert.equal(pausedState(room(), true, NOW), null);
 });
 
@@ -241,7 +261,10 @@ test('robots : pas de cartes privées, un chrono court, et ils jouent quand leur
     p_stacks: Object.fromEntries(state.hand.players.map((p) => [p.id, p.stack])),
   })!;
   // Statistics only for the person.
-  assert.deepEqual(records.results.map((x) => x.user_id), ['a']);
+  assert.deepEqual(
+    records.results.map((x) => x.user_id),
+    ['a'],
+  );
   if (records.game) assert.equal(records.game.winner_id, 'a');
 });
 
@@ -267,6 +290,80 @@ test('table Omaha : quatre cartes privées, mise limitée au pot', () => {
   for (const cards of Object.values(dealt.p_hands!)) assert.equal(cards.length, 4);
   // Heads-up: the dealer has 10 to call into a pot of 30, so the pot raise goes to 20 + 30 + 10 = 60.
   const actor = dealt.p_secret.players[dealt.p_secret.toAct].id;
-  assert.throws(() => playAction(room({ hand_number: 1 }), dealt.p_secret, actor, { type: 'raise', to: 61 }, NOW));
+  assert.throws(() =>
+    playAction(room({ hand_number: 1 }), dealt.p_secret, actor, { type: 'raise', to: 61 }, NOW),
+  );
   playAction(room({ hand_number: 1 }), dealt.p_secret, actor, { type: 'raise', to: 60 }, NOW);
+});
+
+test('revanche : seulement une fois la partie finie, mêmes réglages, places d’avant', () => {
+  const seated = [
+    { user_id: 'a', name: 'Simon', seat: 0, stack: 2000, avatar: '🦊', avatar_color: '#f00' },
+    { user_id: 'r', name: 'Robby', seat: 3, stack: 0, is_bot: true, avatar: '🤖', avatar_color: '#0f0' },
+    { user_id: 'b', name: 'Léa', seat: 5, stack: 0, avatar: null, avatar_color: null },
+  ];
+  const finished = room({
+    level_minutes: 10,
+    variant: 'omaha',
+    public_state: { street: 'finished' } as RoomRow['public_state'],
+  });
+  // A hand still being played, or two players with chips left: not over.
+  assert.throws(
+    () => pokerRematch(room({ public_state: { street: 'flop' } as never }), seated, 'b'),
+    /pas finie/,
+  );
+  assert.throws(
+    () =>
+      pokerRematch(
+        finished,
+        seated.map((p) => ({ ...p, stack: 1000 })),
+        'b',
+      ),
+    /pas finie/,
+  );
+  assert.throws(() => pokerRematch(finished, seated, 'z'), /pas à cette table/);
+  assert.throws(() => pokerRematch(finished, seated, 'r'), /pas à cette table/);
+
+  const plan = pokerRematch(finished, seated, 'b');
+  assert.deepEqual(plan.room, {
+    host_id: 'b',
+    big_blind: 20,
+    starting_stack: 1000,
+    level_minutes: 10,
+    variant: 'omaha',
+  });
+  // The asker and the robots, with fresh chips.
+  assert.deepEqual(
+    plan.players.map((p) => [p.user_id, p.seat, p.stack, p.is_bot]),
+    [
+      ['r', 3, 1000, true],
+      ['b', 5, 1000, false],
+    ],
+  );
+
+  const next = { id: 'next', starting_stack: 1000 };
+  const row = pokerRematchJoin(next, plan.players, seated, 'a')!;
+  assert.deepEqual(
+    [row.room_id, row.user_id, row.name, row.seat, row.stack, row.avatar],
+    ['next', 'a', 'Simon', 0, 1000, '🦊'],
+  );
+  assert.equal(pokerRematchJoin(next, [...plan.players, { ...row }], seated, 'a'), null);
+  // My old seat was taken by someone else: the first free one.
+  const other = { user_id: 'x', name: 'Max', seat: 0, stack: 1000 };
+  assert.equal(pokerRematchJoin(next, [...plan.players, other], seated, 'a')!.seat, 1);
+  assert.throws(() => pokerRematchJoin(next, plan.players, seated, 'z'), /pas à cette table/);
+});
+
+test('place à la revanche : l’ancienne si libre, sinon la première libre', () => {
+  assert.equal(rematchSeat(2, [{ seat: 0 }]), 2);
+  assert.equal(rematchSeat(0, [{ seat: 0 }, { seat: 1 }]), 2);
+  assert.throws(
+    () =>
+      rematchSeat(
+        0,
+        [0, 1, 2].map((seat) => ({ seat })),
+        3,
+      ),
+    /pleine/,
+  );
 });

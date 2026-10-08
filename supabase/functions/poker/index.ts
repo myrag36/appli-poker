@@ -15,8 +15,10 @@ import {
   VARIANTS,
   MAX_PLAYERS,
   type PlayerRow,
+  type Rematch,
   type RoomRow,
   type SaveParams,
+  type SeatedPlayerRow,
   checkRemoval,
   cleanName,
   dealNextHand,
@@ -28,19 +30,21 @@ import {
   pausedState,
   playAction,
   playTimeout,
+  pokerRematch,
+  pokerRematchJoin,
 } from './logic.ts';
 import { awardXp, unlockedEmojis } from '../_shared/xp.ts';
+import { inBackground, notify } from '../_shared/push.ts';
+import { newTurns, pokerToAct, turnNotice } from '../_shared/notify.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const admin = createClient(
-  Deno.env.get('SUPABASE_URL')!,
-  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  { auth: { persistSession: false } },
-);
+const admin = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!, {
+  auth: { persistSession: false },
+});
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -79,7 +83,7 @@ async function save(db: SupabaseClient, params: SaveParams) {
   const { data, error } = await db.rpc('save_room_state', params);
   if (error) {
     if (error.message.includes('conflict')) {
-      throw new GameError('Quelqu\'un a joué en même temps, réessaie');
+      throw new GameError("Quelqu'un a joué en même temps, réessaie");
     }
     throw error;
   }
@@ -180,7 +184,9 @@ async function createRoom(userId: string, body: Record<string, unknown>) {
 
 async function joinRoom(userId: string, body: Record<string, unknown>) {
   const name = cleanName(body.name);
-  const code = String(body.code ?? '').trim().toUpperCase();
+  const code = String(body.code ?? '')
+    .trim()
+    .toUpperCase();
   const { data: room, error } = await admin
     .from('rooms')
     .select('id, starting_stack')
@@ -206,7 +212,8 @@ async function joinRoom(userId: string, body: Record<string, unknown>) {
     stack: room.starting_stack,
     ...avatar,
   });
-  if (insertError?.code === '23505') throw new GameError('Ce prénom ou cette place vient d\'être pris, réessaie');
+  if (insertError?.code === '23505')
+    throw new GameError("Ce prénom ou cette place vient d'être pris, réessaie");
   if (insertError) throw insertError;
   await saveProfile(userId, name, avatar);
   // Someone who was watching now plays.
@@ -216,7 +223,9 @@ async function joinRoom(userId: string, body: Record<string, unknown>) {
 
 async function watchRoom(userId: string, body: Record<string, unknown>) {
   const name = cleanName(body.name);
-  const code = String(body.code ?? '').trim().toUpperCase();
+  const code = String(body.code ?? '')
+    .trim()
+    .toUpperCase();
   const { data: room, error } = await admin.from('rooms').select('id').eq('code', code).maybeSingle();
   if (error) throw error;
   if (!room) throw new GameError('Aucune table avec ce code');
@@ -231,12 +240,21 @@ async function watchRoom(userId: string, body: Record<string, unknown>) {
   return { roomId: room.id };
 }
 
+/** Tells the player who must now act, on their phone, that it is their turn. */
+function notifyTurn(room: RoomRow, before: HandState | null, saved: SaveParams) {
+  const ids = newTurns(pokerToAct(before), pokerToAct(saved.p_secret), saved.p_public.bots ?? []);
+  if (ids.length === 0 || !room.code) return;
+  const code = room.code;
+  inBackground(notify(admin, ids, (lang) => turnNotice(lang, 'poker', code), { ttl: 300, urgency: 'high' }));
+}
+
 async function nextHand(userId: string, roomId: string) {
   const room = await loadRoom(admin, roomId);
   if (room.host_id !== userId) throw new GameError('Seul le créateur de la table peut distribuer');
   const [players, previous] = await Promise.all([loadPlayers(admin, roomId), loadHand(admin, roomId)]);
   const saved = dealNextHand(room, players, previous, Date.now());
   const version = await save(admin, saved);
+  notifyTurn(room, null, saved);
   // With only all-in players left, a hand can be over as soon as it is dealt.
   await recordHand(room, saved);
   return { version };
@@ -250,6 +268,7 @@ async function act(userId: string, roomId: string, rawAction: unknown) {
   if (!hand) throw new GameError('Aucune main en cours');
   const saved = playAction(room, hand, userId, action, Date.now());
   const version = await save(admin, saved);
+  notifyTurn(room, hand, saved);
   await recordHand(room, saved);
   return { version };
 }
@@ -257,10 +276,11 @@ async function act(userId: string, roomId: string, rawAction: unknown) {
 async function timeout(userId: string, roomId: string) {
   const room = await loadRoom(admin, roomId);
   const [players, hand] = await Promise.all([loadPlayers(admin, roomId), loadHand(admin, roomId)]);
-  if (!players.some((p) => p.user_id === userId)) throw new GameError('Tu n\'es pas à cette table');
+  if (!players.some((p) => p.user_id === userId)) throw new GameError("Tu n'es pas à cette table");
   if (!hand) throw new GameError('Aucune main en cours');
   const saved = playTimeout(room, hand, Date.now());
   const version = await save(admin, saved);
+  notifyTurn(room, hand, saved);
   await recordHand(room, saved);
   return { version };
 }
@@ -277,7 +297,7 @@ async function setPaused(userId: string, roomId: string, paused: boolean) {
     .select('version')
     .maybeSingle();
   if (error) throw error;
-  if (!data) throw new GameError('Quelqu\'un a joué en même temps, réessaie');
+  if (!data) throw new GameError("Quelqu'un a joué en même temps, réessaie");
   return { version: data.version };
 }
 
@@ -285,7 +305,7 @@ async function addBot(userId: string, roomId: string) {
   const room = await loadRoom(admin, roomId);
   const bot = newBot(room, await loadPlayers(admin, roomId), userId, crypto.randomUUID());
   const { error } = await admin.from('room_players').insert(bot);
-  if (error?.code === '23505') throw new GameError('Cette place vient d\'être prise, réessaie');
+  if (error?.code === '23505') throw new GameError("Cette place vient d'être prise, réessaie");
   if (error) throw error;
   return { ok: true };
 }
@@ -297,6 +317,72 @@ async function removePlayer(userId: string, roomId: string, targetId: string) {
   if (error) throw error;
   await admin.from('private_hands').delete().eq('room_id', roomId).eq('user_id', targetId);
   return { ok: true };
+}
+
+async function loadSeated(roomId: string) {
+  const { data, error } = await admin
+    .from('room_players')
+    .select('user_id, name, seat, stack, is_bot, avatar, avatar_color')
+    .eq('room_id', roomId);
+  if (error) throw error;
+  return data as SeatedPlayerRow[];
+}
+
+/**
+ * Revanche: the first player to ask opens a new table with the same settings and writes it
+ * on the finished one; everyone who asks after that is seated there directly.
+ */
+async function rematch(userId: string, roomId: string) {
+  const room = await loadRoom(admin, roomId);
+  const players = await loadSeated(roomId);
+  let target = room.rematch ?? null;
+  if (!target) {
+    const plan = pokerRematch(room, players, userId);
+    const created = await insertRematchRoom(plan.room);
+    const { error: seatError } = await admin
+      .from('room_players')
+      .insert(plan.players.map((p) => ({ ...p, room_id: created.id })));
+    if (seatError) throw seatError;
+    const me = players.find((p) => p.user_id === userId)!;
+    const mine: Rematch = { roomId: created.id, code: created.code, byId: userId, by: me.name };
+    // Only one rematch per game: if someone else was faster, drop ours and follow theirs.
+    const { data: claimed, error } = await admin
+      .from('rooms')
+      .update({ rematch: mine })
+      .eq('id', roomId)
+      .is('rematch', null)
+      .select('id')
+      .maybeSingle();
+    if (error) throw error;
+    if (claimed) return { roomId: created.id };
+    await admin.from('rooms').delete().eq('id', created.id);
+    target = (await loadRoom(admin, roomId)).rematch ?? null;
+    if (!target) throw new GameError("Quelqu'un a joué en même temps, réessaie");
+  }
+  const next = await loadRoom(admin, target.roomId).catch(() => {
+    throw new GameError('Cette revanche n’existe plus');
+  });
+  const row = pokerRematchJoin(next, await loadPlayers(admin, next.id), players, userId);
+  if (row) {
+    const { error } = await admin.from('room_players').insert(row);
+    if (error?.code === '23505') throw new GameError("Cette place vient d'être prise, réessaie");
+    if (error) throw error;
+  }
+  return { roomId: next.id };
+}
+
+async function insertRematchRoom(settings: ReturnType<typeof pokerRematch>['room']) {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const { data, error } = await admin
+      .from('rooms')
+      .insert({ code: makeRoomCode(), ...settings })
+      .select('id, code')
+      .single();
+    if (error?.code === '23505') continue;
+    if (error) throw error;
+    return data as { id: string; code: string };
+  }
+  throw new GameError('Impossible de créer la table, réessaie');
 }
 
 Deno.serve(async (req) => {
@@ -329,6 +415,8 @@ Deno.serve(async (req) => {
         return json(await addBot(user.id, roomId));
       case 'remove':
         return json(await removePlayer(user.id, roomId, String(body.userId ?? '')));
+      case 'rematch':
+        return json(await rematch(user.id, roomId));
       default:
         return json({ error: 'Requête inconnue' }, 400);
     }

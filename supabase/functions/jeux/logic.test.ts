@@ -7,6 +7,8 @@ import {
   BOT_MS,
   TURN_MS,
   checkJoin,
+  gameRematch,
+  gameRematchJoin,
   cleanOptions,
   cleanTournamentGames,
   cleanTournamentName,
@@ -175,6 +177,113 @@ test('belote: robots complete the table to four and only my own hand reaches me'
   assert.equal(pub.stock, undefined);
 });
 
+test('tarot: robots complete the table, the chien stays hidden, and the game reaches its end', () => {
+  let a = 42;
+  const seeded = (n: number) => {
+    a = (a * 1103515245 + 12345) % 2147483648;
+    return a % n;
+  };
+  assert.deepEqual(cleanOptions('tarot', {}), { deals: 4 });
+  assert.throws(() => cleanOptions('tarot', { deals: 3 }), GameError);
+  const { bots, snapshot } = startGame(
+    room({ game: 'tarot', options: { deals: 4 } }),
+    [player('a', 0)],
+    'a',
+    newId,
+    seeded,
+    NOW,
+  );
+  assert.equal(bots.length, 3);
+  assert.equal(snapshot.public.seats.length, 4);
+  let s = snapshot;
+  for (let i = 0; i < 2000 && !s.public.over; i++) {
+    const secret = s.secret.state as { phase: string; hands: string[][] };
+    const pub = s.public.view as { hands: string[][]; chien: string[]; won?: unknown };
+    assert.ok(pub.hands.every((h) => h.length === 0));
+    assert.equal(pub.won, undefined);
+    if (secret.phase === 'bidding') assert.deepEqual(pub.chien, []);
+    const mine = s.privates.a as { hands: string[][] };
+    assert.deepEqual(mine.hands[0], secret.hands[0]);
+    assert.deepEqual(mine.hands.slice(1), [[], [], []]);
+    s = playGameTimeout(s.secret, seeded, s.secret.deadline!);
+  }
+  assert.ok(s.public.over);
+});
+
+
+
+test('uno and 8 américain: a robot fills the table to two, hidden hands stay hidden, games end', () => {
+  let seed = 11;
+  const random = (n: number) => {
+    seed = (seed * 1103515245 + 12345) % 2147483648;
+    return seed % n;
+  };
+  for (const game of ['uno', 'huit'] as const) {
+    assert.throws(() => cleanOptions(game, { target: 42 }), GameError);
+    const { bots, snapshot } = startGame(
+      room({ game, options: cleanOptions(game, { target: 0 }) }),
+      [player('a', 0)],
+      'a',
+      newId,
+      random,
+      NOW,
+    );
+    assert.equal(bots.length, 1);
+    assert.equal(snapshot.public.seats.length, 2);
+    type View = { players: { hand: string[] }[]; deck: string[]; deckCount: number };
+    const mine = snapshot.privates.a as View;
+    assert.equal(mine.players[0].hand.length, 7);
+    assert.ok(mine.players[0].hand.every((c) => c !== '??'));
+    assert.ok(mine.players[1].hand.every((c) => c === '??'));
+    assert.deepEqual(mine.deck, []);
+    assert.ok(mine.deckCount > 0);
+    const pub = snapshot.public.view as View;
+    assert.ok(pub.players.every((p) => p.hand.every((c) => c === '??')));
+    // Nobody but the actors may move.
+    if (!snapshot.public.actors.includes('a'))
+      assert.throws(() => playGameMove(snapshot.secret, 'a', { type: 'draw' }, random, NOW), /pas ton tour/);
+    let s = snapshot;
+    for (let i = 0; i < 3000 && !s.public.over; i++)
+      s = playGameTimeout(s.secret, random, s.secret.deadline!);
+    assert.ok(s.public.over);
+  }
+});
+
+test('rami: a robot joins a player alone, hands and stock stay secret, a slow player is played for', () => {
+  assert.deepEqual(cleanOptions('rami', undefined), { target: 300 });
+  assert.throws(() => cleanOptions('rami', { target: 1000 }), GameError);
+  const { bots, snapshot } = startGame(
+    room({ game: 'rami', options: { target: 150 } }),
+    [player('a', 0)],
+    'a',
+    newId,
+    rng,
+    NOW,
+  );
+  assert.equal(bots.length, 1);
+  assert.equal(snapshot.public.seats.length, 2);
+  type V = { hands: string[][]; handCounts: number[]; stockCount: number; target: number; stock?: unknown };
+  const mine = snapshot.privates.a as V;
+  assert.equal(mine.target, 150);
+  assert.equal(mine.hands[1].length, 0);
+  assert.ok(mine.hands[0].length >= 13);
+  assert.equal(mine.stock, undefined);
+  assert.equal(mine.stockCount, 108 - 27);
+  const pub = snapshot.public.view as V;
+  assert.ok(pub.hands.every((h) => h.length === 0));
+  assert.deepEqual(pub.handCounts, mine.handCounts);
+  // Six seats at most.
+  const six = ['a', 'b', 'c', 'd', 'e', 'f'].map((id, i) => player(id, i));
+  assert.equal(startGame(room({ game: 'rami' }), six, 'a', newId, rng, NOW).snapshot.public.seats.length, 6);
+  assert.throws(() => checkJoin(room({ game: 'rami' }), six, 'g', 'G'), GameError);
+  // Whoever has to play and does not is played for, one step at a time.
+  let s = snapshot;
+  for (let i = 0; i < 6 && !s.public.over; i++) {
+    assert.equal(s.public.actors.length, s.public.betweenRounds ? 0 : 1);
+    s = playGameTimeout(s.secret, rng, s.secret.deadline!);
+  }
+});
+
 test('experience: a little each round, more at the end, and the winners get the bonus', () => {
   // A Yams game for one person and a robot, played to the end with timeouts.
   const { snapshot } = startGame(room(), [player('a', 0), player('r', 1, true)], 'a', newId, rng, NOW);
@@ -208,4 +317,93 @@ test('tournaments: valid games only, and results once a table ends', () => {
   }
   assert.equal(results?.length, 1);
   assert.equal(results![0].userId, 'a');
+});
+
+test('puissance4: a robot takes the empty seat, rounds pause, the match ends with experience', () => {
+  const { bots, snapshot } = startGame(
+    room({ game: 'puissance4', options: cleanOptions('puissance4', { rounds: 2 }) }),
+    [player('a', 0)],
+    'a',
+    newId,
+    rng,
+    NOW,
+  );
+  assert.equal(bots.length, 1);
+  assert.equal(bots[0].seat, 1);
+  assert.deepEqual(snapshot.public.actors, ['a']);
+  const full = [player('a', 0), player('b', 1)];
+  assert.throws(() => checkJoin(room({ game: 'puissance4' }), full, 'c', 'C'), /pleine/);
+  /** Red drops in the first free column from the center; the robot answers on its timeout. */
+  const step = (s: typeof snapshot) => {
+    if (s.public.actors[0] !== 'a') return playGameTimeout(s.secret, rng, s.secret.deadline!);
+    const board = (s.public.view as { game: { board: unknown[][] } }).game.board;
+    const col = [3, 2, 4, 1, 5, 0, 6].find((c) => board[c].includes(null))!;
+    return playGameMove(s.secret, 'a', { type: 'drop', col }, rng, NOW);
+  };
+  let s = snapshot;
+  for (let i = 0; i < 60 && !s.public.betweenRounds; i++) s = step(s);
+  assert.ok(s.public.betweenRounds);
+  assert.throws(() => playGameMove(s.secret, 'a', { type: 'drop', col: 1 }, rng, NOW), /pas ton tour/);
+  s = playGameMove(s.secret, 'a', { type: 'next' }, rng, NOW);
+  // The other player starts the second round: the robot.
+  assert.deepEqual(s.public.actors, [bots[0].user_id]);
+  let before = s;
+  for (let i = 0; i < 60 && !s.public.over; i++) {
+    before = s;
+    s = step(s);
+  }
+  assert.ok(s.public.over);
+  const awards = progressAwards(before.secret, s);
+  assert.equal(awards.length, 1);
+  assert.equal(awards[0].userId, 'a');
+});
+
+test('revanche: once the game is over, a new table with the asker, the robots and old seats', () => {
+  const seated = [
+    { ...player('a', 0), avatar: '🦊', avatar_color: '#f00' },
+    { ...player('r', 1, true), avatar: '🤖', avatar_color: '#0f0' },
+    { ...player('b', 2), avatar: null, avatar_color: null },
+  ];
+  const finished = room({ options: { x: 1 }, status: 'playing' });
+  const { snapshot } = startGame(room(), seated, 'a', newId, rng, NOW);
+  assert.throws(() => gameRematch(finished, snapshot.secret, seated, 'b'), /pas finie/);
+  assert.throws(() => gameRematch(finished, null, seated, 'b'), /pas finie/);
+  let s = snapshot;
+  for (let i = 0; i < 5000 && !s.public.over; i++) s = playGameTimeout(s.secret, rng, s.secret.deadline!);
+  assert.ok(s.public.over);
+  assert.throws(() => gameRematch(finished, s.secret, seated, 'z'), /pas à cette table/);
+  assert.throws(() => gameRematch(finished, s.secret, seated, 'r'), /pas à cette table/);
+  assert.throws(() => gameRematch({ ...finished, tournament_id: 't' }, s.secret, seated, 'b'), /tournoi/);
+
+  const plan = gameRematch(finished, s.secret, seated, 'b');
+  assert.deepEqual(plan.room, { game: 'yams', host_id: 'b', options: { x: 1 } });
+  assert.deepEqual(
+    plan.players.map((p) => [p.user_id, p.seat, p.is_bot, p.avatar]),
+    [
+      ['r', 1, true, '🤖'],
+      ['b', 2, false, null],
+    ],
+  );
+
+  // The others follow with one tap, back in their old seat if it is still free.
+  const next = room({ id: 'next', host_id: 'b' });
+  const there = plan.players.map((p) => ({
+    user_id: p.user_id,
+    name: p.name,
+    seat: p.seat,
+    is_bot: p.is_bot,
+  }));
+  assert.deepEqual(gameRematchJoin(next, there, seated, 'a'), {
+    room_id: 'next',
+    user_id: 'a',
+    name: 'A',
+    seat: 0,
+    is_bot: false,
+    avatar: '🦊',
+    avatar_color: '#f00',
+  });
+  assert.equal(gameRematchJoin(next, [...there, player('a', 0)], seated, 'a'), null);
+  assert.equal(gameRematchJoin(next, [...there, player('x', 0)], seated, 'a')!.seat, 3);
+  assert.throws(() => gameRematchJoin(next, there, seated, 'z'), /pas à cette table/);
+  assert.throws(() => gameRematchJoin({ ...next, status: 'playing' }, there, seated, 'a'), /commencé/);
 });

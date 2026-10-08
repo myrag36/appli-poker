@@ -33,8 +33,10 @@ import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Banner } from '../components/Banner';
 import { AchievementList, StreakCard } from '../components/Achievements';
 import { RewardPreview } from '../components/RewardPreview';
+import { NotificationSettings } from '../components/Notifications';
 import { TitleBadge } from '../components/TitleBadge';
 import { TopBar } from '../components/TopBar';
+import { Tutorial } from '../components/Tutorial';
 import { equipReward, syncMe, useMyProgress } from '../online/progress';
 import { loadAvatar, loadName, saveAvatar, saveName } from '../online/supabase';
 import { colors, gradients } from '../theme';
@@ -67,6 +69,7 @@ export function ProfileScreen({ onBack, onShop }: { onBack: () => void; onShop: 
   const { width: screenW } = useWindowDimensions();
   const width = Math.min(screenW, 520);
   const [name, setName] = useState('');
+  const [tutorial, setTutorial] = useState(false);
   const [avatar, setAvatar] = useState<Avatar>(defaultAvatar(0));
   const [tab, setTab] = useState<Tab>('frame');
   const [error, setError] = useState<string | null>(null);
@@ -276,6 +279,8 @@ export function ProfileScreen({ onBack, onShop }: { onBack: () => void; onShop: 
 
       {Platform.OS === 'web' && (
         <>
+          <Text style={styles.section}>{t('Notifications')}</Text>
+          <NotificationSettings />
           <Text style={styles.section}>{t('Langue')}</Text>
           <View style={styles.langs}>
             {LANGS.map((l) => (
@@ -299,6 +304,15 @@ export function ProfileScreen({ onBack, onShop }: { onBack: () => void; onShop: 
           </View>
         </>
       )}
+
+      <Pressable
+        accessibilityRole="button"
+        onPress={() => setTutorial(true)}
+        style={({ pressed }) => [styles.tutorial, pressed && { opacity: 0.8 }]}
+      >
+        <Text style={styles.tutorialText}>{t('📖 Revoir le tutoriel')}</Text>
+      </Pressable>
+      <Tutorial visible={tutorial} onClose={() => setTutorial(false)} />
     </ScrollView>
   );
 }
@@ -412,4 +426,14 @@ const styles = StyleSheet.create({
   langName: { flex: 1, color: colors.text, fontSize: 15, fontWeight: '700' },
   langNameActive: { color: colors.gold },
   langCheck: { color: colors.gold, fontSize: 16, fontWeight: '900' },
+  tutorial: {
+    marginTop: 22,
+    alignSelf: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 999,
+    borderWidth: 1.5,
+    borderColor: colors.gold,
+  },
+  tutorialText: { color: colors.gold, fontSize: 16, fontWeight: '800' },
 });

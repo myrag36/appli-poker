@@ -7,6 +7,14 @@ import cartes1 from './cartes1';
 import cartes2 from './cartes2';
 import cartes3 from './cartes3';
 import divers from './divers';
+import tutoriel from './tutoriel';
+import puissance4 from './puissance4';
+import ramiEnLigne from './ramiEnLigne';
+import defi from './defi';
+import tarotEnLigne from './tarotEnLigne';
+import unoEnLigne from './uno-en-ligne';
+import revanche from './revanche';
+import notifications from './notifications';
 
 export const EN: Record<string, string> = {
   ...accueil,
@@ -17,4 +25,12 @@ export const EN: Record<string, string> = {
   ...cartes2,
   ...cartes3,
   ...divers,
+  ...tutoriel,
+  ...puissance4,
+  ...ramiEnLigne,
+  ...defi,
+  ...tarotEnLigne,
+  ...unoEnLigne,
+  ...revanche,
+  ...notifications,
 };

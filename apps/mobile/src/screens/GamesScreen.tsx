@@ -24,8 +24,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { GameDecor } from '../components/GameDecor';
 import { ThemeChooser } from '../components/ThemeChooser';
 import { InstallBanner } from '../components/InstallBanner';
+import { Tutorial, tutorialPending } from '../components/Tutorial';
 import { AvatarBadge } from '../components/AvatarPicker';
 import { achievementsReady } from '../components/Achievements';
+import { DailyChallenge } from '../components/DailyChallenge';
 import { useMyProgress } from '../online/progress';
 import { loadAvatar } from '../online/supabase';
 import { PlayingCard } from '../components/PlayingCard';
@@ -110,7 +112,7 @@ const GAMES: Game[] = [
     id: 'rami',
     title: 'Rami',
     tagline: t('Pose tes suites et tes brelans, ouvre à 51 et vide ta main le premier.'),
-    players: t('2 à 4 joueurs'),
+    players: t('2 à 6 joueurs'),
     art: ['7d', '8d', 'Xr', '9d'],
     ready: true,
   },
@@ -227,8 +229,9 @@ export function GamesScreen({
   onTournaments,
 }: Props) {
   const insets = useSafeAreaInsets();
+  const [tutorial, setTutorial] = useState(tutorialPending);
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const cardHeight = Math.max(340, Math.min(CARD_HEIGHT, screenHeight - 480));
+  const cardHeight = Math.max(300, Math.min(CARD_HEIGHT, screenHeight - 520));
   const viewWidth = Math.min(screenWidth, 520);
   const cardWidth = Math.round(viewWidth * 0.76);
   const step = cardWidth + GAP;
@@ -248,14 +251,13 @@ export function GamesScreen({
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 28, paddingBottom: insets.bottom + 20 }]}>
+    <View style={[styles.container, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 20 }]}>
       <View style={styles.chips}>
         <ProfileChip onPress={onProfile} />
         <CoinsChip onPress={onShop} />
         <LangChip />
       </View>
       <Text style={styles.title}>La Tablée</Text>
-      <Text style={styles.subtitle}>{t('Glisse pour choisir ton jeu.')}</Text>
       <View style={styles.social}>
         <Pressable
           accessibilityRole="button"
@@ -273,6 +275,8 @@ export function GamesScreen({
         </Pressable>
         <SeasonPill onPress={onShop} />
       </View>
+
+      <DailyChallenge width={Math.min(viewWidth - 32, 440)} />
 
       {canResume && (
         <Pressable
@@ -364,7 +368,8 @@ export function GamesScreen({
         <ThemeChooser />
       </View>
 
-      <InstallBanner />
+      {!tutorial && <InstallBanner />}
+      <Tutorial visible={tutorial} onClose={() => setTutorial(false)} />
     </View>
   );
 }

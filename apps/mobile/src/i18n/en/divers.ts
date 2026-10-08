@@ -16,6 +16,10 @@ export default {
   'Activer le son': 'Turn sound on',
   'Couper le son': 'Mute',
   Classement: 'Standings',
+  // Online tables: who can play
+  '1 à 7 joueurs contre la banque': '1 to 7 players against the dealer',
+  '3 à 8 joueurs, les robots complètent jusqu’à 4': '3 to 8 players, bots fill up to 4',
+  '1 à 4 joueurs, en deux équipes, les robots complètent': '1 to 4 players in two teams, bots fill the rest',
   // Poker action buttons
   Coucher: 'Fold',
   Checker: 'Check',

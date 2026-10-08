@@ -12,6 +12,8 @@ for (const [game, count, options] of [
   ['yams', 2, {}],
   ['belote', 4, { target: 501 }],
   ['president', 4, { rounds: 2 }],
+  ['uno', 3, { target: 200 }],
+  ['huit', 2, { target: 100 }],
 ] as [OnlineGameId, number, Record<string, unknown>][]) {
   test(`${game}: the winners are known once the game is over`, () => {
     const def = ONLINE_GAMES[game];
