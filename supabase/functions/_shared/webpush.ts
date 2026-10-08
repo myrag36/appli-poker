@@ -24,18 +24,18 @@ export interface VapidKeys {
 export interface PushRequest {
   url: string;
   headers: Record<string, string>;
-  body: Uint8Array;
+  body: Uint8Array<ArrayBuffer>;
 }
 
 const enc = new TextEncoder();
 
-export function toBase64Url(bytes: Uint8Array): string {
+export function toBase64Url(bytes: Uint8Array<ArrayBuffer>): string {
   let bin = '';
   for (const b of bytes) bin += String.fromCharCode(b);
   return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-export function fromBase64Url(text: string): Uint8Array {
+export function fromBase64Url(text: string): Uint8Array<ArrayBuffer> {
   const b64 = text.replace(/-/g, '+').replace(/_/g, '/');
   const bin = atob(b64 + '='.repeat((4 - (b64.length % 4)) % 4));
   const out = new Uint8Array(bin.length);
@@ -43,7 +43,7 @@ export function fromBase64Url(text: string): Uint8Array {
   return out;
 }
 
-function concat(...parts: Uint8Array[]): Uint8Array {
+function concat(...parts: Uint8Array<ArrayBuffer>[]): Uint8Array<ArrayBuffer> {
   const out = new Uint8Array(parts.reduce((n, p) => n + p.length, 0));
   let at = 0;
   for (const p of parts) {
@@ -96,7 +96,7 @@ export async function vapidAuthorization(
   return `vapid t=${header}.${claims}.${toBase64Url(signature)}, k=${keys.publicKey}`;
 }
 
-async function hkdf(salt: Uint8Array, ikm: Uint8Array, info: Uint8Array, bytes: number): Promise<Uint8Array> {
+async function hkdf(salt: Uint8Array<ArrayBuffer>, ikm: Uint8Array<ArrayBuffer>, info: Uint8Array<ArrayBuffer>, bytes: number): Promise<Uint8Array<ArrayBuffer>> {
   const key = await crypto.subtle.importKey('raw', ikm, 'HKDF', false, ['deriveBits']);
   return new Uint8Array(
     await crypto.subtle.deriveBits({ name: 'HKDF', hash: 'SHA-256', salt, info }, key, bytes * 8),
@@ -105,7 +105,7 @@ async function hkdf(salt: Uint8Array, ikm: Uint8Array, info: Uint8Array, bytes: 
 
 /** Fixed inputs, so tests can check the output against known values. */
 export interface EncryptOptions {
-  salt?: Uint8Array;
+  salt?: Uint8Array<ArrayBuffer>;
   serverKeys?: CryptoKeyPair;
 }
 
@@ -114,10 +114,10 @@ export interface EncryptOptions {
  * the salt and this message's own public key.
  */
 export async function encryptPayload(
-  payload: Uint8Array,
+  payload: Uint8Array<ArrayBuffer>,
   keys: PushSubscriptionKeys,
   options: EncryptOptions = {},
-): Promise<Uint8Array> {
+): Promise<Uint8Array<ArrayBuffer>> {
   const uaPublic = fromBase64Url(keys.p256dh);
   const authSecret = fromBase64Url(keys.auth);
   if (uaPublic.length !== 65 || uaPublic[0] !== 4) throw new Error('Clé du navigateur invalide');
