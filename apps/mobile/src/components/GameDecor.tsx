@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
-export type DecorId = 'poker' | 'blackjack' | 'president' | 'yams' | 'belote';
+export type DecorId = 'poker' | 'blackjack' | 'president' | 'yams' | 'belote' | 'tarot';
 
 interface Size {
   w: number;
@@ -391,12 +391,50 @@ function Belote({ w, h }: Size) {
   );
 }
 
+function Tarot({ w, h }: Size) {
+  const rand = random(21);
+  return (
+    <>
+      <LinearGradient colors={['#4a3485', '#261a57', '#0f0b2a']} style={StyleSheet.absoluteFill} />
+      {/* A starry night sky. */}
+      {Array.from({ length: 34 }, (_, i) => {
+        const size = 1.5 + rand() * 2.5;
+        return (
+          <View
+            key={i}
+            style={{
+              position: 'absolute',
+              left: rand() * w,
+              top: rand() * h * 0.6,
+              width: size,
+              height: size,
+              borderRadius: size,
+              backgroundColor: `rgba(255,240,200,${0.35 + rand() * 0.5})`,
+            }}
+          />
+        );
+      })}
+      <Glow x={w * 0.76} y={h * 0.15} size={w * 0.28} color="rgba(255,230,160,0.12)" />
+      {/* The crescent moon: a gold disc with a night-coloured one over it. */}
+      <View style={[styles.moon, { left: w * 0.68, top: h * 0.06 }]} />
+      <View style={[styles.moonShade, { left: w * 0.68 + 14, top: h * 0.06 - 6 }]} />
+      <Text style={[styles.arcane, { width: w, top: h * 0.02 }]}>XXI</Text>
+      {/* The laurel wreath of the 21, as on the old decks. */}
+      <View style={[styles.wreath, { left: w * 0.08, top: h * 0.08 }]}>
+        <Text style={styles.wreathStar}>✦</Text>
+      </View>
+      <Pattern w={w} h={h} step={58} symbols={['✦', '☾', '★']} color="rgba(232,199,102,0.07)" size={14} />
+    </>
+  );
+}
+
 const DECORS: Record<DecorId, (size: Size) => ReactNode> = {
   poker: Poker,
   blackjack: Blackjack,
   president: President,
   yams: Yams,
   belote: Belote,
+  tarot: Tarot,
 };
 
 /** The illustrated background of a game's card in the carousel. */
@@ -544,4 +582,35 @@ const styles = StyleSheet.create({
     boxShadow: '0 3px 6px rgba(0,0,0,0.35)',
   },
   wine: { width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(110,10,35,0.85)' },
+  moon: {
+    position: 'absolute',
+    width: 58,
+    height: 58,
+    borderRadius: 29,
+    backgroundColor: '#f3d77a',
+    boxShadow: '0 0 24px rgba(255,220,120,0.55)',
+  },
+  moonShade: { position: 'absolute', width: 56, height: 56, borderRadius: 28, backgroundColor: '#45307d' },
+  arcane: {
+    position: 'absolute',
+    left: 0,
+    textAlign: 'center',
+    fontSize: 96,
+    fontWeight: '900',
+    fontFamily: 'Georgia, "Times New Roman", serif',
+    color: 'rgba(232,199,102,0.10)',
+    letterSpacing: 6,
+  },
+  wreath: {
+    position: 'absolute',
+    width: 54,
+    height: 70,
+    borderRadius: 35,
+    borderWidth: 3,
+    borderColor: 'rgba(120,190,110,0.55)',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  wreathStar: { color: 'rgba(232,199,102,0.7)', fontSize: 20 },
 });
