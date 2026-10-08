@@ -4,9 +4,10 @@ import type { Rng } from './cards.ts';
 import { blackjackOnline } from './online-blackjack.ts';
 import { beloteOnline } from './online-belote.ts';
 import { presidentOnline } from './online-president.ts';
+import { puissance4Online } from './online-puissance4.ts';
 import { yamsOnline } from './online-yams.ts';
 
-export type OnlineGameId = 'blackjack' | 'president' | 'yams' | 'belote';
+export type OnlineGameId = 'blackjack' | 'president' | 'yams' | 'belote' | 'puissance4';
 
 /** A seat at an online table, in seat order. Robots are played by the server. */
 export interface OnlineSeat {
@@ -44,11 +45,18 @@ export const ONLINE_GAMES: Record<OnlineGameId, OnlineGame> = {
   president: presidentOnline,
   yams: yamsOnline,
   belote: beloteOnline,
+  puissance4: puissance4Online,
 };
 
 export function isOnlineGame(id: unknown): id is OnlineGameId {
   return typeof id === 'string' && Object.hasOwn(ONLINE_GAMES, id);
 }
+
+export {
+  type P4OnlineState,
+  P4_ONLINE_DEFAULT_ROUNDS,
+  P4_ONLINE_ROUND_CHOICES,
+} from './online-puissance4.ts';
 
 /** Robot names for the seats the server fills itself. */
 export const ONLINE_BOT_NAMES = ['Robby', 'Bip', 'Zorg', 'Tina', 'Max', 'Nova', 'Pixel'];

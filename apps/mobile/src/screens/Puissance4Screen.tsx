@@ -15,8 +15,11 @@ import {
   type Avatar,
   type P4Level,
   type P4Player,
+  type P4OnlineState,
   type P4State,
   P4_COLS,
+  P4_ONLINE_DEFAULT_ROUNDS,
+  P4_ONLINE_ROUND_CHOICES,
   P4_LEVEL_LABELS,
   P4_ROWS,
   defaultAvatar,
@@ -32,11 +35,14 @@ import { Button } from '../components/Button';
 import { GameLayout } from '../components/GameLayout';
 import { Pill } from '../components/LevelPicker';
 import { Appear } from '../components/Motion';
+import { OnlineButton } from '../components/OnlineButton';
 import { RulesButton } from '../components/Rules';
 import { TOKEN_COLORS, TOKEN_NAMES, Token } from '../components/Token';
 import { TopBar } from '../components/TopBar';
+import { TurnTimer } from '../components/TurnTimer';
+import type { OnlineBoardProps, OnlineOptionsProps } from '../online-games/types';
 import { sounds } from '../feedback';
-import { reportFeat, reportLocalGame } from '../online/progress';
+import { reportFeat, reportLocalGame, useFeat } from '../online/progress';
 import { deviceRng } from '../rng';
 import { PUISSANCE4_RULES } from '../rules';
 import { colors } from '../theme';
@@ -64,7 +70,7 @@ interface Settings {
   level: P4Level;
 }
 
-export function Puissance4Screen({ onBack }: { onBack: () => void }) {
+export function Puissance4Screen({ onBack, onOnline }: { onBack: () => void; onOnline?: () => void }) {
   const [settings, setSettings] = useState<Settings | null>(null);
   /** The last settings, so coming back to the setup keeps them. */
   const [last, setLast] = useState<Settings | null>(null);
@@ -74,6 +80,7 @@ export function Puissance4Screen({ onBack }: { onBack: () => void }) {
       <Setup
         initial={last}
         onBack={onBack}
+        onOnline={onOnline}
         onStart={(s) => {
           setLast(s);
           setSettings(s);
@@ -100,10 +107,12 @@ function Setup({
   initial,
   onStart,
   onBack,
+  onOnline,
 }: {
   initial: Settings | null;
   onStart: (s: Settings) => void;
   onBack: () => void;
+  onOnline?: () => void;
 }) {
   const [vsBot, setVsBot] = useState(initial?.vsBot ?? true);
   const [level, setLevel] = useState<P4Level>(initial?.level ?? 'moyen');
@@ -171,6 +180,7 @@ function Setup({
       </View>
       <Text style={styles.title}>{t('Puissance 4')}</Text>
       <Text style={styles.subtitle}>{t('7 colonnes, 6 rangées, 4 jetons à aligner')}</Text>
+      {onOnline && <OnlineButton onPress={onOnline} />}
       <RulesButton rules={PUISSANCE4_RULES} />
 
       <Text style={styles.section}>{t('Adversaire')}</Text>
@@ -338,7 +348,16 @@ function Match({
   );
 }
 
-function Scoreboard({ game, settings }: { game: P4State; settings: Settings }) {
+function Scoreboard({
+  game,
+  settings,
+  subs,
+}: {
+  game: P4State;
+  settings: Settings;
+  /** What is written under each name, when not the default (color, or robot level). */
+  subs?: [string, string];
+}) {
   const finished = p4Finished(game);
   const cell = (p: P4Player) => {
     const active = finished ? game.winner === p : game.current === p;
@@ -353,9 +372,11 @@ function Scoreboard({ game, settings }: { game: P4State; settings: Settings }) {
             {settings.names[p]}
           </Text>
           <Text style={styles.scoreSub} numberOfLines={1}>
-            {settings.vsBot && p === 1
-              ? t('Robot {level}', { level: t(P4_LEVEL_LABELS[settings.level]) })
-              : TOKEN_NAMES[p]}
+            {subs
+              ? subs[p]
+              : settings.vsBot && p === 1
+                ? t('Robot {level}', { level: t(P4_LEVEL_LABELS[settings.level]) })
+                : TOKEN_NAMES[p]}
           </Text>
         </View>
         <Text style={[styles.scoreValue, { color: TOKEN_COLORS[p].fill }]}>{game.scores[p]}</Text>
@@ -591,12 +612,15 @@ function MatchResults({
   onReplay,
   onSettings,
   onHome,
+  homeLabel,
 }: {
   game: P4State;
   settings: Settings;
-  onReplay: () => void;
-  onSettings: () => void;
+  /** Absent online: a new match starts from a new table. */
+  onReplay?: () => void;
+  onSettings?: () => void;
   onHome: () => void;
+  homeLabel?: string;
 }) {
   const [a, b] = game.scores;
   const winner: P4Player | null = a > b ? 0 : b > a ? 1 : null;
@@ -640,10 +664,159 @@ function MatchResults({
         {side(1)}
       </View>
       <View style={styles.spacer} />
-      <Button label={t('Rejouer')} onPress={onReplay} />
-      <Button label={t('Changer les réglages')} variant="secondary" onPress={onSettings} />
-      <Button label={t('Retour aux jeux')} variant="secondary" onPress={onHome} />
+      {onReplay && <Button label={t('Rejouer')} onPress={onReplay} />}
+      {onSettings && <Button label={t('Changer les réglages')} variant="secondary" onPress={onSettings} />}
+      <Button label={homeLabel ?? t('Retour aux jeux')} variant="secondary" onPress={onHome} />
     </ScrollView>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Online
+
+/** A match at an online table: seat 0 plays red, seat 1 yellow; everyone sees the same board. */
+export function Puissance4OnlineBoard({
+  view,
+  mySeat,
+  seats,
+  deadline,
+  now,
+  betweenRounds,
+  over,
+  busy,
+  error,
+  onMove,
+  onLeave,
+}: OnlineBoardProps<P4OnlineState>) {
+  const game = view.game;
+  const finished = p4Finished(game);
+  const myTurn = !finished && game.current === mySeat;
+  const seated = mySeat === 0 || mySeat === 1;
+  const settings: Settings = {
+    names: [seats[0]?.name ?? t('Rouge'), seats[1]?.name ?? t('Jaune')],
+    avatars: [seats[0]?.avatar ?? defaultAvatar(0), seats[1]?.avatar ?? ROBOT_AVATAR],
+    vsBot: false,
+    level: 'moyen',
+  };
+  const sub = (p: P4Player) =>
+    seats[p]?.bot
+      ? t('Robot')
+      : p === mySeat
+        ? t('Toi · {color}', { color: TOKEN_NAMES[p] })
+        : TOKEN_NAMES[p];
+  const current = seats[game.current];
+
+  // Sounds follow what happens at the table, whoever played.
+  const last = useRef(game);
+  useEffect(() => {
+    const before = last.current;
+    last.current = game;
+    if (game === before) return;
+    if (game.moves > before.moves || game.round !== before.round) sounds.card();
+    if (finished && !p4Finished(before)) {
+      const id = setTimeout(() => {
+        if (game.draw) sounds.chips();
+        else if (game.winner === mySeat || !seated) sounds.win();
+        else sounds.fold();
+      }, 350);
+      return () => clearTimeout(id);
+    }
+    if (myTurn && before.current !== game.current) sounds.myTurn();
+  }, [game]);
+  useFeat('puissance4', finished && seated && game.winner === mySeat);
+
+  if (over)
+    return (
+      <MatchResults game={game} settings={settings} onHome={onLeave} homeLabel={t('Quitter la table')} />
+    );
+
+  const prompt = finished
+    ? game.draw
+      ? t('🤝 Grille pleine : match nul !')
+      : game.winner === mySeat
+        ? t('🏆 Tu gagnes la manche !')
+        : t('🏆 {name} gagne la manche !', { name: settings.names[game.winner!] })
+    : myTurn
+      ? t('À toi de jouer !')
+      : current?.bot
+        ? t('🤖 {name} réfléchit…', { name: settings.names[game.current] })
+        : t('{name} joue…', { name: settings.names[game.current] });
+  const waitSeconds = deadline ? Math.max(0, Math.ceil((deadline - now) / 1000)) : null;
+
+  return (
+    <GameLayout
+      top={
+        <>
+          <TopBar onBack={onLeave} backLabel={t('← Quitter')}>
+            <Text style={styles.round}>{t('Manche {n}/{total}', { n: game.round, total: view.rounds })}</Text>
+          </TopBar>
+          <Scoreboard game={game} settings={settings} subs={[sub(0), sub(1)]} />
+          {deadline && !finished && current && !current.bot && (
+            <TurnTimer deadline={deadline} now={now} name={myTurn ? t('Toi') : current.name} seconds={60} />
+          )}
+        </>
+      }
+      table={({ width, height }) => (
+        <Board
+          game={game}
+          width={width}
+          height={height}
+          canPlay={myTurn && !busy}
+          onDrop={(col) => onMove({ type: 'drop', col })}
+          prompt={prompt}
+        />
+      )}
+      bottom={
+        <View style={styles.onlineBottom}>
+          {error && <Text style={styles.onlineError}>{error}</Text>}
+          {betweenRounds ? (
+            seated ? (
+              <Button
+                label={
+                  waitSeconds !== null
+                    ? t('Manche suivante ({n} s)', { n: waitSeconds })
+                    : t('Manche suivante')
+                }
+                disabled={busy}
+                onPress={() => onMove({ type: 'next' })}
+              />
+            ) : (
+              <Text style={styles.help}>{t('La manche suivante va commencer…')}</Text>
+            )
+          ) : (
+            <Text style={styles.help}>
+              {myTurn
+                ? t('Touche une colonne pour y faire tomber ton jeton.')
+                : seated
+                  ? t('Attends ton tour : tu joues les {color}.', {
+                      color: TOKEN_NAMES[mySeat as P4Player].toLowerCase(),
+                    })
+                  : t('Tu regardes la partie.')}
+            </Text>
+          )}
+        </View>
+      }
+    />
+  );
+}
+
+/** Options of an online table: the number of rounds of the match. */
+export function Puissance4OnlineOptions({ value, onChange }: OnlineOptionsProps) {
+  const rounds = typeof value.rounds === 'number' ? value.rounds : P4_ONLINE_DEFAULT_ROUNDS;
+  return (
+    <View style={styles.onlineOptions}>
+      <Text style={styles.section}>{t('Nombre de manches')}</Text>
+      <View style={styles.pills}>
+        {P4_ONLINE_ROUND_CHOICES.map((n) => (
+          <Pill
+            key={n}
+            label={String(n)}
+            active={n === rounds}
+            onPress={() => onChange({ ...value, rounds: n })}
+          />
+        ))}
+      </View>
+    </View>
   );
 }
 
@@ -745,6 +918,9 @@ const styles = StyleSheet.create({
   bottomBox: { height: 58, justifyContent: 'center' },
   buttons: { flexDirection: 'row', gap: 8 },
   help: { color: colors.muted, textAlign: 'center', fontSize: 13 },
+  onlineOptions: { marginBottom: 12 },
+  onlineBottom: { minHeight: 58, justifyContent: 'center' },
+  onlineError: { color: colors.gold, textAlign: 'center', fontSize: 13, marginBottom: 4 },
 
   // Results
   results: { padding: 16, paddingTop: 48, paddingBottom: 30 },

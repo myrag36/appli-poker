@@ -2,8 +2,10 @@ import type { OnlineGameId } from '@appli-poker/engine';
 import { BeloteOnlineBoard, BeloteOnlineOptions } from '../screens/BeloteScreen';
 import { BlackjackOnlineBoard, BlackjackOnlineOptions } from '../screens/BlackjackScreen';
 import { PresidentOnlineBoard, PresidentOnlineOptions } from '../screens/PresidentScreen';
+import { Puissance4OnlineBoard, Puissance4OnlineOptions } from '../screens/Puissance4Screen';
 import { YamsOnlineBoard } from '../screens/YamsScreen';
 import type { OnlineGameUi } from './types';
+import { t } from '../i18n';
 
 /** How each game looks at an online table. */
 export const ONLINE_UI: Record<OnlineGameId, OnlineGameUi> = {
@@ -37,5 +39,13 @@ export const ONLINE_UI: Record<OnlineGameId, OnlineGameUi> = {
     Board: BeloteOnlineBoard,
     Options: BeloteOnlineOptions,
     defaultOptions: { target: 1000 },
+  },
+  puissance4: {
+    title: t('Puissance 4'),
+    emoji: '🔴',
+    players: t('2 joueurs, un robot prend la place libre'),
+    Board: Puissance4OnlineBoard,
+    Options: Puissance4OnlineOptions,
+    defaultOptions: { rounds: 3 },
   },
 };

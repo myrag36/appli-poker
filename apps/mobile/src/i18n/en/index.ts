@@ -8,6 +8,7 @@ import cartes2 from './cartes2';
 import cartes3 from './cartes3';
 import divers from './divers';
 import tutoriel from './tutoriel';
+import puissance4 from './puissance4';
 
 export const EN: Record<string, string> = {
   ...accueil,
@@ -19,4 +20,5 @@ export const EN: Record<string, string> = {
   ...cartes3,
   ...divers,
   ...tutoriel,
+  ...puissance4,
 };
