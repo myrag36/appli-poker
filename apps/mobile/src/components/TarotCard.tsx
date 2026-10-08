@@ -10,6 +10,7 @@ import {
 } from '@appli-poker/engine';
 import { colors, shadow } from '../theme';
 import { CardBackFace, useCardBack } from './cardBacks';
+import { lang } from '../i18n';
 
 /** Tarot cards are taller than standard ones. */
 export const TAROT_RATIO = 1.6;
@@ -17,6 +18,8 @@ export const TAROT_RATIO = 1.6;
 const SUIT_SYMBOLS: Record<string, string> = { s: '♠', h: '♥', d: '♦', c: '♣' };
 /** Chess pieces stand in for the portraits: roi, dame, cavalier, valet. */
 const COURT: Record<string, string> = { R: '♚︎', D: '♛︎', C: '♞︎', V: '♟︎' };
+/** Corner letters in English: jack, knight, queen, king. */
+const EN_RANKS: Record<string, string> = { V: 'J', C: 'C', D: 'Q', R: 'K' };
 const SERIF = Platform.select({
   ios: 'Georgia',
   android: 'serif',
@@ -99,7 +102,7 @@ export function TarotCard({ card, hidden, width = 50 }: Props) {
             { color, fontSize: w * (r.length > 1 ? 0.27 : 0.32), lineHeight: w * 0.34, letterSpacing: -0.5 },
           ]}
         >
-          {r}
+          {lang === 'en' ? (EN_RANKS[r] ?? r) : r}
         </Text>
         <Text style={{ color, fontSize: w * 0.24, lineHeight: w * 0.26 }}>{suit}</Text>
       </View>

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { t } from '../i18n';
 
 export type DecorId =
   | 'poker'
@@ -233,8 +234,10 @@ function Blackjack({ w, h }: Size) {
           <View key={i} style={[styles.trayColumn, { backgroundColor: c }]} />
         ))}
       </View>
-      <Text style={[styles.printed, { top: 44, width: w }]}>BLACKJACK PAIE 3 CONTRE 2</Text>
-      <Text style={[styles.printedSmall, { top: 62, width: w }]}>LA BANQUE TIRE À 16 ET RESTE À 17</Text>
+      <Text style={[styles.printed, { top: 44, width: w }]}>{t('BLACKJACK PAIE 3 CONTRE 2')}</Text>
+      <Text style={[styles.printedSmall, { top: 62, width: w }]}>
+        {t('LA BANQUE TIRE À 16 ET RESTE À 17')}
+      </Text>
     </>
   );
 }
@@ -388,8 +391,8 @@ function Belote({ w, h }: Size) {
       )}
       {/* The chalk slate where the scores are kept. */}
       <View style={[styles.slate, { left: -10, top: 14 }]}>
-        <Text style={styles.chalk}>Nous 320</Text>
-        <Text style={styles.chalk}>Eux 280</Text>
+        <Text style={styles.chalk}>{t('Nous {n}', { n: 320 })}</Text>
+        <Text style={styles.chalk}>{t('Eux {n}', { n: 280 })}</Text>
         <View style={styles.chalkLine} />
       </View>
       {/* A glass of wine and its ring on the cloth. */}
