@@ -5,8 +5,9 @@ import { blackjackOnline } from './online-blackjack.ts';
 import { beloteOnline } from './online-belote.ts';
 import { presidentOnline } from './online-president.ts';
 import { yamsOnline } from './online-yams.ts';
+import { huitOnlineGame, unoOnlineGame } from './online-uno.ts';
 
-export type OnlineGameId = 'blackjack' | 'president' | 'yams' | 'belote';
+export type OnlineGameId = 'blackjack' | 'president' | 'yams' | 'belote' | 'uno' | 'huit';
 
 /** A seat at an online table, in seat order. Robots are played by the server. */
 export interface OnlineSeat {
@@ -44,6 +45,8 @@ export const ONLINE_GAMES: Record<OnlineGameId, OnlineGame> = {
   president: presidentOnline,
   yams: yamsOnline,
   belote: beloteOnline,
+  uno: unoOnlineGame,
+  huit: huitOnlineGame,
 };
 
 export function isOnlineGame(id: unknown): id is OnlineGameId {

@@ -11,6 +11,7 @@ export * from './yams.ts';
 export * from './belote.ts';
 export * from './puissance4.ts';
 export * from './online.ts';
+export * from './online-uno.ts';
 export * from './progress.ts';
 export * from './quests.ts';
 export * from './achievements.ts';

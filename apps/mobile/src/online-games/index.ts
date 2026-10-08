@@ -2,7 +2,9 @@ import type { OnlineGameId } from '@appli-poker/engine';
 import { BeloteOnlineBoard, BeloteOnlineOptions } from '../screens/BeloteScreen';
 import { BlackjackOnlineBoard, BlackjackOnlineOptions } from '../screens/BlackjackScreen';
 import { PresidentOnlineBoard, PresidentOnlineOptions } from '../screens/PresidentScreen';
+import { HuitOnlineBoard, HuitOnlineOptions, UnoOnlineBoard, UnoOnlineOptions } from '../screens/UnoScreen';
 import { YamsOnlineBoard } from '../screens/YamsScreen';
+import { t } from '../i18n';
 import type { OnlineGameUi } from './types';
 
 /** How each game looks at an online table. */
@@ -37,5 +39,21 @@ export const ONLINE_UI: Record<OnlineGameId, OnlineGameUi> = {
     Board: BeloteOnlineBoard,
     Options: BeloteOnlineOptions,
     defaultOptions: { target: 1000 },
+  },
+  uno: {
+    title: 'Uno',
+    emoji: '🎨',
+    players: t('2 à 6 joueurs, un robot complète si tu es seul'),
+    Board: UnoOnlineBoard,
+    Options: UnoOnlineOptions,
+    defaultOptions: { target: 200 },
+  },
+  huit: {
+    title: t('8 américain'),
+    emoji: '🎱',
+    players: t('2 à 6 joueurs, un robot complète si tu es seul'),
+    Board: HuitOnlineBoard,
+    Options: HuitOnlineOptions,
+    defaultOptions: { target: 100 },
   },
 };

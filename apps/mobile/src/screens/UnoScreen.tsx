@@ -8,6 +8,8 @@ import {
   type UnoMove,
   type UnoState,
   type UnoVariant,
+  type UnoView,
+  UNO_HIDDEN,
   UNO_MAX_PLAYERS,
   UNO_PENALTY,
   UNO_TARGETS,
@@ -31,6 +33,9 @@ import {
 } from '@appli-poker/engine';
 import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
+import { OnlineButton } from '../components/OnlineButton';
+import { TurnTimer } from '../components/TurnTimer';
+import type { OnlineBoardProps, OnlineOptionsProps } from '../online-games/types';
 import { reportLocalGame } from '../online/progress';
 import { RulesButton } from '../components/Rules';
 import { HUIT_RULES, UNO_RULES } from '../rules';
@@ -138,15 +143,21 @@ interface Settings {
   target: number;
 }
 
-export function UnoScreen({ onBack }: { onBack: () => void }) {
-  return <SheddingScreen variant="uno" onBack={onBack} />;
+interface ScreenProps {
+  onBack: () => void;
+  /** Opens the online tables of this game. */
+  onOnline?: () => void;
 }
 
-export function HuitScreen({ onBack }: { onBack: () => void }) {
-  return <SheddingScreen variant="huit" onBack={onBack} />;
+export function UnoScreen({ onBack, onOnline }: ScreenProps) {
+  return <SheddingScreen variant="uno" onBack={onBack} onOnline={onOnline} />;
 }
 
-function SheddingScreen({ variant, onBack }: { variant: UnoVariant; onBack: () => void }) {
+export function HuitScreen({ onBack, onOnline }: ScreenProps) {
+  return <SheddingScreen variant="huit" onBack={onBack} onOnline={onOnline} />;
+}
+
+function SheddingScreen({ variant, onBack, onOnline }: ScreenProps & { variant: UnoVariant }) {
   const [settings, setSettings] = useState<Settings | null>(null);
   /** The last players, so coming back to the setup keeps them. */
   const [last, setLast] = useState<Settings | null>(null);
@@ -157,6 +168,7 @@ function SheddingScreen({ variant, onBack }: { variant: UnoVariant; onBack: () =
         variant={variant}
         initial={last}
         onBack={onBack}
+        onOnline={onOnline}
         onStart={(s) => {
           setLast(s);
           setSettings(s);
@@ -181,11 +193,13 @@ function Setup({
   initial,
   onStart,
   onBack,
+  onOnline,
 }: {
   variant: UnoVariant;
   initial: Settings | null;
   onStart: (s: Settings) => void;
   onBack: () => void;
+  onOnline?: () => void;
 }) {
   const tx = TEXTS[variant];
   const [names, setNames] = useState(initial?.names ?? ['', 'Robby', 'Bip']);
@@ -237,6 +251,7 @@ function Setup({
       </View>
       <Text style={styles.title}>{tx.title}</Text>
       <Text style={styles.subtitle}>{tx.subtitle}</Text>
+      {onOnline && <OnlineButton onPress={onOnline} />}
       <RulesButton rules={variant === 'uno' ? UNO_RULES : HUIT_RULES} />
 
       <Text style={styles.section}>{t('Joueurs')}</Text>
@@ -494,7 +509,14 @@ function Game({
 
   if (finished) {
     return (
-      <FinalScreen variant={variant} state={state} settings={settings} onReplay={onReplay} onQuit={onQuit} />
+      <FinalScreen
+        variant={variant}
+        state={state}
+        bots={settings.bots}
+        avatars={settings.avatars}
+        onReplay={onReplay}
+        onQuit={onQuit}
+      />
     );
   }
 
@@ -669,7 +691,7 @@ function TableView({
   children,
 }: {
   variant: UnoVariant;
-  state: UnoState;
+  state: UnoState | UnoView;
   avatars: Avatar[];
   bots: boolean[];
   viewer: number;
@@ -697,6 +719,8 @@ function TableView({
   const last = state.last;
   const top = unoTop(state);
   const under = state.discard.slice(-3, -1);
+  // Online, only the size of the draw pile is known.
+  const deckCount = 'deckCount' in state ? state.deckCount : state.deck.length;
 
   /** A short bubble over a seat for what this player just did. */
   function bubble(i: number): { text: string; hot?: boolean } | null {
@@ -791,26 +815,26 @@ function TableView({
       <View pointerEvents="box-none" style={[styles.piles, { top: pileY, width: w }]}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={t('Pioche, {n} cartes', { n: state.deck.length })}
+          accessibilityLabel={t('Pioche, {n} cartes', { n: deckCount })}
           disabled={!canDraw}
           onPress={onDraw}
           style={styles.deck}
         >
           {[2, 1].map((k) =>
-            state.deck.length > k * 6 ? (
+            deckCount > k * 6 ? (
               <View key={k} style={[styles.deckUnder, { top: -k * 2, left: k * 2 }]}>
                 <GameCard variant={variant} width={cardW} hidden />
               </View>
             ) : null,
           )}
-          {state.deck.length > 0 ? (
+          {deckCount > 0 ? (
             <View style={canDraw && styles.deckReady}>
               <GameCard variant={variant} width={cardW} hidden />
             </View>
           ) : (
             <View style={[styles.emptyPile, { width: cardW, height: cardW * 1.4 }]} />
           )}
-          <Text style={styles.deckCount}>{state.deck.length}</Text>
+          <Text style={styles.deckCount}>{deckCount}</Text>
         </Pressable>
         <View style={[styles.discard, { width: cardW + 16, height: cardW * 1.4 }]}>
           {under.map((c, k) => (
@@ -1053,6 +1077,8 @@ function RoundRecap({
   state,
   avatars,
   bots,
+  me,
+  hint,
   onNext,
   onStop,
   onResults,
@@ -1061,14 +1087,20 @@ function RoundRecap({
   state: UnoState;
   avatars: Avatar[];
   bots: boolean[];
-  onNext: () => void;
-  onStop: () => void;
+  /** Online: my seat, so the win is "Tu gagnes" only when it is mine. */
+  me?: number;
+  /** A line under the buttons, e.g. when the next round starts on its own. */
+  hint?: string;
+  /** Missing for someone who only watches an online game. */
+  onNext?: () => void;
+  /** Missing online: the game goes on until its target. */
+  onStop?: () => void;
   onResults: () => void;
 }) {
   const winner = state.roundWinner!;
   const name = state.players[winner].name;
   // With a single person at the table, their win is "Tu gagnes".
-  const soloWin = !bots[winner] && bots.filter((b) => !b).length === 1;
+  const soloWin = me !== undefined ? me === winner : !bots[winner] && bots.filter((b) => !b).length === 1;
   const over = state.phase === 'gameOver';
   const single = state.target === 0;
   const rows = state.players
@@ -1125,14 +1157,19 @@ function RoundRecap({
             <Button compact label={t('Voir le résultat')} onPress={onResults} />
           ) : (
             <View style={styles.actions}>
-              <View style={styles.flex}>
-                <Button compact variant="secondary" label={t('Arrêter')} onPress={onStop} />
-              </View>
-              <View style={styles.flex}>
-                <Button compact label={t('Manche suivante')} onPress={onNext} />
-              </View>
+              {onStop && (
+                <View style={styles.flex}>
+                  <Button compact variant="secondary" label={t('Arrêter')} onPress={onStop} />
+                </View>
+              )}
+              {onNext && (
+                <View style={styles.flex}>
+                  <Button compact label={t('Manche suivante')} onPress={onNext} />
+                </View>
+              )}
             </View>
           )}
+          {hint && !over && <Text style={styles.exHint}>{hint}</Text>}
         </Panel>
       </Appear>
     </View>
@@ -1144,15 +1181,23 @@ const MEDALS = ['🥇', '🥈', '🥉'];
 function FinalScreen({
   variant,
   state,
-  settings,
+  bots,
+  avatars,
+  me,
   onReplay,
   onQuit,
+  quitLabel = t('Retour'),
 }: {
   variant: UnoVariant;
   state: UnoState;
-  settings: Settings;
-  onReplay: () => void;
+  bots: boolean[];
+  avatars: Avatar[];
+  /** Online: my seat (-1 when watching), so "Tu gagnes" is only said to the winner. */
+  me?: number;
+  /** Missing online: a new game is a new table. */
+  onReplay?: () => void;
   onQuit: () => void;
+  quitLabel?: string;
 }) {
   const single = state.target === 0;
   const standings = single
@@ -1163,8 +1208,9 @@ function FinalScreen({
         .map((s, k, all) => ({ ...s, place: all.findIndex((x) => x.score === s.score) + 1 }))
     : unoStandings(state);
   const first = state.winner ?? standings[0].index;
-  const humanWon = !settings.bots[first];
-  const humans = settings.bots.filter((b) => !b).length;
+  const humanWon = !bots[first];
+  const humans = bots.filter((b) => !b).length;
+  const youWon = me !== undefined ? me === first : humanWon && humans === 1;
   const rounds = state.round;
   return (
     <ScrollView contentContainerStyle={styles.setup}>
@@ -1172,9 +1218,7 @@ function FinalScreen({
         <Text style={styles.trophy}>{humanWon ? '🏆' : '🤖'}</Text>
       </Appear>
       <Text style={styles.title}>
-        {humanWon && humans === 1
-          ? t('Tu gagnes !')
-          : t('{name} gagne !', { name: state.players[first].name })}
+        {youWon ? t('Tu gagnes !') : t('{name} gagne !', { name: state.players[first].name })}
       </Text>
       <Text style={styles.subtitle}>
         {TEXTS[variant].title} ·{' '}
@@ -1187,9 +1231,14 @@ function FinalScreen({
       <Panel title={t('Classement')}>
         {standings.map((s, k) => (
           <Appear key={s.index} delay={k * 80} from={10}>
-            <View style={[styles.finalRow, !settings.bots[s.index] && styles.recapMe]}>
+            <View
+              style={[
+                styles.finalRow,
+                (me !== undefined ? s.index === me : !bots[s.index]) && styles.recapMe,
+              ]}
+            >
               <Text style={styles.finalPlace}>{MEDALS[s.place - 1] ?? t('{n}ᵉ', { n: s.place })}</Text>
-              <AvatarBadge avatar={settings.avatars[s.index]} size={30} />
+              <AvatarBadge avatar={avatars[s.index]} size={30} />
               <Text style={[styles.finalName, s.place === 1 && styles.finalNameFirst]} numberOfLines={1}>
                 {state.players[s.index].name}
               </Text>
@@ -1215,9 +1264,284 @@ function FinalScreen({
         )}
       </Panel>
       <View style={styles.spacer} />
-      <Button label={t('Rejouer')} onPress={onReplay} />
-      <Button label={t('Retour')} variant="secondary" onPress={onQuit} />
+      {onReplay && <Button label={t('Rejouer')} onPress={onReplay} />}
+      <Button label={quitLabel} variant="secondary" onPress={onQuit} />
     </ScrollView>
+  );
+}
+
+/* ---------------------------------------------------------------- online */
+
+/** The length of the game, chosen when creating an online table. */
+function SheddingOnlineOptions({ variant, value, onChange }: OnlineOptionsProps & { variant: UnoVariant }) {
+  const targets = UNO_TARGETS[variant];
+  const target = targets.includes(value.target as number) ? (value.target as number) : targets[1];
+  return (
+    <View>
+      <Text style={styles.section}>{t('Durée de la partie')}</Text>
+      <View style={styles.counts}>
+        {targets.map((n) => (
+          <Pressable
+            key={n}
+            accessibilityRole="button"
+            accessibilityState={{ selected: n === target }}
+            onPress={() => onChange({ ...value, target: n })}
+            style={[styles.count, n === target && styles.countOn]}
+          >
+            <Text style={[styles.countText, n === target && styles.countTextOn]}>
+              {n === 0 ? t('1 manche') : t('{n} points', { n })}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+      <Text style={styles.hint}>
+        {target === 0
+          ? t('Le premier qui vide sa main gagne la partie.')
+          : t(
+              'Le gagnant de chaque manche marque les cartes restées chez les autres. Premier à {n} points !',
+              {
+                n: target,
+              },
+            )}
+      </Text>
+    </View>
+  );
+}
+
+export function UnoOnlineOptions(props: OnlineOptionsProps) {
+  return <SheddingOnlineOptions variant="uno" {...props} />;
+}
+
+export function HuitOnlineOptions(props: OnlineOptionsProps) {
+  return <SheddingOnlineOptions variant="huit" {...props} />;
+}
+
+export function UnoOnlineBoard(props: OnlineBoardProps<UnoView>) {
+  return <SheddingOnlineBoard variant="uno" {...props} />;
+}
+
+export function HuitOnlineBoard(props: OnlineBoardProps<UnoView>) {
+  return <SheddingOnlineBoard variant="huit" {...props} />;
+}
+
+/** The same table, each player on their own phone: my hand at the bottom, the others around. */
+function SheddingOnlineBoard({
+  variant,
+  view: state,
+  mySeat,
+  seats,
+  actors,
+  deadline,
+  now,
+  betweenRounds,
+  over,
+  busy,
+  error,
+  onMove,
+  onLeave,
+}: OnlineBoardProps<UnoView> & { variant: UnoVariant }) {
+  const tx = TEXTS[variant];
+  const avatars = seats.map((s) => s.avatar);
+  const bots = state.bots;
+  const watching = mySeat < 0;
+  // Someone who only watches sees the table from the first seat, without any hand.
+  const viewer = watching ? 0 : mySeat;
+  const [choosing, setChoosing] = useState<Card | null>(null);
+  const [finished, setFinished] = useState(false);
+  const playing = state.phase === 'playing';
+  const canAct = !watching && !busy && actors.includes(seats[mySeat].id);
+  const myTurn = canAct && playing && state.current === mySeat;
+  const me = state.players[viewer];
+  const legal = useMemo(() => (myTurn ? unoLegalCards(state, mySeat) : []), [state, myTurn, mySeat]);
+  const catchable = canAct && state.exposed !== null && unoCanCatch(state, mySeat, state.exposed);
+  const canSay = canAct && unoCanSay(state, mySeat);
+
+  // A wild card waiting for its color is forgotten once the turn has moved on.
+  useEffect(() => {
+    if (!myTurn) setChoosing(null);
+  }, [myTurn]);
+
+  // Sounds for what just happened, whoever did it.
+  const prev = useRef(state);
+  useEffect(() => {
+    const before = prev.current;
+    prev.current = state;
+    if (before.seq === state.seq && before.round === state.round) return;
+    if (state.phase !== 'playing' && before.phase === 'playing') {
+      if (state.roundWinner === mySeat) sounds.win();
+      else sounds.chips();
+      return;
+    }
+    const e = state.last;
+    if (e?.type === 'play') sounds.card();
+    else if (e?.type === 'draw') sounds.fold();
+    else if (e?.type === 'say') sounds.reaction();
+    else if (e?.type === 'catch') sounds.chips();
+    if (!watching && state.current === mySeat && (before.current !== mySeat || before.phase !== 'playing'))
+      sounds.myTurn();
+  }, [state]);
+
+  function tap(card: Card) {
+    if (!myTurn || !legal.includes(card)) return;
+    if (unoIsWild(variant, card)) setChoosing(card);
+    else onMove({ type: 'play', card });
+  }
+
+  if (finished && over) {
+    return (
+      <FinalScreen
+        variant={variant}
+        state={state}
+        bots={bots}
+        avatars={avatars}
+        me={mySeat}
+        onQuit={onLeave}
+        quitLabel={t('Quitter la table')}
+      />
+    );
+  }
+
+  const current = state.players[state.current];
+  const currentBot = bots[state.current];
+  let prompt: string;
+  if (!playing) prompt = t('Manche terminée');
+  else if (!watching && state.current === mySeat) {
+    if (state.pendingDraw > 0)
+      prompt = legal.length
+        ? t('Pose un 2 ou pioche {n} cartes', { n: state.pendingDraw })
+        : t('Pas de 2 : pioche {n} cartes', { n: state.pendingDraw });
+    else if (state.drawn) prompt = t('La carte piochée va : joue-la ou garde-la');
+    else if (me.hand.length === 2 && !me.said && legal.length)
+      prompt = t('Plus que 2 cartes : annonce « {call} » avant de jouer', { call: tx.call });
+    else if (legal.length) prompt = t('À toi ! Joue une carte');
+    else prompt = t('Aucune carte ne va : pioche');
+  } else
+    prompt = currentBot
+      ? t('🤖 {name} réfléchit…', { name: current.name })
+      : t('Au tour de {name}', { name: current.name });
+
+  const drawLabel =
+    state.drawn !== null && state.current === mySeat
+      ? t('Garder')
+      : state.pendingDraw > 0
+        ? t('Piocher {n}', { n: state.pendingDraw })
+        : t('Piocher');
+  const nextIn = deadline ? Math.max(0, Math.ceil((deadline - now) / 1000)) : null;
+
+  return (
+    <GameLayout
+      top={
+        <>
+          <TopBar onBack={onLeave} backLabel={t('← Quitter')}>
+            <Text style={styles.topInfo}>
+              {state.target
+                ? t('Manche {n} · {target} pts', { n: state.round, target: state.target })
+                : tx.title}
+            </Text>
+            {state.target > 0 && !watching && (
+              <View style={styles.scorePill}>
+                <Text style={styles.scoreText}>{t('⭐ {n} pts', { n: me.score })}</Text>
+              </View>
+            )}
+          </TopBar>
+          {playing && deadline && !currentBot && (
+            <TurnTimer
+              deadline={deadline}
+              now={now}
+              name={state.current === mySeat ? t('Toi') : current.name}
+              seconds={60}
+            />
+          )}
+        </>
+      }
+      table={({ width, height }) => (
+        <TableView
+          variant={variant}
+          state={state}
+          avatars={avatars}
+          bots={bots}
+          viewer={viewer}
+          width={width}
+          height={height}
+          canDraw={myTurn && unoCanDraw(state, mySeat)}
+          onDraw={() => onMove({ type: 'draw' })}
+        >
+          {choosing && myTurn && (
+            <ColorPicker
+              variant={variant}
+              onPick={(color) => {
+                onMove({ type: 'play', card: choosing, color });
+                setChoosing(null);
+              }}
+              onCancel={() => setChoosing(null)}
+            />
+          )}
+          {!playing && state.roundWinner !== null && (
+            <RoundRecap
+              variant={variant}
+              state={state}
+              avatars={avatars}
+              bots={bots}
+              me={mySeat}
+              hint={
+                betweenRounds
+                  ? nextIn
+                    ? t('La suite commence toute seule dans {n} s.', { n: nextIn })
+                    : t('La suite commence toute seule.')
+                  : undefined
+              }
+              onNext={betweenRounds && !watching && !busy ? () => onMove({ type: 'next' }) : undefined}
+              onResults={() => setFinished(true)}
+            />
+          )}
+        </TableView>
+      )}
+      bottom={
+        !playing ? null : (
+          <View style={styles.bottom}>
+            <Text style={[styles.prompt, myTurn && styles.promptMine]} numberOfLines={1}>
+              {prompt}
+            </Text>
+            {watching ? (
+              <Text style={styles.prompt}>{t('Tu regardes la partie.')}</Text>
+            ) : (
+              <Hand
+                variant={variant}
+                cards={me.hand.filter((c) => c !== UNO_HIDDEN)}
+                hidden={false}
+                legal={legal}
+                drawn={myTurn ? state.drawn : null}
+                active={myTurn}
+                onTap={tap}
+              />
+            )}
+            {error && <Text style={styles.error}>{error}</Text>}
+            {!watching && (
+              <View style={styles.actions}>
+                <View style={styles.flex}>
+                  <Button
+                    compact
+                    variant="secondary"
+                    label={drawLabel}
+                    disabled={!myTurn}
+                    onPress={() => onMove(state.drawn !== null ? { type: 'pass' } : { type: 'draw' })}
+                  />
+                </View>
+                <View style={styles.flex}>
+                  <CallButton
+                    label={catchable ? tx.counter : tx.call}
+                    hot={canSay || catchable}
+                    onPress={() =>
+                      catchable ? onMove({ type: 'catch', target: state.exposed! }) : onMove({ type: 'say' })
+                    }
+                  />
+                </View>
+              </View>
+            )}
+          </View>
+        )
+      }
+    />
   );
 }
 
