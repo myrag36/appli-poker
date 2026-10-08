@@ -35,6 +35,7 @@ import { buyItem, claimQuest, equipReward, syncMe, useMyProgress } from '../onli
 import { loadAvatar, saveAvatar } from '../online/supabase';
 import { sounds } from '../feedback';
 import { t, tn } from '../i18n';
+import { useDesktop } from '../layout';
 import { colors, gradients, shadow } from '../theme';
 
 const KINDS: RewardKind[] = ['frame', 'title', 'avatar', 'emote', 'cardBack', 'banner'];
@@ -43,7 +44,12 @@ const KINDS: RewardKind[] = ['frame', 'title', 'avatar', 'emote', 'cardBack', 'b
 export function ShopScreen({ onBack }: { onBack: () => void }) {
   const progress = useMyProgress();
   const { width: screenW } = useWindowDimensions();
-  const width = Math.min(screenW, 520);
+  const desktop = useDesktop();
+  // On a computer: coins, chests and quests on the left, the items on the right in a wider grid.
+  const width = desktop ? Math.min(screenW - 64, DESK_WIDTH) : Math.min(screenW, 520);
+  const rightWidth = width - DESK_LEFT - DESK_GAP;
+  const tileColumns = rightWidth >= 640 ? 5 : 4;
+  const tileWidth = Math.floor((rightWidth - 10 * (tileColumns - 1)) / tileColumns);
   const [avatar, setAvatar] = useState<Avatar>(defaultAvatar(0));
   const [kind, setKind] = useState<RewardKind>('frame');
   const [buying, setBuying] = useState<Reward | null>(null);
@@ -110,7 +116,8 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
     } else setBuying(item);
   }
 
-  function tile(item: Reward) {
+  /** One item; `fixed` gives it the desktop grid's width instead of a third of the row. */
+  function tile(item: Reward, fixed?: boolean) {
     const mine = has(item);
     const on = mine && worn(item);
     const short = !mine && coins < (item.price ?? 0);
@@ -120,7 +127,13 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
         accessibilityRole="button"
         accessibilityLabel={`${t(item.name)}, ${mine ? (on ? t('porté') : t('à toi')) : t('{n} pièces', { n: item.price ?? 0 })}`}
         onPress={() => open(item)}
-        style={({ pressed }) => [styles.tile, on && styles.tileWorn, pressed && { opacity: 0.8 }]}
+        style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+          styles.tile,
+          fixed && desktop && { width: tileWidth, flexGrow: 0 },
+          hovered && desktop && styles.tileHover,
+          on && styles.tileWorn,
+          pressed && { opacity: 0.8 },
+        ]}
       >
         <View style={styles.tilePreview}>
           <RewardPreview reward={item} avatar={avatar} />
@@ -144,12 +157,8 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
   const season = seasonOf();
   const seasonItems = SHOP_ITEMS.filter((x) => forSale(x, season.month) && x.season !== undefined);
 
-  return (
-    <ScrollView contentContainerStyle={[styles.container, { width }]}>
-      <TopBar onBack={onBack} backLabel={t('← Retour')}>
-        <Text style={styles.topTitle}>{t('Boutique')}</Text>
-      </TopBar>
-
+  const wallet = (
+    <>
       <LinearGradient colors={['#4a3200', '#2a1c00']} style={[styles.wallet, shadow]}>
         <Text style={styles.walletLabel}>{t('Mes pièces')}</Text>
         <Text style={styles.walletCoins}>🪙 {coins}</Text>
@@ -213,12 +222,16 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
         <Text style={styles.renew}>{t('De nouvelles quêtes chaque jour à minuit.')}</Text>
       </View>
       {error && !buying && <Text style={styles.error}>{error}</Text>}
+    </>
+  );
 
+  const items = (
+    <>
       <LinearGradient
         colors={season.colors}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.season}
+        style={[styles.season, desktop && styles.seasonDesktop]}
       >
         <View style={styles.seasonHead}>
           <Text style={styles.seasonEmoji}>{season.emoji}</Text>
@@ -231,7 +244,7 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
           </View>
         </View>
         <Text style={styles.seasonText}>{t('Ces articles ne sont en vente que ce mois-ci.')}</Text>
-        <View style={styles.grid}>{seasonItems.map(tile)}</View>
+        <View style={styles.grid}>{seasonItems.map((x) => tile(x))}</View>
       </LinearGradient>
 
       <Text style={styles.section}>{t('Articles')}</Text>
@@ -251,8 +264,27 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
         ))}
       </ScrollView>
       <View style={styles.grid}>
-        {SHOP_ITEMS.filter((x) => x.kind === kind && x.season === undefined).map(tile)}
+        {SHOP_ITEMS.filter((x) => x.kind === kind && x.season === undefined).map((x) => tile(x, true))}
       </View>
+    </>
+  );
+
+  return (
+    <ScrollView contentContainerStyle={[styles.container, desktop && styles.containerDesktop, { width }]}>
+      <TopBar onBack={onBack} backLabel={t('← Retour')}>
+        <Text style={styles.topTitle}>{t('Boutique')}</Text>
+      </TopBar>
+      {desktop ? (
+        <View style={styles.columns}>
+          <View style={{ width: DESK_LEFT }}>{wallet}</View>
+          <View style={styles.right}>{items}</View>
+        </View>
+      ) : (
+        <>
+          {wallet}
+          {items}
+        </>
+      )}
 
       <Modal
         visible={buying !== null}
@@ -306,6 +338,11 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
   );
 }
 
+/** Desktop page width, its left column and the gap between the columns. */
+const DESK_WIDTH = 1120;
+const DESK_LEFT = 400;
+const DESK_GAP = 32;
+
 function Button({
   label,
   onPress,
@@ -339,6 +376,11 @@ function Button({
 
 const styles = StyleSheet.create({
   container: { alignSelf: 'center', padding: 16, paddingTop: 12, paddingBottom: 40 },
+  containerDesktop: { paddingHorizontal: 0, paddingTop: 24, paddingBottom: 56 },
+  columns: { flexDirection: 'row', alignItems: 'flex-start', gap: DESK_GAP, marginTop: 8 },
+  right: { flex: 1, minWidth: 0 },
+  seasonDesktop: { marginTop: 8 },
+  tileHover: { borderColor: colors.gold, cursor: 'pointer' },
   topTitle: { color: colors.text, fontSize: 17, fontWeight: '800' },
   wallet: {
     marginTop: 8,

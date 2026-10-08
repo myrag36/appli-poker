@@ -41,6 +41,7 @@ import { equipReward, syncMe, useMyProgress } from '../online/progress';
 import { loadAvatar, loadName, saveAvatar, saveName } from '../online/supabase';
 import { colors, gradients } from '../theme';
 import { LANGS, lang, setLang, t, tn } from '../i18n';
+import { useDesktop } from '../layout';
 
 const GAME_NAMES: Record<ProgressGame, string> = {
   poker: '🃏 Poker',
@@ -67,7 +68,13 @@ const TABS: Tab[] = ['frame', 'title', 'avatar', 'cardBack', 'banner'];
 export function ProfileScreen({ onBack, onShop }: { onBack: () => void; onShop: () => void }) {
   const progress = useMyProgress();
   const { width: screenW } = useWindowDimensions();
-  const width = Math.min(screenW, 520);
+  const desktop = useDesktop();
+  // On a computer: two columns, my identity and games on the left, my rewards and achievements on the right.
+  const width = desktop ? Math.min(screenW - 64, DESK_WIDTH) : Math.min(screenW, 520);
+  const bannerWidth = desktop ? DESK_LEFT : width - 32;
+  const rightWidth = width - DESK_LEFT - DESK_GAP;
+  const tileColumns = rightWidth >= 560 ? 4 : 3;
+  const tileWidth = Math.floor((rightWidth - 10 * (tileColumns - 1)) / tileColumns);
   const [name, setName] = useState('');
   const [tutorial, setTutorial] = useState(false);
   const [avatar, setAvatar] = useState<Avatar>(defaultAvatar(0));
@@ -123,14 +130,10 @@ export function ProfileScreen({ onBack, onShop }: { onBack: () => void; onShop: 
   const items = REWARDS.filter(
     (r) => r.kind === tab && (r.price === undefined || isUnlocked(r.kind, r.id, level, owned)),
   );
-  return (
-    <ScrollView contentContainerStyle={[styles.container, { width }]} keyboardShouldPersistTaps="handled">
-      <TopBar onBack={onBack} backLabel={t('← Jeux')}>
-        <Text style={styles.topTitle}>{t('Mon profil')}</Text>
-      </TopBar>
-
+  const identity = (
+    <>
       <View style={styles.bannerBox}>
-        <Banner id={equipped.banner} width={width - 32} height={236}>
+        <Banner id={equipped.banner} width={bannerWidth} height={236}>
           <View style={styles.bannerContent}>
             <AvatarBadge avatar={me} size={84} />
             <Text style={styles.name} numberOfLines={1}>
@@ -190,8 +193,12 @@ export function ProfileScreen({ onBack, onShop }: { onBack: () => void; onShop: 
       </View>
 
       <StreakCard progress={progress} />
+    </>
+  );
 
-      <Text style={styles.section}>{t('Mes récompenses')}</Text>
+  const rewards = (
+    <>
+      <Text style={[styles.section, desktop && styles.sectionFirst]}>{t('Mes récompenses')}</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
         {TABS.map((k) => (
           <Pressable
@@ -237,7 +244,12 @@ export function ProfileScreen({ onBack, onShop }: { onBack: () => void; onShop: 
                 }
                 accessibilityState={{ selected: worn, disabled: locked }}
                 onPress={() => wear(tab, reward)}
-                style={[styles.tile, worn && styles.tileWorn, locked && styles.tileLocked]}
+                style={[
+                  styles.tile,
+                  desktop && { width: tileWidth, flexGrow: 0 },
+                  worn && styles.tileWorn,
+                  locked && styles.tileLocked,
+                ]}
               >
                 <View style={styles.tilePreview}>
                   <RewardPreview reward={reward} avatar={avatar} />
@@ -257,10 +269,18 @@ export function ProfileScreen({ onBack, onShop }: { onBack: () => void; onShop: 
         <Text style={styles.more}>{t('Encore plus de choix à la boutique ›')}</Text>
       </Pressable>
       {error && <Text style={styles.error}>{error}</Text>}
+    </>
+  );
 
+  const achievements = (
+    <>
       <Text style={styles.section}>{t('Succès')}</Text>
       <AchievementList progress={progress} />
+    </>
+  );
 
+  const games = (
+    <>
       <Text style={styles.section}>{t('Mes parties')}</Text>
       <View style={styles.card}>
         {PROGRESS_GAMES.map((g) => {
@@ -276,7 +296,11 @@ export function ProfileScreen({ onBack, onShop }: { onBack: () => void; onShop: 
           );
         })}
       </View>
+    </>
+  );
 
+  const settings = (
+    <>
       {Platform.OS === 'web' && (
         <>
           <Text style={styles.section}>{t('Notifications')}</Text>
@@ -312,13 +336,54 @@ export function ProfileScreen({ onBack, onShop }: { onBack: () => void; onShop: 
       >
         <Text style={styles.tutorialText}>{t('📖 Revoir le tutoriel')}</Text>
       </Pressable>
+    </>
+  );
+
+  return (
+    <ScrollView
+      contentContainerStyle={[styles.container, desktop && styles.containerDesktop, { width }]}
+      keyboardShouldPersistTaps="handled"
+    >
+      <TopBar onBack={onBack} backLabel={t('← Jeux')}>
+        <Text style={styles.topTitle}>{t('Mon profil')}</Text>
+      </TopBar>
+      {desktop ? (
+        <View style={styles.columns}>
+          <View style={{ width: DESK_LEFT }}>
+            {identity}
+            {games}
+            {settings}
+          </View>
+          <View style={styles.right}>
+            {rewards}
+            {achievements}
+          </View>
+        </View>
+      ) : (
+        <>
+          {identity}
+          {rewards}
+          {achievements}
+          {games}
+          {settings}
+        </>
+      )}
       <Tutorial visible={tutorial} onClose={() => setTutorial(false)} />
     </ScrollView>
   );
 }
 
+/** Desktop page width, and its left column. */
+const DESK_WIDTH = 1120;
+const DESK_LEFT = 420;
+const DESK_GAP = 32;
+
 const styles = StyleSheet.create({
   container: { alignSelf: 'center', padding: 16, paddingTop: 12, paddingBottom: 40 },
+  containerDesktop: { paddingHorizontal: 0, paddingTop: 24, paddingBottom: 56 },
+  columns: { flexDirection: 'row', alignItems: 'flex-start', gap: DESK_GAP, marginTop: 8 },
+  right: { flex: 1, minWidth: 0 },
+  sectionFirst: { marginTop: 8 },
   topTitle: { color: colors.text, fontSize: 17, fontWeight: '800' },
   bannerBox: { marginTop: 8, borderRadius: 18, overflow: 'hidden' },
   bannerContent: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 8 },

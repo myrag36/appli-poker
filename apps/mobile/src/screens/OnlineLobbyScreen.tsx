@@ -9,6 +9,7 @@ import { callServer, loadAvatar, saveAvatar, saveLastRoom } from '../online/supa
 import { colors } from '../theme';
 import { t } from '../i18n';
 import { tMessage } from '../online/messages';
+import { useDesktop } from '../layout';
 
 interface Props {
   initialName: string;
@@ -41,6 +42,7 @@ export function OnlineLobbyScreen({ initialName, initialCode, onEnter, onBack }:
   }
 
   const trimmed = name.trim();
+  const desktop = useDesktop();
 
   async function run(request: () => Promise<{ roomId: string }>) {
     setBusy(true);
@@ -56,10 +58,8 @@ export function OnlineLobbyScreen({ initialName, initialCode, onEnter, onBack }:
     }
   }
 
-  return (
-    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-      <Text style={styles.title}>{t('Jouer en ligne')}</Text>
-
+  const join = (
+    <>
       <Text style={styles.label}>{t('Ton prénom et ton avatar')}</Text>
       <View style={styles.row}>
         <Pressable
@@ -112,8 +112,12 @@ export function OnlineLobbyScreen({ initialName, initialCode, onEnter, onBack }:
       <Text style={styles.hint}>
         {t('Regarder : tu suis la partie sans jouer, et tu peux la rejoindre ensuite.')}
       </Text>
+    </>
+  );
 
-      <Text style={styles.section}>{t('Ou créer une table')}</Text>
+  const create = (
+    <>
+      <Text style={[styles.section, desktop && styles.sectionFirst]}>{t('Ou créer une table')}</Text>
       <View style={styles.row}>
         <View style={styles.flex}>
           <Text style={styles.label}>{t('Jetons de départ')}</Text>
@@ -149,17 +153,52 @@ export function OnlineLobbyScreen({ initialName, initialCode, onEnter, onBack }:
           )
         }
       />
+    </>
+  );
+
+  return (
+    <ScrollView
+      contentContainerStyle={[styles.container, desktop && styles.containerDesktop]}
+      keyboardShouldPersistTaps="handled"
+    >
+      <Text style={styles.title}>{t('Jouer en ligne')}</Text>
+      {desktop ? (
+        // On a computer: join on the left, create on the right, each in its own panel.
+        <View style={styles.columns}>
+          <View style={styles.panel}>{join}</View>
+          <View style={styles.panel}>{create}</View>
+        </View>
+      ) : (
+        <>
+          {join}
+          {create}
+        </>
+      )}
 
       {error && <Text style={styles.error}>{tMessage(error)}</Text>}
 
       <View style={styles.spacer} />
-      <Button label={t('Retour')} variant="secondary" onPress={onBack} />
+      <View style={desktop && styles.backDesktop}>
+        <Button label={t('Retour')} variant="secondary" onPress={onBack} />
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { padding: 20, paddingTop: 60 },
+  containerDesktop: { width: '100%', maxWidth: 1000, alignSelf: 'center', paddingHorizontal: 32 },
+  columns: { flexDirection: 'row', alignItems: 'flex-start', gap: 24, marginTop: 8 },
+  panel: {
+    flex: 1,
+    padding: 20,
+    borderRadius: 18,
+    backgroundColor: colors.glass,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+  },
+  sectionFirst: { marginTop: 0 },
+  backDesktop: { width: 260, alignSelf: 'center' },
   title: { color: colors.gold, fontSize: 30, fontWeight: '800', textAlign: 'center', marginBottom: 16 },
   section: { color: colors.text, fontSize: 18, fontWeight: '700', marginTop: 24, marginBottom: 8 },
   hint: { color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: 6 },
