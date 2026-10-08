@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { HandView } from '@appli-poker/engine';
 import { supabase } from './supabase';
+import { t } from '../i18n';
 
 export interface Room {
   id: string;
@@ -149,7 +150,7 @@ export function useRoom(roomId: string, userId: string) {
         .insert({ room_id: roomId, body })
         .select('id, user_id, body, created_at')
         .single();
-      if (sendError) throw new Error('Message non envoyé, réessaie');
+      if (sendError) throw new Error(t('Message non envoyé, réessaie'));
       receiveMessage(data as ChatMessage);
     },
     [roomId, receiveMessage],
@@ -174,12 +175,12 @@ export function useRoom(roomId: string, userId: string) {
     // A newer refresh started meanwhile: let it win so the screen never goes back in time.
     if (request !== latestRequest.current) return;
     if (r.error || p.error || h.error) {
-      setError('Connexion perdue, nouvel essai…');
+      setError(t('Connexion perdue, nouvel essai…'));
       return;
     }
     if (!r.data) {
       if (loaded.current) setRemoved(true);
-      else setError('Table introuvable');
+      else setError(t('Table introuvable'));
       return;
     }
     loaded.current = true;

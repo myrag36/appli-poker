@@ -6,6 +6,7 @@ import { Button } from '../components/Button';
 import { LevelPicker } from '../components/LevelPicker';
 import { VariantPicker } from '../components/VariantPicker';
 import { colors } from '../theme';
+import { t } from '../i18n';
 
 export interface GameSettings {
   names: string[];
@@ -39,7 +40,7 @@ export function SetupScreen({ onStart, onBack }: Props) {
   const [levelMinutes, setLevelMinutes] = useState<number | null>(null);
   const [variant, setVariant] = useState<Variant>('holdem');
 
-  const cleaned = names.map((n, i) => n.trim() || `Joueur ${i + 1}`);
+  const cleaned = names.map((n, i) => n.trim() || t('Joueur {n}', { n: i + 1 }));
   const stackValue = parseInt(stack, 10);
   const bbValue = parseInt(bigBlind, 10);
   const valid =
@@ -60,9 +61,9 @@ export function SetupScreen({ onStart, onBack }: Props) {
 
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-      <Text style={styles.title}>Sur ce téléphone</Text>
+      <Text style={styles.title}>{t('Sur ce téléphone')}</Text>
 
-      <Text style={styles.section}>Joueurs</Text>
+      <Text style={styles.section}>{t('Joueurs')}</Text>
       {names.map((name, i) => (
         <View key={i}>
           <View style={styles.row}>
@@ -71,25 +72,25 @@ export function SetupScreen({ onStart, onBack }: Props) {
                 <AvatarBadge avatar={avatars[i]} size={40} />
                 <View style={[styles.input, styles.flex, styles.botRow]}>
                   <Text style={styles.botName}>{name}</Text>
-                  <Text style={styles.botTag}>Robot</Text>
+                  <Text style={styles.botTag}>{t('Robot')}</Text>
                 </View>
               </>
             ) : (
               <>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Changer l'avatar du joueur ${i + 1}`}
+                  accessibilityLabel={t("Changer l'avatar du joueur {n}", { n: i + 1 })}
                   onPress={() => setPicking(picking === i ? null : i)}
                 >
                   <AvatarBadge avatar={avatars[i]} size={40} />
                 </Pressable>
                 <TextInput
                   style={[styles.input, styles.flex]}
-                  placeholder={`Joueur ${i + 1}`}
+                  placeholder={t('Joueur {n}', { n: i + 1 })}
                   placeholderTextColor={colors.muted}
                   value={name}
                   maxLength={16}
-                  onChangeText={(t) => setNames(names.map((n, j) => (j === i ? t : n)))}
+                  onChangeText={(v) => setNames(names.map((n, j) => (j === i ? v : n)))}
                 />
               </>
             )}
@@ -120,26 +121,26 @@ export function SetupScreen({ onStart, onBack }: Props) {
       {names.length < MAX_PLAYERS && (
         <View style={styles.row}>
           <View style={styles.flex}>
-            <Button label="+ Joueur" variant="secondary" onPress={() => addPlayer(false)} />
+            <Button label={t('+ Joueur')} variant="secondary" onPress={() => addPlayer(false)} />
           </View>
           <View style={styles.flex}>
-            <Button label="+ Robot 🤖" variant="secondary" onPress={() => addPlayer(true)} />
+            <Button label={t('+ Robot 🤖')} variant="secondary" onPress={() => addPlayer(true)} />
           </View>
         </View>
       )}
       <Text style={styles.hint}>
-        Les robots jouent tout seuls. Seul contre des robots, tu n’as pas besoin de cacher tes cartes.
+        {t('Les robots jouent tout seuls. Seul contre des robots, tu n’as pas besoin de cacher tes cartes.')}
       </Text>
 
-      <Text style={styles.section}>Réglages</Text>
+      <Text style={styles.section}>{t('Réglages')}</Text>
       <VariantPicker value={variant} onChange={setVariant} />
       <View style={styles.row}>
         <View style={styles.flex}>
-          <Text style={styles.label}>Jetons de départ</Text>
+          <Text style={styles.label}>{t('Jetons de départ')}</Text>
           <TextInput style={styles.input} keyboardType="number-pad" value={stack} onChangeText={setStack} />
         </View>
         <View style={styles.flex}>
-          <Text style={styles.label}>Grosse blinde</Text>
+          <Text style={styles.label}>{t('Grosse blinde')}</Text>
           <TextInput
             style={styles.input}
             keyboardType="number-pad"
@@ -149,18 +150,19 @@ export function SetupScreen({ onStart, onBack }: Props) {
         </View>
       </View>
       <Text style={styles.hint}>
-        Petite blinde : {bbValue >= 2 ? bbValue / 2 : '?'}. La partie se joue sur un seul téléphone qu'on se
-        passe à tour de rôle.
+        {t("Petite blinde : {sb}. La partie se joue sur un seul téléphone qu'on se passe à tour de rôle.", {
+          sb: bbValue >= 2 ? bbValue / 2 : '?',
+        })}
       </Text>
       <LevelPicker value={levelMinutes} onChange={setLevelMinutes} />
       {new Set(cleaned).size !== cleaned.length && (
-        <Text style={styles.error}>Deux joueurs ont le même nom.</Text>
+        <Text style={styles.error}>{t('Deux joueurs ont le même nom.')}</Text>
       )}
-      {!bots.includes(false) && <Text style={styles.error}>Il faut au moins un joueur humain.</Text>}
+      {!bots.includes(false) && <Text style={styles.error}>{t('Il faut au moins un joueur humain.')}</Text>}
 
       <View style={styles.spacer} />
       <Button
-        label="Lancer la partie"
+        label={t('Lancer la partie')}
         disabled={!valid}
         onPress={() =>
           onStart({
@@ -174,7 +176,7 @@ export function SetupScreen({ onStart, onBack }: Props) {
           })
         }
       />
-      <Button label="Retour" variant="secondary" onPress={onBack} />
+      <Button label={t('Retour')} variant="secondary" onPress={onBack} />
     </ScrollView>
   );
 }

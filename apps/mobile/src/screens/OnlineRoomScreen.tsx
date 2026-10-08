@@ -29,6 +29,8 @@ import { useMyProgress, useProgressOf } from '../online/progress';
 import { sounds, useHandSounds } from '../feedback';
 import { Appear } from '../components/Motion';
 import { colors } from '../theme';
+import { t, tn } from '../i18n';
+import { tMessage } from '../online/messages';
 
 interface Props {
   roomId: string;
@@ -110,9 +112,9 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
   // When time runs out, any phone at the table asks the server to play for the absent player.
   // The server checks the time itself, so an early or duplicate request is simply refused.
   useEffect(() => {
-    const t = Date.now();
-    if (!deadline || t < deadline || t - lastTimeoutRequest.current < 1000) return;
-    lastTimeoutRequest.current = t;
+    const ts = Date.now();
+    if (!deadline || ts < deadline || ts - lastTimeoutRequest.current < 1000) return;
+    lastTimeoutRequest.current = ts;
     callServer({ type: 'timeout', roomId })
       .then(refresh)
       .catch(() => {});
@@ -125,7 +127,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
       await callServer(request);
       await refresh();
     } catch (e) {
-      setError((e as Error).message);
+      setError(tMessage((e as Error).message));
       await refresh();
     } finally {
       setBusy(false);
@@ -136,9 +138,9 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
     return (
       <View style={styles.loading}>
         <Text style={styles.removedIcon}>🚪</Text>
-        <Text style={styles.removedText}>Le créateur de la table t’a retiré de la partie.</Text>
+        <Text style={styles.removedText}>{t('Le créateur de la table t’a retiré de la partie.')}</Text>
         <View style={styles.spacer} />
-        <Button label="Retour à l'accueil" onPress={onLeave} />
+        <Button label={t("Retour à l'accueil")} onPress={onLeave} />
       </View>
     );
   }
@@ -152,7 +154,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
           <ActivityIndicator color={colors.gold} />
         )}
         <View style={styles.spacer} />
-        <Button label="Retour" variant="secondary" onPress={onLeave} />
+        <Button label={t('Retour')} variant="secondary" onPress={onLeave} />
       </View>
     );
   }
@@ -196,7 +198,11 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
   const chatButton = (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={unread ? `Discussion, ${unread} nouveaux messages` : 'Discussion'}
+      accessibilityLabel={
+        unread
+          ? tn(unread, 'Discussion, {n} nouveau message', 'Discussion, {n} nouveaux messages')
+          : t('Discussion')
+      }
       onPress={() => {
         setTrayOpen(false);
         setChatOpen(true);
@@ -227,7 +233,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
 
   async function joinGame() {
     const [saved, avatar] = await Promise.all([loadLastRoom(), loadAvatar()]);
-    const name = saved?.name ?? names[userId] ?? 'Joueur';
+    const name = saved?.name ?? names[userId] ?? t('Joueur');
     await send({
       type: 'join',
       name,
@@ -237,52 +243,64 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
   }
 
   const invite = () =>
-    Share.share({ message: `Viens jouer au poker avec moi ! Code de la table : ${room.code}` });
+    Share.share({
+      message: t('Viens jouer au poker avec moi ! Code de la table : {code}', { code: room.code }),
+    });
 
   if (!hand) {
     return (
       <ScrollView contentContainerStyle={[styles.container, { paddingTop: insets.top + 16 }]}>
         <View style={styles.codeBox}>
-          <Text style={styles.codeLabel}>Code de la table</Text>
+          <Text style={styles.codeLabel}>{t('Code de la table')}</Text>
           <Text style={styles.code}>{room.code}</Text>
-          <Button label="Inviter des amis" variant="secondary" onPress={invite} />
+          <Button label={t('Inviter des amis')} variant="secondary" onPress={invite} />
         </View>
-        <Panel title={`Joueurs (${players.length}/8)`}>
+        <Panel title={t('Joueurs ({n}/8)', { n: players.length })}>
           {players.map((p) => (
             <View key={p.user_id} style={styles.lobbyPlayer}>
               <AvatarBadge avatar={avatars[p.user_id]} size={34} />
               <Text style={styles.lobbyName}>
                 {p.name}
                 {p.user_id === room.host_id ? ' 👑' : ''}
-                {p.user_id === userId ? ' (toi)' : ''}
-                {p.is_bot ? ' · robot' : ''}
+                {p.user_id === userId ? t(' (toi)') : ''}
+                {p.is_bot ? t(' · robot') : ''}
               </Text>
             </View>
           ))}
-          {omaha && <PanelText>🃏 Omaha : 4 cartes chacun, mises limitées au pot.</PanelText>}
+          {omaha && <PanelText>{t('🃏 Omaha : 4 cartes chacun, mises limitées au pot.')}</PanelText>}
           {room.level_minutes && (
             <PanelText>
-              🏆 Tournoi : les blindes augmentent toutes les {room.level_minutes} minutes.
+              {t('🏆 Tournoi : les blindes augmentent toutes les {n} minutes.', { n: room.level_minutes })}
             </PanelText>
           )}
           {isSpectator ? (
             <>
-              <PanelText>👀 Tu regardes cette table.</PanelText>
-              <Button label="Rejoindre la partie" disabled={busy || players.length >= 8} onPress={joinGame} />
+              <PanelText>{t('👀 Tu regardes cette table.')}</PanelText>
+              <Button
+                label={t('Rejoindre la partie')}
+                disabled={busy || players.length >= 8}
+                onPress={joinGame}
+              />
             </>
           ) : isHost ? (
             <Button
-              label={players.length < 2 ? "En attente d'un autre joueur…" : 'Lancer la partie'}
+              label={players.length < 2 ? t("En attente d'un autre joueur…") : t('Lancer la partie')}
               disabled={busy || players.length < 2}
               onPress={() => send({ type: 'deal', roomId })}
             />
           ) : (
-            <PanelText>En attente que {host?.name ?? 'le créateur'} lance la partie…</PanelText>
+            <PanelText>
+              {t('En attente que {name} lance la partie…', { name: host?.name ?? t('le créateur') })}
+            </PanelText>
           )}
         </Panel>
         <View style={styles.spacer} />
         <Button
-          label={unread ? `💬 Discussion (${unread} nouveau${unread > 1 ? 'x' : ''})` : '💬 Discussion'}
+          label={
+            unread
+              ? tn(unread, '💬 Discussion ({n} nouveau)', '💬 Discussion ({n} nouveaux)')
+              : t('💬 Discussion')
+          }
           variant="secondary"
           onPress={() => setChatOpen(true)}
         />
@@ -290,7 +308,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
           <>
             <View style={styles.spacer} />
             <Button
-              label="🤖 Ajouter un robot"
+              label={t('🤖 Ajouter un robot')}
               variant="secondary"
               disabled={busy}
               onPress={() => send({ type: 'addBot', roomId })}
@@ -300,12 +318,12 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
         {isHost && players.length > 1 && (
           <>
             <View style={styles.spacer} />
-            <Button label="⚙️ Gérer la table" variant="secondary" onPress={() => setManageOpen(true)} />
+            <Button label={t('⚙️ Gérer la table')} variant="secondary" onPress={() => setManageOpen(true)} />
           </>
         )}
         {syncError && <Text style={styles.error}>{syncError}</Text>}
         <View style={styles.spacer} />
-        <Button label="Retour à l'accueil" variant="secondary" onPress={onLeave} />
+        <Button label={t("Retour à l'accueil")} variant="secondary" onPress={onLeave} />
         {chat}
         {manage}
       </ScrollView>
@@ -317,11 +335,11 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
       top={
         <View style={styles.topWrap}>
           {/* Only an arrow here: the bar also holds the history, chat, reactions and table code. */}
-          <TopBar onBack={onLeave} backLabel="←" backHint="Retour à l'accueil">
+          <TopBar onBack={onLeave} backLabel="←" backHint={t("Retour à l'accueil")}>
             {isHost && (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Gérer la table"
+                accessibilityLabel={t('Gérer la table')}
                 onPress={() => {
                   setTrayOpen(false);
                   setManageOpen(true);
@@ -334,7 +352,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
             )}
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Mains précédentes"
+              accessibilityLabel={t('Mains précédentes')}
               onPress={() => {
                 setTrayOpen(false);
                 setHistoryOpen(true);
@@ -348,7 +366,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
             {!isSpectator && (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Réagir"
+                accessibilityLabel={t('Réagir')}
                 onPress={() => setTrayOpen(!trayOpen)}
                 hitSlop={8}
                 style={[styles.reactButton, trayOpen && styles.reactButtonOpen]}
@@ -358,7 +376,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
             )}
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`Inviter des amis, code ${room.code}`}
+              accessibilityLabel={t('Inviter des amis, code {code}', { code: room.code })}
               onPress={invite}
               hitSlop={8}
               style={styles.codePill}
@@ -366,7 +384,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
               {/* The host has one more button, so only the code fits on a small phone. */}
               <Text style={styles.codePillText}>
                 <Text style={styles.codePillCode}>{room.code}</Text>
-                {isHost ? '' : ' · Inviter'}
+                {isHost ? '' : t(' · Inviter')}
               </Text>
             </Pressable>
           </TopBar>
@@ -404,22 +422,22 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
       bottom={
         <>
           {actor && !botTurn && hand.deadline && (
-            <TurnTimer deadline={hand.deadline} now={now} name={myTurn ? 'Toi' : actor.name} />
+            <TurnTimer deadline={hand.deadline} now={now} name={myTurn ? t('Toi') : actor.name} />
           )}
 
           {room.paused && (
             <View style={styles.pausePanel}>
-              <Text style={styles.pauseTitle}>⏸ Partie en pause</Text>
+              <Text style={styles.pauseTitle}>{t('⏸ Partie en pause')}</Text>
               {isHost ? (
                 <Button
                   compact
-                  label="▶ Reprendre"
+                  label={t('▶ Reprendre')}
                   disabled={busy}
                   onPress={() => send({ type: 'pause', roomId, paused: false })}
                 />
               ) : (
                 <Text style={styles.waitText}>
-                  {host?.name ?? 'Le créateur'} va bientôt reprendre la partie.
+                  {t('{name} va bientôt reprendre la partie.', { name: host?.name ?? t('Le créateur') })}
                 </Text>
               )}
               {error && <Text style={styles.error}>{error}</Text>}
@@ -431,7 +449,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
               key={room.version}
               hand={hand}
               playerId={userId}
-              title="À toi de jouer"
+              title={t('À toi de jouer')}
               hole={myCards}
               error={error}
               busy={busy}
@@ -452,17 +470,17 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
               )}
               <Text style={styles.waitText}>
                 {isSpectator
-                  ? '👀 Tu regardes'
+                  ? t('👀 Tu regardes')
                   : !inHand
-                    ? 'Tu joueras à la prochaine main.'
+                    ? t('Tu joueras à la prochaine main.')
                     : botTurn
-                      ? `🤖 ${actor?.name} réfléchit…`
+                      ? t('🤖 {name} réfléchit…', { name: actor?.name ?? '' })
                       : actor
-                        ? `Au tour de ${actor.name}`
+                        ? t('Au tour de {name}', { name: actor.name })
                         : ''}
               </Text>
               {isSpectator && players.length < 8 && (
-                <Button compact label="Rejoindre la partie" disabled={busy} onPress={joinGame} />
+                <Button compact label={t('Rejoindre la partie')} disabled={busy} onPress={joinGame} />
               )}
               {isSpectator && error && <Text style={styles.error}>{error}</Text>}
             </View>
@@ -472,7 +490,9 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
             <HandSummary hand={hand}>
               {withChips.length < 2 ? (
                 <>
-                  <PanelText>🏆 {withChips[0]?.name} gagne la partie !</PanelText>
+                  <PanelText>
+                    {t('🏆 {name} gagne la partie !', { name: withChips[0]?.name ?? '' })}
+                  </PanelText>
                   <Ranking
                     entries={players
                       .filter((p) => p.stack > 0 || p.place !== null)
@@ -482,12 +502,14 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
               ) : isHost ? (
                 <Button
                   compact
-                  label="Main suivante"
+                  label={t('Main suivante')}
                   disabled={busy}
                   onPress={() => send({ type: 'deal', roomId })}
                 />
               ) : (
-                <PanelText>En attente que {host?.name ?? 'le créateur'} distribue…</PanelText>
+                <PanelText>
+                  {t('En attente que {name} distribue…', { name: host?.name ?? t('le créateur') })}
+                </PanelText>
               )}
               {error && <Text style={styles.error}>{error}</Text>}
             </HandSummary>
@@ -495,7 +517,9 @@ export function OnlineRoomScreen({ roomId, userId, onLeave }: Props) {
 
           {waiting.length > 0 && (
             <Text style={styles.note} numberOfLines={1}>
-              Rejoindront à la prochaine main : {waiting.map((p) => p.name).join(', ')}
+              {t('Rejoindront à la prochaine main : {names}', {
+                names: waiting.map((p) => p.name).join(', '),
+              })}
             </Text>
           )}
           {syncError && <Text style={styles.error}>{syncError}</Text>}

@@ -7,6 +7,8 @@ import { LevelPicker } from '../components/LevelPicker';
 import { VariantPicker } from '../components/VariantPicker';
 import { callServer, loadAvatar, saveAvatar, saveLastRoom } from '../online/supabase';
 import { colors } from '../theme';
+import { t } from '../i18n';
+import { tMessage } from '../online/messages';
 
 interface Props {
   initialName: string;
@@ -54,13 +56,13 @@ export function OnlineLobbyScreen({ initialName, onEnter, onBack }: Props) {
 
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-      <Text style={styles.title}>Jouer en ligne</Text>
+      <Text style={styles.title}>{t('Jouer en ligne')}</Text>
 
-      <Text style={styles.label}>Ton prénom et ton avatar</Text>
+      <Text style={styles.label}>{t('Ton prénom et ton avatar')}</Text>
       <View style={styles.row}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Changer d'avatar"
+          accessibilityLabel={t("Changer d'avatar")}
           onPress={() => setPickingAvatar(!pickingAvatar)}
         >
           <AvatarBadge avatar={avatar} size={48} />
@@ -77,28 +79,28 @@ export function OnlineLobbyScreen({ initialName, onEnter, onBack }: Props) {
       </View>
       {pickingAvatar && <AvatarPicker value={avatar} onChange={changeAvatar} />}
 
-      <Text style={styles.section}>Rejoindre une table</Text>
+      <Text style={styles.section}>{t('Rejoindre une table')}</Text>
       <TextInput
         style={[styles.input, styles.code]}
         value={code}
-        onChangeText={(t) => setCode(t.toUpperCase())}
+        onChangeText={(v) => setCode(v.toUpperCase())}
         maxLength={6}
         autoCapitalize="characters"
         autoCorrect={false}
-        placeholder="CODE"
+        placeholder={t('CODE')}
         placeholderTextColor={colors.muted}
       />
       <View style={styles.row}>
         <View style={styles.flex}>
           <Button
-            label="Rejoindre"
+            label={t('Rejoindre')}
             disabled={busy || !trimmed || code.trim().length !== 6}
             onPress={() => run(() => callServer({ type: 'join', name: trimmed, code, avatar }))}
           />
         </View>
         <View style={styles.flex}>
           <Button
-            label="👀 Regarder"
+            label={t('👀 Regarder')}
             variant="secondary"
             disabled={busy || !trimmed || code.trim().length !== 6}
             onPress={() => run(() => callServer({ type: 'watch', name: trimmed, code }))}
@@ -106,17 +108,17 @@ export function OnlineLobbyScreen({ initialName, onEnter, onBack }: Props) {
         </View>
       </View>
       <Text style={styles.hint}>
-        Regarder : tu suis la partie sans jouer, et tu peux la rejoindre ensuite.
+        {t('Regarder : tu suis la partie sans jouer, et tu peux la rejoindre ensuite.')}
       </Text>
 
-      <Text style={styles.section}>Ou créer une table</Text>
+      <Text style={styles.section}>{t('Ou créer une table')}</Text>
       <View style={styles.row}>
         <View style={styles.flex}>
-          <Text style={styles.label}>Jetons de départ</Text>
+          <Text style={styles.label}>{t('Jetons de départ')}</Text>
           <TextInput style={styles.input} keyboardType="number-pad" value={stack} onChangeText={setStack} />
         </View>
         <View style={styles.flex}>
-          <Text style={styles.label}>Grosse blinde</Text>
+          <Text style={styles.label}>{t('Grosse blinde')}</Text>
           <TextInput
             style={styles.input}
             keyboardType="number-pad"
@@ -128,7 +130,7 @@ export function OnlineLobbyScreen({ initialName, onEnter, onBack }: Props) {
       <VariantPicker value={variant} onChange={setVariant} />
       <LevelPicker value={levelMinutes} onChange={setLevelMinutes} />
       <Button
-        label="Créer la table"
+        label={t('Créer la table')}
         variant="secondary"
         disabled={busy || !trimmed}
         onPress={() =>
@@ -146,10 +148,10 @@ export function OnlineLobbyScreen({ initialName, onEnter, onBack }: Props) {
         }
       />
 
-      {error && <Text style={styles.error}>{error}</Text>}
+      {error && <Text style={styles.error}>{tMessage(error)}</Text>}
 
       <View style={styles.spacer} />
-      <Button label="Retour" variant="secondary" onPress={onBack} />
+      <Button label={t('Retour')} variant="secondary" onPress={onBack} />
     </ScrollView>
   );
 }

@@ -6,13 +6,15 @@ import { ChipStack, DealerButton } from './Chip';
 import { Appear, FloatUp, FlyTo } from './Motion';
 import { PlayingCard } from './PlayingCard';
 import { colors, gradients, seatColors, shadow, theme } from '../theme';
+import { t } from '../i18n';
+import { tMessage } from '../online/messages';
 
 const STREET_NAMES: Record<string, string> = {
-  preflop: 'Avant le flop',
-  flop: 'Flop',
-  turn: 'Turn',
-  river: 'River',
-  finished: 'Fin de la main',
+  preflop: t('Avant le flop'),
+  flop: t('Flop'),
+  turn: t('Turn'),
+  river: t('River'),
+  finished: t('Fin de la main'),
 };
 
 const SEAT_WIDTH = 84;
@@ -127,9 +129,9 @@ export function Table({ hand, meId, maxWidth, maxHeight, reactions, nextLevelAt,
       {hand.players.map((p, i) => {
         const { x, y } = seatAt(i);
         // Bets sit a fixed distance from the seat, towards the middle of the table.
-        const t = Math.min(0.45, Math.min(75, h * 0.17) / Math.hypot(cx - x, cy - y));
-        const bx = x + (cx - x) * t;
-        const by = y + (cy - y) * t;
+        const along = Math.min(0.45, Math.min(75, h * 0.17) / Math.hypot(cx - x, cy - y));
+        const bx = x + (cx - x) * along;
+        const by = y + (cy - y) * along;
         const shown = hand.showdown[p.id];
         const active = i === hand.toAct;
         const avatar = avatars?.[p.id];
@@ -173,15 +175,17 @@ export function Table({ hand, meId, maxWidth, maxHeight, reactions, nextLevelAt,
               </View>
               <View style={[styles.plate, active && styles.plateActive]}>
                 <Text style={styles.name} numberOfLines={1}>
-                  {p.id === meId ? 'Toi' : p.name}
+                  {p.id === meId ? t('Toi') : p.name}
                 </Text>
-                <Text style={styles.stack}>{p.folded ? 'Couché' : p.allIn ? 'Tapis !' : `${p.stack}`}</Text>
+                <Text style={styles.stack}>
+                  {p.folded ? t('Couché') : p.allIn ? t('Tapis !') : `${p.stack}`}
+                </Text>
               </View>
-              {shown && <Text style={[styles.handName, won && styles.handNameWon]}>{shown.name}</Text>}
+              {shown && <Text style={[styles.handName, won && styles.handNameWon]}>{t(shown.name)}</Text>}
               {!shown && hand.street !== 'finished' && p.lastAction && !p.folded && (
                 <Appear key={p.lastAction} from={-6}>
                   <Text style={[styles.lastAction, p.allIn && styles.lastActionAllIn]} numberOfLines={1}>
-                    {p.lastAction}
+                    {tMessage(p.lastAction)}
                   </Text>
                 </Appear>
               )}

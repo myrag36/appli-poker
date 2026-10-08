@@ -5,6 +5,7 @@ import { PlayingCard } from '../components/PlayingCard';
 import { RulesButton } from '../components/Rules';
 import { POKER_RULES } from '../rules';
 import { colors, gradients, shadow } from '../theme';
+import { t } from '../i18n';
 
 interface Props {
   canResume: boolean;
@@ -66,7 +67,7 @@ export function HomeScreen({ canResume, playerName, onOnline, onResume, onLocal,
       ]}
     >
       <Pressable accessibilityRole="button" onPress={onBack} hitSlop={10} style={styles.back}>
-        <Text style={styles.backText}>← Tous les jeux</Text>
+        <Text style={styles.backText}>{t('← Tous les jeux')}</Text>
       </Pressable>
       <View style={styles.hero}>
         <View style={styles.glow} />
@@ -85,7 +86,8 @@ export function HomeScreen({ canResume, playerName, onOnline, onResume, onLocal,
         </View>
         <Text style={styles.title}>Appli Poker</Text>
         <Text style={styles.subtitle}>
-          {playerName ? `Salut ${playerName} ! ` : ''}Texas Hold'em entre amis, avec des jetons pour de faux.
+          {playerName ? t('Salut {name} ! ', { name: playerName }) : ''}
+          {t("Texas Hold'em entre amis, avec des jetons pour de faux.")}
         </Text>
       </View>
 
@@ -93,29 +95,29 @@ export function HomeScreen({ canResume, playerName, onOnline, onResume, onLocal,
         {canResume && (
           <Choice
             icon="▶"
-            title="Reprendre ma table"
-            text="Retourne à ta dernière partie en ligne."
+            title={t('Reprendre ma table')}
+            text={t('Retourne à ta dernière partie en ligne.')}
             highlight
             onPress={onResume}
           />
         )}
         <Choice
           icon="🌍"
-          title="Jouer en ligne"
-          text="Chacun sur son téléphone. Crée une table et partage le code, ou rejoins celle d'un ami."
+          title={t('Jouer en ligne')}
+          text={t("Chacun sur son téléphone. Crée une table et partage le code, ou rejoins celle d'un ami.")}
           highlight={!canResume}
           onPress={onOnline}
         />
         <Choice
           icon="📱"
-          title="Sur ce téléphone"
-          text="Vous êtes ensemble ? Passez-vous le téléphone à chaque tour."
+          title={t('Sur ce téléphone')}
+          text={t('Vous êtes ensemble ? Passez-vous le téléphone à chaque tour.')}
           onPress={onLocal}
         />
         <Choice
           icon="📊"
-          title="Mes statistiques"
-          text="Tes résultats en ligne et le classement entre amis."
+          title={t('Mes statistiques')}
+          text={t('Tes résultats en ligne et le classement entre amis.')}
           onPress={onStats}
         />
       </View>

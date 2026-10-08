@@ -6,6 +6,7 @@ import { AvatarBadge } from './AvatarPicker';
 import { PlayingCard } from './PlayingCard';
 import { supabase } from '../online/supabase';
 import { colors } from '../theme';
+import { t } from '../i18n';
 
 /** How many past hands the panel shows. */
 const LIMIT = 20;
@@ -46,12 +47,12 @@ function HandCard({
   return (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
-        <Text style={styles.number}>Main n° {number}</Text>
-        <Text style={styles.pot}>Pot {pot}</Text>
+        <Text style={styles.number}>{t('Main n° {n}', { n: number })}</Text>
+        <Text style={styles.pot}>{t('Pot {n}', { n: pot })}</Text>
       </View>
       <Text style={styles.winner}>
-        🏆 {winners.map((w) => (w.id === meId ? 'Toi' : w.name)).join(' et ')}
-        {shownName ? ` · ${shownName}` : hand.board.length < 5 ? ' · les autres se sont couchés' : ''}
+        🏆 {winners.map((w) => (w.id === meId ? t('Toi') : w.name)).join(t(' et '))}
+        {shownName ? ` · ${t(shownName)}` : hand.board.length < 5 ? t(' · les autres se sont couchés') : ''}
       </Text>
       {hand.board.length > 0 && (
         <View style={styles.board}>
@@ -70,8 +71,8 @@ function HandCard({
               <View style={styles.noAvatar} />
             )}
             <Text style={[styles.name, p.folded && styles.folded]} numberOfLines={1}>
-              {p.id === meId ? 'Toi' : p.name}
-              {p.folded ? ' (couché)' : ''}
+              {p.id === meId ? t('Toi') : p.name}
+              {p.folded ? t(' (couché)') : ''}
             </Text>
             <View style={styles.hole}>
               {p.hole.map((c) => (
@@ -106,7 +107,7 @@ export function HistoryPanel({ visible, onClose, roomId, meId, avatars }: Props)
       .limit(LIMIT)
       .then(({ data, error: loadError }) => {
         if (cancelled) return;
-        if (loadError) setError("Impossible de charger l'historique");
+        if (loadError) setError(t("Impossible de charger l'historique"));
         else setHands(data as PastHand[]);
       });
     return () => {
@@ -117,13 +118,13 @@ export function HistoryPanel({ visible, onClose, roomId, meId, avatars }: Props)
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Fermer l'historique" />
+        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t("Fermer l'historique")} />
         <View style={[styles.sheet, { paddingBottom: insets.bottom + 10 }]}>
           <View style={styles.header}>
-            <Text style={styles.title}>📜 Mains précédentes</Text>
+            <Text style={styles.title}>{t('📜 Mains précédentes')}</Text>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Fermer"
+              accessibilityLabel={t('Fermer')}
               onPress={onClose}
               hitSlop={10}
               style={styles.close}
@@ -134,7 +135,9 @@ export function HistoryPanel({ visible, onClose, roomId, meId, avatars }: Props)
           <ScrollView contentContainerStyle={styles.list}>
             {error && <Text style={styles.empty}>{error}</Text>}
             {!hands && !error && <ActivityIndicator color={colors.gold} style={styles.loading} />}
-            {hands?.length === 0 && <Text style={styles.empty}>Aucune main terminée pour l'instant.</Text>}
+            {hands?.length === 0 && (
+              <Text style={styles.empty}>{t("Aucune main terminée pour l'instant.")}</Text>
+            )}
             {hands?.map((h) => (
               <HandCard
                 key={h.hand_number}
