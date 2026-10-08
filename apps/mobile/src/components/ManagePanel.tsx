@@ -7,6 +7,8 @@ import { Button } from './Button';
 import { callServer } from '../online/supabase';
 import type { Room, RoomPlayer } from '../online/useRoom';
 import { colors } from '../theme';
+import { t, tn } from '../i18n';
+import { tMessage } from '../online/messages';
 
 interface Props {
   visible: boolean;
@@ -38,7 +40,7 @@ export function ManagePanel({ visible, onClose, room, players, meId, avatars, on
       onChanged();
       return true;
     } catch (e) {
-      setError((e as Error).message);
+      setError(tMessage((e as Error).message));
       return false;
     } finally {
       setBusy(false);
@@ -57,13 +59,13 @@ export function ManagePanel({ visible, onClose, room, players, meId, avatars, on
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
-        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Fermer le menu" />
+        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('Fermer le menu')} />
         <View style={[styles.sheet, { marginBottom: insets.bottom }]}>
           <View style={styles.header}>
-            <Text style={styles.title}>⚙️ Gérer la table</Text>
+            <Text style={styles.title}>{t('⚙️ Gérer la table')}</Text>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Fermer"
+              accessibilityLabel={t('Fermer')}
               onPress={onClose}
               hitSlop={10}
               style={styles.close}
@@ -74,14 +76,16 @@ export function ManagePanel({ visible, onClose, room, players, meId, avatars, on
           <ScrollView contentContainerStyle={styles.body}>
             {hand && (
               <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Pause</Text>
+                <Text style={styles.sectionTitle}>{t('Pause')}</Text>
                 <Text style={styles.hint}>
                   {room.paused
-                    ? 'Personne ne peut jouer. À la reprise, le joueur dont c’est le tour a de nouveau 45 secondes.'
-                    : 'Arrête le chrono et les coups le temps d’une pause.'}
+                    ? t(
+                        'Personne ne peut jouer. À la reprise, le joueur dont c’est le tour a de nouveau 45 secondes.',
+                      )
+                    : t('Arrête le chrono et les coups le temps d’une pause.')}
                 </Text>
                 <Button
-                  label={room.paused ? '▶ Reprendre la partie' : '⏸ Mettre en pause'}
+                  label={room.paused ? t('▶ Reprendre la partie') : t('⏸ Mettre en pause')}
                   disabled={busy}
                   onPress={async () => {
                     if (await run({ type: 'pause', roomId: room.id, paused: !room.paused })) onClose();
@@ -91,9 +95,11 @@ export function ManagePanel({ visible, onClose, room, players, meId, avatars, on
             )}
 
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Joueurs</Text>
+              <Text style={styles.sectionTitle}>{t('Joueurs')}</Text>
               <Text style={styles.hint}>
-                Un joueur retiré perd ses jetons à cette table. Pendant une main, attends qu’elle se termine.
+                {t(
+                  'Un joueur retiré perd ses jetons à cette table. Pendant une main, attends qu’elle se termine.',
+                )}
               </Text>
               {players.map((p) => (
                 <View key={p.user_id} style={styles.player}>
@@ -101,17 +107,17 @@ export function ManagePanel({ visible, onClose, room, players, meId, avatars, on
                   <View style={styles.playerBody}>
                     <Text style={styles.playerName} numberOfLines={1}>
                       {p.name}
-                      {p.user_id === meId ? ' (toi)' : ''}
+                      {p.user_id === meId ? t(' (toi)') : ''}
                     </Text>
                     <Text style={styles.playerStack}>
-                      {p.is_bot ? 'Robot · ' : ''}
-                      {p.stack} jetons
+                      {p.is_bot ? t('Robot · ') : ''}
+                      {tn(p.stack, '{n} jeton', '{n} jetons')}
                     </Text>
                   </View>
                   {p.user_id !== meId && (
                     <Pressable
                       accessibilityRole="button"
-                      accessibilityLabel={`Retirer ${p.name}`}
+                      accessibilityLabel={t('Retirer {name}', { name: p.name })}
                       disabled={busy || inHand(p.user_id)}
                       onPress={() => remove(p.user_id)}
                       style={({ pressed }) => [
@@ -122,7 +128,11 @@ export function ManagePanel({ visible, onClose, room, players, meId, avatars, on
                       ]}
                     >
                       <Text style={styles.removeText}>
-                        {inHand(p.user_id) ? 'En jeu' : confirming === p.user_id ? 'Confirmer ?' : 'Retirer'}
+                        {inHand(p.user_id)
+                          ? t('En jeu')
+                          : confirming === p.user_id
+                            ? t('Confirmer ?')
+                            : t('Retirer')}
                       </Text>
                     </Pressable>
                   )}
@@ -131,7 +141,7 @@ export function ManagePanel({ visible, onClose, room, players, meId, avatars, on
             </View>
             {players.length < 8 && (
               <Button
-                label="🤖 Ajouter un robot"
+                label={t('🤖 Ajouter un robot')}
                 variant="secondary"
                 disabled={busy}
                 onPress={() => run({ type: 'addBot', roomId: room.id })}

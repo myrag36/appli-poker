@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useInstall } from '../pwa';
 import { colors, gradients, shadow } from '../theme';
+import { t } from '../i18n';
 
 /** Safari's share icon: a box with an arrow coming out of the top. */
 function ShareIcon() {
@@ -53,8 +54,8 @@ export function InstallBanner() {
               <Text style={styles.badgeText}>📲</Text>
             </View>
             <View style={styles.body}>
-              <Text style={styles.title}>Installe l'appli</Text>
-              <Text style={styles.text}>Tes jeux en un geste, depuis l'écran d'accueil.</Text>
+              <Text style={styles.title}>{t("Installe l'appli")}</Text>
+              <Text style={styles.text}>{t("Tes jeux en un geste, depuis l'écran d'accueil.")}</Text>
             </View>
             <Pressable
               accessibilityRole="button"
@@ -62,12 +63,12 @@ export function InstallBanner() {
               style={({ pressed }) => [pressed && styles.pressed]}
             >
               <LinearGradient colors={gradients.gold} style={styles.install}>
-                <Text style={styles.installText}>Installer</Text>
+                <Text style={styles.installText}>{t('Installer')}</Text>
               </LinearGradient>
             </Pressable>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Ne plus proposer d'installer l'appli"
+              accessibilityLabel={t("Ne plus proposer d'installer l'appli")}
               onPress={dismiss}
               hitSlop={10}
               style={styles.close}
@@ -82,29 +83,33 @@ export function InstallBanner() {
         <Pressable style={styles.overlay} onPress={() => setGuide(false)}>
           <Pressable style={[styles.sheet, { paddingBottom: insets.bottom + 18 }]} onPress={() => {}}>
             <View style={styles.handle} />
-            <Text style={styles.sheetTitle}>Ajoute l'appli à ton écran d'accueil</Text>
+            <Text style={styles.sheetTitle}>{t("Ajoute l'appli à ton écran d'accueil")}</Text>
             <Text style={styles.sheetLead}>
-              Trois gestes dans Safari, et elle s'ouvre comme une vraie appli.
+              {t("Trois gestes dans Safari, et elle s'ouvre comme une vraie appli.")}
             </Text>
             <Step
               n={1}
-              title="Touche Partager"
-              text="Le carré avec une flèche, dans la barre de Safari."
+              title={t('Touche Partager')}
+              text={t('Le carré avec une flèche, dans la barre de Safari.')}
               icon
             />
             <Step
               n={2}
-              title="« Sur l'écran d'accueil »"
-              text="Fais défiler la liste vers le bas si tu ne le vois pas."
+              title={t("« Sur l'écran d'accueil »")}
+              text={t('Fais défiler la liste vers le bas si tu ne le vois pas.')}
             />
-            <Step n={3} title="Touche « Ajouter »" text="L'icône Jeux amis rejoint tes autres applis." />
+            <Step
+              n={3}
+              title={t('Touche « Ajouter »')}
+              text={t("L'icône Jeux amis rejoint tes autres applis.")}
+            />
             <Pressable
               accessibilityRole="button"
               onPress={() => setGuide(false)}
               style={({ pressed }) => [styles.ok, pressed && styles.pressed]}
             >
               <LinearGradient colors={gradients.gold} style={styles.okInner}>
-                <Text style={styles.okText}>J'ai compris</Text>
+                <Text style={styles.okText}>{t("J'ai compris")}</Text>
               </LinearGradient>
             </Pressable>
             <Pressable
@@ -115,7 +120,7 @@ export function InstallBanner() {
               }}
               hitSlop={8}
             >
-              <Text style={styles.never}>Ne plus me le proposer</Text>
+              <Text style={styles.never}>{t('Ne plus me le proposer')}</Text>
             </Pressable>
           </Pressable>
         </Pressable>

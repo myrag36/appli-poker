@@ -34,6 +34,8 @@ import { type GamePlayer, useGameRoom } from '../online/useGameRoom';
 import { type OtherProgress, useProgressOf } from '../online/progress';
 import { TitleBadge } from '../components/TitleBadge';
 import { colors } from '../theme';
+import { t, tn } from '../i18n';
+import { tMessage } from '../online/messages';
 
 /** A table of a tournament: the host creates it for the current round, the others join it. */
 export interface TournamentTable {
@@ -151,7 +153,7 @@ function Lobby({
       const { roomId } = await request();
       await onEnter(roomId, who);
     } catch (e) {
-      setError((e as Error).message);
+      setError(tMessage((e as Error).message));
       setBusy(false);
     }
   }
@@ -169,20 +171,22 @@ function Lobby({
       <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
         <Text style={styles.emoji}>{ui.emoji}</Text>
         <Text style={styles.title}>{ui.title}</Text>
-        <Text style={styles.subtitle}>🏆 Manche de tournoi · {ui.players}</Text>
+        <Text style={styles.subtitle}>{t('🏆 Manche de tournoi · {players}', { players: ui.players })}</Text>
         {autoJoining && !error ? (
           <>
             <View style={styles.spacer} />
             <ActivityIndicator color={colors.gold} />
-            <Text style={styles.hint}>Arrivée à la table {tournament.join}…</Text>
+            <Text style={styles.hint}>
+              {t('Arrivée à la table {code}…', { code: tournament.join ?? '' })}
+            </Text>
           </>
         ) : (
           <>
-            <Text style={styles.label}>Ton prénom et ton avatar</Text>
+            <Text style={styles.label}>{t('Ton prénom et ton avatar')}</Text>
             <View style={styles.row}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="Changer d'avatar"
+                accessibilityLabel={t("Changer d'avatar")}
                 onPress={() => setPickingAvatar(!pickingAvatar)}
               >
                 <AvatarBadge avatar={avatar} size={48} />
@@ -193,7 +197,7 @@ function Lobby({
                 value={name}
                 onChangeText={setName}
                 maxLength={16}
-                placeholder="Ton prénom"
+                placeholder={t('Ton prénom')}
                 placeholderTextColor={colors.muted}
               />
             </View>
@@ -202,7 +206,7 @@ function Lobby({
               <>
                 <View style={styles.spacer} />
                 <Button
-                  label={`Rejoindre la table ${tournament.join}`}
+                  label={t('Rejoindre la table {code}', { code: tournament.join })}
                   disabled={busy || !trimmed}
                   onPress={join}
                 />
@@ -211,15 +215,15 @@ function Lobby({
               <>
                 {Options ? (
                   <>
-                    <Text style={styles.section}>Réglages de la manche</Text>
+                    <Text style={styles.section}>{t('Réglages de la manche')}</Text>
                     <Options value={options} onChange={setOptions} />
                   </>
                 ) : (
                   <View style={styles.spacer} />
                 )}
-                <Button label="Créer la table" disabled={busy || !trimmed} onPress={create} />
+                <Button label={t('Créer la table')} disabled={busy || !trimmed} onPress={create} />
                 <Text style={styles.hint}>
-                  Les joueurs du tournoi verront la table et pourront la rejoindre.
+                  {t('Les joueurs du tournoi verront la table et pourront la rejoindre.')}
                 </Text>
               </>
             )}
@@ -227,27 +231,27 @@ function Lobby({
         )}
         {error && <Text style={styles.error}>{error}</Text>}
         <View style={styles.spacer} />
-        <Button label="Retour au tournoi" variant="secondary" onPress={onBack} />
+        <Button label={t('Retour au tournoi')} variant="secondary" onPress={onBack} />
       </ScrollView>
     );
   }
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.emoji}>{ui.emoji}</Text>
-      <Text style={styles.title}>{ui.title} en ligne</Text>
+      <Text style={styles.title}>{t('{game} en ligne', { game: ui.title })}</Text>
       <Text style={styles.subtitle}>{ui.players}</Text>
 
       {last && (
         <View style={styles.resume}>
-          <Button label="▶ Reprendre ma table" disabled={busy} onPress={() => run(async () => last)} />
+          <Button label={t('▶ Reprendre ma table')} disabled={busy} onPress={() => run(async () => last)} />
         </View>
       )}
 
-      <Text style={styles.label}>Ton prénom et ton avatar</Text>
+      <Text style={styles.label}>{t('Ton prénom et ton avatar')}</Text>
       <View style={styles.row}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Changer d'avatar"
+          accessibilityLabel={t("Changer d'avatar")}
           onPress={() => setPickingAvatar(!pickingAvatar)}
         >
           <AvatarBadge avatar={avatar} size={48} />
@@ -258,33 +262,33 @@ function Lobby({
           value={name}
           onChangeText={setName}
           maxLength={16}
-          placeholder="Ton prénom"
+          placeholder={t('Ton prénom')}
           placeholderTextColor={colors.muted}
         />
       </View>
       {pickingAvatar && <AvatarPicker value={avatar} onChange={changeAvatar} />}
 
-      <Text style={styles.section}>Rejoindre des amis</Text>
+      <Text style={styles.section}>{t('Rejoindre des amis')}</Text>
       <TextInput
         style={[styles.input, styles.code]}
         value={code}
-        onChangeText={(t) => setCode(t.toUpperCase())}
+        onChangeText={(v) => setCode(v.toUpperCase())}
         maxLength={6}
         autoCapitalize="characters"
         autoCorrect={false}
-        placeholder="CODE"
+        placeholder={t('CODE')}
         placeholderTextColor={colors.muted}
-        accessibilityLabel="Code de la table"
+        accessibilityLabel={t('Code de la table')}
       />
-      <Button label="Rejoindre" disabled={busy || !trimmed || code.trim().length !== 6} onPress={join} />
+      <Button label={t('Rejoindre')} disabled={busy || !trimmed || code.trim().length !== 6} onPress={join} />
 
-      <Text style={styles.section}>Ou créer une table</Text>
+      <Text style={styles.section}>{t('Ou créer une table')}</Text>
       {Options && <Options value={options} onChange={setOptions} />}
-      <Button label="Créer la table" variant="secondary" disabled={busy || !trimmed} onPress={create} />
+      <Button label={t('Créer la table')} variant="secondary" disabled={busy || !trimmed} onPress={create} />
 
       {error && <Text style={styles.error}>{error}</Text>}
       <View style={styles.spacer} />
-      <Button label="Retour" variant="secondary" onPress={onBack} />
+      <Button label={t('Retour')} variant="secondary" onPress={onBack} />
     </ScrollView>
   );
 }
@@ -323,7 +327,7 @@ function Room({
       await callGames(request);
       await refresh();
     } catch (e) {
-      setMoveError((e as Error).message);
+      setMoveError(tMessage((e as Error).message));
     } finally {
       setBusy(false);
     }
@@ -334,7 +338,7 @@ function Room({
       <View style={styles.center}>
         {error ? <Text style={styles.error}>{error}</Text> : <ActivityIndicator color={colors.gold} />}
         <View style={styles.spacer} />
-        <Button label="Retour" variant="secondary" onPress={error ? onGone : onLeave} />
+        <Button label={t('Retour')} variant="secondary" onPress={error ? onGone : onLeave} />
       </View>
     );
   }
@@ -434,24 +438,26 @@ function WaitingRoom({
   const fillTo = Math.max(def.fillTo ?? 0, def.minPlayers);
   const missing = Math.max(0, fillTo - players.length);
   const invite = () =>
-    Share.share({ message: `Viens jouer au ${title} avec moi ! Code de la table : ${code}` }).catch(() => {});
+    Share.share({
+      message: t('Viens jouer au {game} avec moi ! Code de la table : {code}', { game: title, code }),
+    }).catch(() => {});
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>{title}</Text>
-      <Text style={styles.label}>Code de la table</Text>
-      <Text style={styles.bigCode} accessibilityLabel={`Code de la table ${code}`}>
+      <Text style={styles.label}>{t('Code de la table')}</Text>
+      <Text style={styles.bigCode} accessibilityLabel={t('Code de la table {code}', { code })}>
         {code}
       </Text>
       <Text style={styles.subtitle}>
         {inTournament
-          ? 'Les joueurs du tournoi la rejoignent depuis l’écran du tournoi.'
-          : `Donne ce code à tes amis : ils choisissent ${title} puis « Rejoindre ».`}
+          ? t('Les joueurs du tournoi la rejoignent depuis l’écran du tournoi.')
+          : t('Donne ce code à tes amis : ils choisissent {game} puis « Rejoindre ».', { game: title })}
       </Text>
       <View style={styles.spacerSmall} />
-      <Button label="Inviter des amis" variant="secondary" onPress={invite} />
+      <Button label={t('Inviter des amis')} variant="secondary" onPress={invite} />
 
       <Text style={styles.section}>
-        À la table ({players.length}/{def.maxPlayers})
+        {t('À la table ({n}/{max})', { n: players.length, max: def.maxPlayers })}
       </Text>
       {players.map((p, i) => (
         <View key={p.user_id} style={styles.playerRow}>
@@ -459,15 +465,15 @@ function WaitingRoom({
           <View style={styles.flex}>
             <Text style={styles.playerName} numberOfLines={1}>
               {p.name}
-              {p.user_id === userId ? ' (toi)' : ''}
+              {p.user_id === userId ? t(' (toi)') : ''}
             </Text>
             {!p.is_bot && <TitleBadge id={progressOf[p.user_id]?.title ?? 'debutant'} small />}
           </View>
-          {p.is_bot && <Text style={styles.tag}>Robot</Text>}
+          {p.is_bot && <Text style={styles.tag}>{t('Robot')}</Text>}
           {isHost && p.user_id !== userId && (
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={`Retirer ${p.name}`}
+              accessibilityLabel={t('Retirer {name}', { name: p.name })}
               onPress={() => onRemove(p.user_id)}
               disabled={busy}
             >
@@ -480,23 +486,31 @@ function WaitingRoom({
       {isHost ? (
         <>
           {!full && (
-            <Button label="+ Ajouter un robot 🤖" variant="secondary" disabled={busy} onPress={onAddBot} />
+            <Button
+              label={t('+ Ajouter un robot 🤖')}
+              variant="secondary"
+              disabled={busy}
+              onPress={onAddBot}
+            />
           )}
           {missing > 0 && (
             <Text style={styles.hint}>
-              {missing === 1 ? 'Un robot complétera' : `${missing} robots compléteront`} la table au
-              lancement.
+              {tn(
+                missing,
+                'Un robot complétera la table au lancement.',
+                '{n} robots compléteront la table au lancement.',
+              )}
             </Text>
           )}
           <View style={styles.spacerSmall} />
-          <Button label="Lancer la partie" disabled={busy} onPress={onStart} />
+          <Button label={t('Lancer la partie')} disabled={busy} onPress={onStart} />
         </>
       ) : (
-        <Text style={styles.hint}>En attente du lancement par le créateur de la table…</Text>
+        <Text style={styles.hint}>{t('En attente du lancement par le créateur de la table…')}</Text>
       )}
       {error && <Text style={styles.error}>{error}</Text>}
       <View style={styles.spacer} />
-      <Button label="Quitter la table" variant="secondary" onPress={onLeave} />
+      <Button label={t('Quitter la table')} variant="secondary" onPress={onLeave} />
     </ScrollView>
   );
 }

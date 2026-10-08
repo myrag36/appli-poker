@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme';
+import { t } from '../i18n';
 
 const native = Platform.OS !== 'web';
 
@@ -102,7 +103,10 @@ export function Die({ value, size = 48, held, rollKey, onPress, disabled, access
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? (value ? `Dé ${value}${held ? ', gardé' : ''}` : 'Dé')}
+      accessibilityLabel={
+        accessibilityLabel ??
+        (value ? (held ? t('Dé {n}, gardé', { n: value }) : t('Dé {n}', { n: value })) : t('Dé'))
+      }
       accessibilityState={{ selected: !!held, disabled: disabled || !onPress }}
       onPress={onPress}
       disabled={disabled || !onPress}

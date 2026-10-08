@@ -1,4 +1,5 @@
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { t } from '../i18n';
 
 /** Player 0 plays red, player 1 yellow. */
 export const TOKEN_COLORS = [
@@ -6,7 +7,7 @@ export const TOKEN_COLORS = [
   { fill: '#ffc93c', dark: '#c98a00', light: '#fff0a8' },
 ] as const;
 
-export const TOKEN_NAMES = ['Rouge', 'Jaune'];
+export const TOKEN_NAMES = [t('Rouge'), t('Jaune')];
 
 /** A Puissance 4 token seen from the front: a disc with a raised inner ring and a glint. */
 export function Token({

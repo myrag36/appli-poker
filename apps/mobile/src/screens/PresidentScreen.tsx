@@ -41,6 +41,7 @@ import { TurnTimer } from '../components/TurnTimer';
 import type { OnlineBoardProps, OnlineOptionsProps } from '../online-games/types';
 import { sounds } from '../feedback';
 import { deviceRng } from '../rng';
+import { lang, t, tn } from '../i18n';
 import { colors, gradients, shadow, theme } from '../theme';
 
 /** How long a robot seems to think before playing, in ms. */
@@ -54,25 +55,27 @@ const SEAT_W = 66;
 const SEAT_H = 74;
 
 const SHORT_TITLES: Record<PresidentTitle, string> = {
-  president: '👑 Président',
-  'vice-president': 'Vice-prés.',
-  neutre: 'Neutre',
-  'vice-trouduc': 'Vice-trou.',
-  trouduc: 'Trouduc',
+  president: t('👑 Président'),
+  'vice-president': t('Vice-prés.'),
+  neutre: t('Neutre'),
+  'vice-trouduc': t('Vice-trou.'),
+  trouduc: t('Trouduc'),
 };
 
-const RANK_NAMES: Record<string, string> = { T: '10', J: 'Valet', Q: 'Dame', K: 'Roi', A: 'As' };
-const SET_NAMES = ['', 'un', 'une paire de', 'un brelan de', 'un carré de'];
+const RANK_NAMES: Record<string, string> = { T: '10', J: t('Valet'), Q: t('Dame'), K: t('Roi'), A: t('As') };
+const SET_NAMES = ['', '', 'une paire de {rank}', 'un brelan de {rank}', 'un carré de {rank}'];
 
 function describe(cards: Card[]): string {
   const r = cards[0][0];
   const name = RANK_NAMES[r] ?? r;
-  if (cards.length === 1) return `${r === 'Q' ? 'une' : 'un'} ${name}`;
-  return `${SET_NAMES[cards.length]} ${name}${/\d|s$/.test(name) ? '' : 's'}`;
+  if (cards.length === 1) return r === 'Q' ? t('une {rank}', { rank: name }) : t('un {rank}', { rank: name });
+  // French keeps numbers and "As" as they are ("une paire de 7"); English always adds an s ("a pair of 7s").
+  const plural = lang === 'en' || !/\d|s$/.test(name) ? `${name}s` : name;
+  return t(SET_NAMES[cards.length], { rank: plural });
 }
 
-function titleColor(t: PresidentTitle): { bg: string; fg: string } {
-  switch (t) {
+function titleColor(title: PresidentTitle): { bg: string; fg: string } {
+  switch (title) {
     case 'president':
       return { bg: colors.gold, fg: colors.onGold };
     case 'vice-president':
@@ -91,7 +94,7 @@ function TitleBadge({ title, full }: { title: PresidentTitle; full?: boolean }) 
   return (
     <View style={[styles.badge, { backgroundColor: c.bg }]}>
       <Text style={[styles.badgeText, { color: c.fg }]} numberOfLines={1}>
-        {full ? PRESIDENT_TITLE_NAMES[title] : SHORT_TITLES[title]}
+        {full ? t(PRESIDENT_TITLE_NAMES[title]) : SHORT_TITLES[title]}
       </Text>
     </View>
   );
@@ -145,23 +148,23 @@ function Setup({
           </View>
         ))}
       </View>
-      <Text style={styles.title}>Président</Text>
-      <Text style={styles.subtitle}>Vide ta main le premier pour devenir Président !</Text>
+      <Text style={styles.title}>{t('Président')}</Text>
+      <Text style={styles.subtitle}>{t('Vide ta main le premier pour devenir Président !')}</Text>
       {onOnline && <OnlineButton onPress={onOnline} />}
       <RulesButton rules={PRESIDENT_RULES} />
 
-      <Text style={styles.section}>Ton nom</Text>
+      <Text style={styles.section}>{t('Ton nom')}</Text>
       <View style={styles.row}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Changer d'avatar"
+          accessibilityLabel={t("Changer d'avatar")}
           onPress={() => setPicking(!picking)}
         >
           <AvatarBadge avatar={avatar} size={44} />
         </Pressable>
         <TextInput
           style={[styles.input, styles.flex]}
-          placeholder="Toi"
+          placeholder={t('Toi')}
           placeholderTextColor={colors.muted}
           value={name}
           maxLength={14}
@@ -170,7 +173,7 @@ function Setup({
       </View>
       {picking && <AvatarPicker value={avatar} onChange={setAvatar} />}
 
-      <Text style={styles.section}>Robots adversaires</Text>
+      <Text style={styles.section}>{t('Robots adversaires')}</Text>
       <View style={styles.counts}>
         {[2, 3, 4, 5, 6, 7].map((n) => (
           <Pressable
@@ -185,18 +188,24 @@ function Setup({
         ))}
       </View>
       <Text style={styles.hint}>
-        {robots + 1} joueurs autour de la table ·{' '}
         {52 % (robots + 1) === 0
-          ? `${52 / (robots + 1)} cartes chacun`
-          : `${Math.floor(52 / (robots + 1))} ou ${Math.ceil(52 / (robots + 1))} cartes chacun`}
+          ? t('{players} joueurs autour de la table · {n} cartes chacun', {
+              players: robots + 1,
+              n: 52 / (robots + 1),
+            })
+          : t('{players} joueurs autour de la table · {min} ou {max} cartes chacun', {
+              players: robots + 1,
+              min: Math.floor(52 / (robots + 1)),
+              max: Math.ceil(52 / (robots + 1)),
+            })}
       </Text>
 
       <View style={styles.spacer} />
       <Button
-        label="Lancer la partie"
-        onPress={() => onStart({ name: name.trim() || 'Toi', avatar, robots })}
+        label={t('Lancer la partie')}
+        onPress={() => onStart({ name: name.trim() || t('Toi'), avatar, robots })}
       />
-      <Button label="Retour" variant="secondary" onPress={onBack} />
+      <Button label={t('Retour')} variant="secondary" onPress={onBack} />
     </ScrollView>
   );
 }
@@ -301,20 +310,30 @@ function Game({
   const received = new Set(state.exchanges.filter((e) => e.to === ME).flatMap((e) => e.cards));
 
   let prompt: string;
-  if (state.phase === 'roundOver') prompt = 'Manche terminée';
+  if (state.phase === 'roundOver') prompt = t('Manche terminée');
   else if (pending && myTurn)
-    prompt = `Choisis ${pending.count} carte${pending.count > 1 ? 's' : ''} à rendre à ${state.players[pending.to].name}`;
-  else if (pending) prompt = `${state.players[state.toAct].name} choisit les cartes à rendre…`;
+    prompt = tn(
+      pending.count,
+      'Choisis {n} carte à rendre à {name}',
+      'Choisis {n} cartes à rendre à {name}',
+      {
+        name: state.players[pending.to].name,
+      },
+    );
+  else if (pending)
+    prompt = t('{name} choisit les cartes à rendre…', { name: state.players[state.toAct].name });
   else if (myTurn && !toBeat)
     prompt =
       state.round === 1 && state.played.length === 0
-        ? 'À toi ! Ouvre avec le 3 de trèfle'
-        : 'À toi de mener : joue ce que tu veux';
+        ? t('À toi ! Ouvre avec le 3 de trèfle')
+        : t('À toi de mener : joue ce que tu veux');
   else if (myTurn) {
     const last = state.trick[state.trick.length - 1];
-    prompt = legal.length ? `À toi ! Bats ${describe(last.cards)} ou passe` : 'Tu ne peux pas suivre : passe';
-  } else if (me.hand.length === 0) prompt = 'Tu as fini, regarde les autres…';
-  else prompt = `${state.players[state.toAct]?.name} réfléchit…`;
+    prompt = legal.length
+      ? t('À toi ! Bats {cards} ou passe', { cards: describe(last.cards) })
+      : t('Tu ne peux pas suivre : passe');
+  } else if (me.hand.length === 0) prompt = t('Tu as fini, regarde les autres…');
+  else prompt = t('{name} réfléchit…', { name: state.players[state.toAct]?.name });
 
   if (stopped) {
     return <FinalRanking state={state} avatars={avatars} onReplay={onReplay} onQuit={onQuit} />;
@@ -333,12 +352,10 @@ function Game({
   return (
     <GameLayout
       top={
-        <TopBar onBack={onQuit} backLabel="← Quitter">
-          <Text style={styles.topInfo}>Manche {state.round}</Text>
+        <TopBar onBack={onQuit} backLabel={t('← Quitter')}>
+          <Text style={styles.topInfo}>{t('Manche {n}', { n: state.round })}</Text>
           <View style={styles.scorePill}>
-            <Text style={styles.scoreText}>
-              ⭐ {me.score} pt{me.score > 1 ? 's' : ''}
-            </Text>
+            <Text style={styles.scoreText}>{tn(me.score, '⭐ {n} pt', '⭐ {n} pts')}</Text>
           </View>
         </TopBar>
       }
@@ -368,7 +385,7 @@ function Game({
             {pending && myTurn ? (
               <Button
                 compact
-                label={`Donner ${selected.length}/${pending.count}`}
+                label={t('Donner {i}/{n}', { i: selected.length, n: pending.count })}
                 disabled={selected.length !== pending.count}
                 onPress={() => act({ type: 'give', cards: selected })}
               />
@@ -378,7 +395,7 @@ function Game({
                   <Button
                     compact
                     variant="secondary"
-                    label="Passer"
+                    label={t('Passer')}
                     disabled={!presidentCanPass(state, ME) || showExchange}
                     onPress={() => act({ type: 'pass' })}
                   />
@@ -388,8 +405,8 @@ function Game({
                     compact
                     label={
                       selected.length
-                        ? `Jouer ${selected.length} carte${selected.length > 1 ? 's' : ''}`
-                        : 'Jouer'
+                        ? tn(selected.length, 'Jouer {n} carte', 'Jouer {n} cartes')
+                        : t('Jouer')
                     }
                     disabled={!canPlay || showExchange}
                     onPress={() => act({ type: 'play', cards: selected })}
@@ -473,13 +490,17 @@ function TableView({
                 {p.name}
               </Text>
               <Text style={styles.cards}>
-                {p.hand.length > 0 ? `🂠 ${p.hand.length}` : place >= 0 ? `Fini ${place + 1}ᵉ` : '—'}
+                {p.hand.length > 0
+                  ? `🂠 ${p.hand.length}`
+                  : place >= 0
+                    ? t('Fini {n}ᵉ', { n: place + 1 })
+                    : '—'}
               </Text>
             </View>
             {title && state.phase !== 'roundOver' && <TitleBadge title={title} />}
             {p.passed && (
               <Appear from={6} style={styles.passBubble}>
-                <Text style={styles.passText}>Passe</Text>
+                <Text style={styles.passText}>{t('Passe')}</Text>
               </Appear>
             )}
           </View>
@@ -492,9 +513,9 @@ function TableView({
           {state.players[ME].name}
         </Text>
         {state.titles[ME] && state.phase !== 'roundOver' && <TitleBadge title={state.titles[ME]!} />}
-        {state.players[ME].passed && <Text style={styles.mePassed}>Passe</Text>}
+        {state.players[ME].passed && <Text style={styles.mePassed}>{t('Passe')}</Text>}
         {state.players[ME].hand.length === 0 && state.phase === 'playing' && (
-          <Text style={styles.mePassed}>Fini {state.finished.indexOf(ME) + 1}ᵉ</Text>
+          <Text style={styles.mePassed}>{t('Fini {n}ᵉ', { n: state.finished.indexOf(ME) + 1 })}</Text>
         )}
       </View>
 
@@ -541,15 +562,24 @@ function Trick({
   const last = shown[shown.length - 1];
   const cardH = cardW * 1.4;
   let caption = '';
-  if (state.phase === 'exchange') caption = 'Échange des cartes…';
-  else if (state.trick.length && last) caption = `${who(state, last.player)} : ${describe(last.cards)}`;
+  if (state.phase === 'exchange') caption = t('Échange des cartes…');
+  else if (state.trick.length && last)
+    caption = t('{name} : {cards}', { name: who(state, last.player), cards: describe(last.cards) });
   else if (state.lastTrick) {
-    const winner = state.lastTrick.winner === ME ? 'toi' : who(state, state.lastTrick.winner);
-    const lead =
-      state.toAct === ME ? 'à toi de mener' : state.toAct >= 0 ? `${who(state, state.toAct)} mène` : '';
-    caption = `Pli pour ${winner}${lead ? ` · ${lead}` : ''}`;
-  } else if (state.toAct === ME) caption = 'À toi de commencer';
-  else if (state.toAct >= 0) caption = `${who(state, state.toAct)} commence`;
+    const winner = state.lastTrick.winner;
+    if (state.toAct === ME)
+      caption =
+        winner === ME
+          ? t('Pli pour toi · à toi de mener')
+          : t('Pli pour {name} · à toi de mener', { name: who(state, winner) });
+    else if (state.toAct >= 0)
+      caption =
+        winner === ME
+          ? t('Pli pour toi · {lead} mène', { lead: who(state, state.toAct) })
+          : t('Pli pour {name} · {lead} mène', { name: who(state, winner), lead: who(state, state.toAct) });
+    else caption = winner === ME ? t('Pli pour toi') : t('Pli pour {name}', { name: who(state, winner) });
+  } else if (state.toAct === ME) caption = t('À toi de commencer');
+  else if (state.toAct >= 0) caption = t('{name} commence', { name: who(state, state.toAct) });
 
   return (
     <View pointerEvents="none" style={[styles.trick, { top: top - cardH / 2, width }]}>
@@ -593,7 +623,7 @@ function Trick({
 }
 
 function who(state: PresidentState, i: number) {
-  return i === ME ? 'Toi' : state.players[i].name;
+  return i === ME ? t('Toi') : state.players[i].name;
 }
 
 /* ---------------------------------------------------------------- hand */
@@ -621,7 +651,7 @@ function Hand({
   const lift = 14;
   return (
     <View style={[styles.hand, { height: cardW * 1.4 + lift + 2 }]}>
-      {cards.length === 0 && <Text style={styles.empty}>Plus de cartes !</Text>}
+      {cards.length === 0 && <Text style={styles.empty}>{t('Plus de cartes !')}</Text>}
       <View style={{ width: total, height: cardW * 1.4 + lift }}>
         {cards.map((c, i) => {
           const on = selected.includes(c);
@@ -630,7 +660,7 @@ function Hand({
             <Pressable
               key={c}
               accessibilityRole="button"
-              accessibilityLabel={`Carte ${c}`}
+              accessibilityLabel={t('Carte {card}', { card: c })}
               accessibilityState={{ selected: on, disabled: !ok }}
               disabled={!ok}
               onPress={() => onTap(c)}
@@ -655,13 +685,13 @@ function ExchangeRecap({ state, onClose }: { state: PresidentState; onClose: () 
   return (
     <View style={styles.overlay}>
       <Appear from={20} style={styles.overlayCard}>
-        <Panel compact title="Échange des cartes">
+        <Panel compact title={t('Échange des cartes')}>
           {mine.map((e, k) => (
             <View key={k} style={styles.exRow}>
               <Text style={styles.exText}>
                 {e.from === ME
-                  ? `Tu donnes à ${state.players[e.to].name}`
-                  : `${state.players[e.from].name} te donne`}
+                  ? t('Tu donnes à {name}', { name: state.players[e.to].name })
+                  : t('{name} te donne', { name: state.players[e.from].name })}
               </Text>
               <View style={styles.fanRow}>
                 {e.cards.map((c) => (
@@ -672,10 +702,12 @@ function ExchangeRecap({ state, onClose }: { state: PresidentState; onClose: () 
           ))}
           <Text style={styles.exHint}>
             {state.titles[ME] === 'trouduc'
-              ? 'Tu es Trouduc : à toi de commencer. Courage !'
-              : `${state.players[state.titles.indexOf('trouduc')].name} (Trouduc) commence la manche.`}
+              ? t('Tu es Trouduc : à toi de commencer. Courage !')
+              : t('{name} (Trouduc) commence la manche.', {
+                  name: state.players[state.titles.indexOf('trouduc')].name,
+                })}
           </Text>
-          <Button compact label="C'est parti !" onPress={onClose} />
+          <Button compact label={t("C'est parti !")} onPress={onClose} />
         </Panel>
       </Appear>
     </View>
@@ -704,9 +736,9 @@ function RoundRecap({
   return (
     <View style={styles.overlay}>
       <Appear from={20} style={styles.overlayCard}>
-        <Panel compact title={`Fin de la manche ${state.round}`}>
+        <Panel compact title={t('Fin de la manche {n}', { n: state.round })}>
           {state.finished.map((p, pos) => {
-            const t = state.titles[p]!;
+            const title = state.titles[p]!;
             return (
               <View key={p} style={[styles.recapRow, p === ME && styles.recapMe]}>
                 <Text style={styles.recapPos}>{pos + 1}</Text>
@@ -714,8 +746,8 @@ function RoundRecap({
                 <Text style={styles.recapName} numberOfLines={1}>
                   {who(state, p)}
                 </Text>
-                <TitleBadge title={t} full />
-                <Text style={styles.recapPts}>+{presidentPoints(t, n)}</Text>
+                <TitleBadge title={title} full />
+                <Text style={styles.recapPts}>+{presidentPoints(title, n)}</Text>
                 <Text style={styles.recapTotal}>{state.players[p].score}</Text>
               </View>
             );
@@ -726,8 +758,8 @@ function RoundRecap({
                 <View key={k} style={styles.exRowSmall}>
                   <Text style={styles.exTextSmall}>
                     {e.from === ME
-                      ? `Donné à ${state.players[e.to].name}`
-                      : `Reçu de ${state.players[e.from].name}`}
+                      ? t('Donné à {name}', { name: state.players[e.to].name })
+                      : t('Reçu de {name}', { name: state.players[e.from].name })}
                   </Text>
                   <View style={styles.fanRow}>
                     {e.cards.map((c) => (
@@ -740,19 +772,19 @@ function RoundRecap({
           )}
           <Text style={styles.exHint}>
             {state.titles[ME] === 'president'
-              ? 'Bravo, Président ! Le Trouduc va te donner ses 2 meilleures cartes.'
+              ? t('Bravo, Président ! Le Trouduc va te donner ses 2 meilleures cartes.')
               : state.titles[ME] === 'trouduc'
-                ? 'Aïe, Trouduc… Tu donneras tes 2 meilleures cartes au Président.'
-                : 'Prochaine manche : échange des cartes puis le Trouduc commence.'}
+                ? t('Aïe, Trouduc… Tu donneras tes 2 meilleures cartes au Président.')
+                : t('Prochaine manche : échange des cartes puis le Trouduc commence.')}
           </Text>
           <View style={styles.actions}>
             {onStop && (
               <View style={styles.flex}>
-                <Button compact variant="secondary" label="Arrêter" onPress={onStop} />
+                <Button compact variant="secondary" label={t('Arrêter')} onPress={onStop} />
               </View>
             )}
             <View style={styles.flex}>
-              <Button compact label="Manche suivante" onPress={onNext} disabled={disabled} />
+              <Button compact label={t('Manche suivante')} onPress={onNext} disabled={disabled} />
             </View>
           </View>
           {note && <Text style={styles.exHint}>{note}</Text>}
@@ -769,7 +801,7 @@ function FinalRanking({
   avatars,
   onReplay,
   onQuit,
-  quitLabel = 'Retour',
+  quitLabel = t('Retour'),
   spectator,
 }: {
   state: PresidentState;
@@ -789,28 +821,24 @@ function FinalRanking({
       <Appear>
         <Text style={styles.trophy}>{myPlace === 1 ? '🏆' : '🃏'}</Text>
       </Appear>
-      <Text style={styles.title}>{myPlace === 1 ? 'Tu gagnes !' : 'Partie terminée'}</Text>
-      <Text style={styles.subtitle}>
-        {rounds} manche{rounds > 1 ? 's' : ''} jouée{rounds > 1 ? 's' : ''}
-      </Text>
-      <Panel title="Classement">
+      <Text style={styles.title}>{myPlace === 1 ? t('Tu gagnes !') : t('Partie terminée')}</Text>
+      <Text style={styles.subtitle}>{tn(rounds, '{n} manche jouée', '{n} manches jouées')}</Text>
+      <Panel title={t('Classement')}>
         {standings.map((s, k) => (
           <Appear key={s.index} delay={k * 80} from={10}>
             <View style={[styles.finalRow, s.index === ME && !spectator && styles.recapMe]}>
-              <Text style={styles.finalPlace}>{MEDALS[s.place - 1] ?? `${s.place}ᵉ`}</Text>
+              <Text style={styles.finalPlace}>{MEDALS[s.place - 1] ?? t('{n}ᵉ', { n: s.place })}</Text>
               <AvatarBadge avatar={avatars[s.index]} size={30} />
               <Text style={[styles.finalName, s.place === 1 && styles.finalNameFirst]} numberOfLines={1}>
                 {spectator ? state.players[s.index].name : who(state, s.index)}
               </Text>
-              <Text style={styles.finalScore}>
-                {s.score} pt{s.score > 1 ? 's' : ''}
-              </Text>
+              <Text style={styles.finalScore}>{tn(s.score, '{n} pt', '{n} pts')}</Text>
             </View>
           </Appear>
         ))}
       </Panel>
       <View style={styles.spacer} />
-      {onReplay && <Button label="Rejouer" onPress={onReplay} />}
+      {onReplay && <Button label={t('Rejouer')} onPress={onReplay} />}
       <Button label={quitLabel} variant="secondary" onPress={onQuit} />
     </ScrollView>
   );
@@ -898,7 +926,7 @@ export function PresidentOnlineBoard({
         state={state}
         avatars={avatars}
         onQuit={onLeave}
-        quitLabel="Quitter la table"
+        quitLabel={t('Quitter la table')}
         spectator={spectator}
       />
     );
@@ -927,21 +955,30 @@ export function PresidentOnlineBoard({
   const actorName = actor ? `${actorSeat?.bot ? '🤖 ' : ''}${actor.name}` : '';
 
   let prompt: string;
-  if (state.phase === 'roundOver') prompt = 'Manche terminée';
+  if (state.phase === 'roundOver') prompt = t('Manche terminée');
   else if (pending && myTurn)
-    prompt = `Choisis ${pending.count} carte${pending.count > 1 ? 's' : ''} à rendre à ${state.players[pending.to].name}`;
-  else if (pending) prompt = `${actorName} choisit les cartes à rendre…`;
+    prompt = tn(
+      pending.count,
+      'Choisis {n} carte à rendre à {name}',
+      'Choisis {n} cartes à rendre à {name}',
+      {
+        name: state.players[pending.to].name,
+      },
+    );
+  else if (pending) prompt = t('{name} choisit les cartes à rendre…', { name: actorName });
   else if (myTurn && !toBeat)
     prompt =
       state.round === 1 && state.played.length === 0
-        ? 'À toi ! Ouvre avec le 3 de trèfle'
-        : 'À toi de mener : joue ce que tu veux';
+        ? t('À toi ! Ouvre avec le 3 de trèfle')
+        : t('À toi de mener : joue ce que tu veux');
   else if (myTurn) {
     const last = state.trick[state.trick.length - 1];
-    prompt = legal.length ? `À toi ! Bats ${describe(last.cards)} ou passe` : 'Tu ne peux pas suivre : passe';
-  } else if (spectator) prompt = `Tu regardes la partie · ${actorName} joue`;
-  else if (me.hand.length === 0) prompt = 'Tu as fini, regarde les autres…';
-  else prompt = `${actorName} réfléchit…`;
+    prompt = legal.length
+      ? t('À toi ! Bats {cards} ou passe', { cards: describe(last.cards) })
+      : t('Tu ne peux pas suivre : passe');
+  } else if (spectator) prompt = t('Tu regardes la partie · {name} joue', { name: actorName });
+  else if (me.hand.length === 0) prompt = t('Tu as fini, regarde les autres…');
+  else prompt = t('{name} réfléchit…', { name: actorName });
 
   const secondsLeft = deadline ? Math.max(0, Math.ceil((deadline - now) / 1000)) : 0;
   const showTimer = deadline !== null && !betweenRounds && actorSeat !== undefined && !actorSeat.bot;
@@ -950,20 +987,18 @@ export function PresidentOnlineBoard({
     <GameLayout
       top={
         <>
-          <TopBar onBack={onLeave} backLabel="← Quitter">
+          <TopBar onBack={onLeave} backLabel={t('← Quitter')}>
             <Text style={styles.topInfo}>
-              Manche {state.round}/{view.rounds}
+              {t('Manche {n}/{total}', { n: state.round, total: view.rounds })}
             </Text>
             {!spectator && (
               <View style={styles.scorePill}>
-                <Text style={styles.scoreText}>
-                  ⭐ {me.score} pt{me.score > 1 ? 's' : ''}
-                </Text>
+                <Text style={styles.scoreText}>{tn(me.score, '⭐ {n} pt', '⭐ {n} pts')}</Text>
               </View>
             )}
           </TopBar>
           {showTimer && (
-            <TurnTimer deadline={deadline!} now={now} name={myTurn ? 'Toi' : actor!.name} seconds={60} />
+            <TurnTimer deadline={deadline!} now={now} name={myTurn ? t('Toi') : actor!.name} seconds={60} />
           )}
         </>
       }
@@ -975,7 +1010,11 @@ export function PresidentOnlineBoard({
               avatars={avatars}
               onNext={() => onMove({ type: 'next' })}
               disabled={busy || spectator}
-              note={`La manche suivante commence toute seule${secondsLeft > 0 ? ` dans ${secondsLeft} s` : '…'}`}
+              note={
+                secondsLeft > 0
+                  ? t('La manche suivante commence toute seule dans {n} s', { n: secondsLeft })
+                  : t('La manche suivante commence toute seule…')
+              }
             />
           )}
           {showExchange && <ExchangeRecap state={state} onClose={() => setExchangeSeen(state.round)} />}
@@ -1001,7 +1040,7 @@ export function PresidentOnlineBoard({
             {spectator ? null : pending && myTurn ? (
               <Button
                 compact
-                label={`Donner ${selected.length}/${pending.count}`}
+                label={t('Donner {i}/{n}', { i: selected.length, n: pending.count })}
                 disabled={busy || selected.length !== pending.count}
                 onPress={() => onMove({ type: 'give', cards: selected })}
               />
@@ -1011,7 +1050,7 @@ export function PresidentOnlineBoard({
                   <Button
                     compact
                     variant="secondary"
-                    label="Passer"
+                    label={t('Passer')}
                     disabled={!myTurn || busy || !presidentCanPass(state, ME) || showExchange}
                     onPress={() => onMove({ type: 'pass' })}
                   />
@@ -1021,8 +1060,8 @@ export function PresidentOnlineBoard({
                     compact
                     label={
                       selected.length
-                        ? `Jouer ${selected.length} carte${selected.length > 1 ? 's' : ''}`
-                        : 'Jouer'
+                        ? tn(selected.length, 'Jouer {n} carte', 'Jouer {n} cartes')
+                        : t('Jouer')
                     }
                     disabled={!canPlay || showExchange}
                     onPress={() => onMove({ type: 'play', cards: selected })}
@@ -1042,7 +1081,7 @@ export function PresidentOnlineOptions({ value, onChange }: OnlineOptionsProps) 
   const rounds = typeof value.rounds === 'number' ? value.rounds : PRESIDENT_DEFAULT_ROUNDS;
   return (
     <View style={styles.options}>
-      <Text style={styles.optionsLabel}>Nombre de manches</Text>
+      <Text style={styles.optionsLabel}>{t('Nombre de manches')}</Text>
       <View style={styles.counts}>
         {PRESIDENT_ROUND_CHOICES.map((n) => (
           <Pressable

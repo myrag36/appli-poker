@@ -6,6 +6,7 @@ import { REWARD_KIND_NAMES } from '@appli-poker/engine';
 import { type ProgressEvent, useProgressEvent } from '../online/progress';
 import { sounds } from '../feedback';
 import { colors, gradients, shadow } from '../theme';
+import { t } from '../i18n';
 
 /** "+50 XP" when experience comes in, and a celebration with the new rewards on a level up. */
 export function ProgressToast() {
@@ -40,7 +41,7 @@ export function ProgressToast() {
           <LinearGradient colors={gradients.gold} style={[styles.toast, shadow]}>
             <Text style={styles.toastText}>
               +{shown.gained} XP{shown.coins > 0 ? ` · +${shown.coins} 🪙` : ''}
-              {shown.levelUp ? ` · Niveau ${shown.level} !` : ''}
+              {shown.levelUp ? ` · ${t('Niveau {n} !', { n: shown.level })}` : ''}
             </Text>
           </LinearGradient>
         </Animated.View>
@@ -55,24 +56,27 @@ export function ProgressToast() {
           {levelUp && (
             <View style={[styles.card, shadow]}>
               <Text style={styles.party}>🎉</Text>
-              <Text style={styles.kicker}>Niveau supérieur</Text>
-              <Text style={styles.level}>Niveau {levelUp.level}</Text>
+              <Text style={styles.kicker}>{t('Niveau supérieur')}</Text>
+              <Text style={styles.level}>{t('Niveau {n}', { n: levelUp.level })}</Text>
               {levelUp.rewards.length > 0 ? (
                 <>
-                  <Text style={styles.unlocked}>Tu débloques :</Text>
+                  <Text style={styles.unlocked}>{t('Tu débloques :')}</Text>
                   {levelUp.rewards.map((r) => (
                     <Text key={`${r.kind}-${r.id}`} style={styles.reward}>
-                      {REWARD_KIND_NAMES[r.kind].replace(/s$/, '')} : {r.kind === 'avatar' ? r.id : r.name}
+                      {t('{kind} : {name}', {
+                        kind: t(REWARD_KIND_NAMES[r.kind].replace(/s$/, '')),
+                        name: r.kind === 'avatar' ? r.id : t(r.name),
+                      })}
                     </Text>
                   ))}
-                  <Text style={styles.hint}>Va dans « Mon profil » pour les essayer.</Text>
+                  <Text style={styles.hint}>{t('Va dans « Mon profil » pour les essayer.')}</Text>
                 </>
               ) : (
-                <Text style={styles.hint}>Continue comme ça, la prochaine récompense approche !</Text>
+                <Text style={styles.hint}>{t('Continue comme ça, la prochaine récompense approche !')}</Text>
               )}
               <Pressable accessibilityRole="button" onPress={() => setLevelUp(null)} style={styles.ok}>
                 <LinearGradient colors={gradients.gold} style={styles.okInner}>
-                  <Text style={styles.okText}>Super !</Text>
+                  <Text style={styles.okText}>{t('Super !')}</Text>
                 </LinearGradient>
               </Pressable>
             </View>

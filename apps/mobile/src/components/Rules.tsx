@@ -3,6 +3,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensio
 import { LinearGradient } from 'expo-linear-gradient';
 import { type DecorId, GameDecor } from './GameDecor';
 import { colors, gradients, shadow } from '../theme';
+import { t } from '../i18n';
 
 /** One step of a game's rules: an icon, a short title, the explanation and an optional picture. */
 export interface RuleStep {
@@ -30,12 +31,12 @@ export function RulesButton({ rules }: { rules: GameRules }) {
     <>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`Règles : ${rules.title}`}
+        accessibilityLabel={t('Règles : {game}', { game: rules.title })}
         onPress={() => setOpen(true)}
         style={({ pressed }) => [styles.button, pressed && styles.pressed]}
       >
         <Text style={styles.buttonIcon}>📖</Text>
-        <Text style={styles.buttonText}>Règles du jeu</Text>
+        <Text style={styles.buttonText}>{t('Règles du jeu')}</Text>
       </Pressable>
       <RulesSheet rules={rules} open={open} onClose={() => setOpen(false)} />
     </>
@@ -56,7 +57,7 @@ export function RulesSheet({
   const headerH = 170;
   return (
     <Modal visible={open} transparent animationType="fade" onRequestClose={onClose}>
-      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Fermer les règles">
+      <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('Fermer les règles')}>
         <Pressable
           style={[styles.sheet, shadow, { width: sheetW, maxHeight: screenH - 40 }]}
           // Taps inside the sheet must not close it.
@@ -71,12 +72,12 @@ export function RulesSheet({
               colors={['rgba(0,0,0,0.05)', 'rgba(0,0,0,0.55)', 'rgba(0,0,0,0.85)']}
               style={StyleSheet.absoluteFill}
             />
-            <Text style={styles.headerKicker}>Règles du jeu</Text>
+            <Text style={styles.headerKicker}>{t('Règles du jeu')}</Text>
             <Text style={styles.headerTitle}>{rules.title}</Text>
             <Text style={styles.headerGoal}>{rules.goal}</Text>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Fermer"
+              accessibilityLabel={t('Fermer')}
               onPress={onClose}
               hitSlop={10}
               style={styles.close}
@@ -94,7 +95,7 @@ export function RulesSheet({
                   {i < rules.steps.length - 1 && <View style={styles.stepLine} />}
                 </View>
                 <View style={styles.stepBody}>
-                  <Text style={styles.stepNumber}>Étape {i + 1}</Text>
+                  <Text style={styles.stepNumber}>{t('Étape {n}', { n: i + 1 })}</Text>
                   <Text style={styles.stepTitle}>{step.title}</Text>
                   <Text style={styles.stepText}>{step.text}</Text>
                   {step.visual && <View style={styles.visual}>{step.visual}</View>}
@@ -108,7 +109,7 @@ export function RulesSheet({
             )}
             <Pressable accessibilityRole="button" onPress={onClose} style={styles.done}>
               <LinearGradient colors={gradients.gold} style={styles.doneInner}>
-                <Text style={styles.doneText}>C’est compris !</Text>
+                <Text style={styles.doneText}>{t('C’est compris !')}</Text>
               </LinearGradient>
             </Pressable>
           </ScrollView>

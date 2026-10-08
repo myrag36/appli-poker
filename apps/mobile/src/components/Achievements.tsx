@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { ACHIEVEMENTS, type AchievementStats, achievementProgress, streakCoins } from '@appli-poker/engine';
 import { type MyProgress, claimAchievement } from '../online/progress';
 import { sounds } from '../feedback';
+import { t, tn } from '../i18n';
 import { colors, gradients } from '../theme';
 
 export function statsOf(p: MyProgress): AchievementStats {
@@ -34,12 +35,17 @@ export function StreakCard({ progress }: { progress: MyProgress | null }) {
     <LinearGradient colors={['#5a1e00', '#2b0e00']} style={styles.streak}>
       <Text style={styles.flame}>🔥</Text>
       <View style={styles.streakBody}>
-        <Text style={styles.streakDays}>
-          {streak} jour{streak > 1 ? 's' : ''} d’affilée
-        </Text>
+        <Text style={styles.streakDays}>{tn(streak, '{n} jour d’affilée', '{n} jours d’affilée')}</Text>
         <Text style={styles.streakText}>
-          Record : {progress?.bestStreak ?? 0}. Demain, ta première partie rapporte {next} 🪙
-          {(streak + 1) % 7 === 0 ? ' et un grand coffre' : ''}.
+          {(streak + 1) % 7 === 0
+            ? t('Record : {best}. Demain, ta première partie rapporte {next} 🪙 et un grand coffre.', {
+                best: progress?.bestStreak ?? 0,
+                next,
+              })
+            : t('Record : {best}. Demain, ta première partie rapporte {next} 🪙.', {
+                best: progress?.bestStreak ?? 0,
+                next,
+              })}
         </Text>
       </View>
     </LinearGradient>
@@ -60,7 +66,7 @@ export function AchievementList({ progress }: { progress: MyProgress | null }) {
       await claimAchievement(id);
       sounds.win();
     } catch (e) {
-      setError((e as Error).message);
+      setError(t((e as Error).message));
     } finally {
       setBusy(null);
     }
@@ -75,9 +81,7 @@ export function AchievementList({ progress }: { progress: MyProgress | null }) {
 
   return (
     <View>
-      <Text style={styles.count}>
-        {done} / {ACHIEVEMENTS.length} obtenus
-      </Text>
+      <Text style={styles.count}>{t('{done} / {total} obtenus', { done, total: ACHIEVEMENTS.length })}</Text>
       {error && <Text style={styles.error}>{error}</Text>}
       <View style={styles.grid}>
         {list.map(({ a, value, reached }) => {
@@ -86,17 +90,17 @@ export function AchievementList({ progress }: { progress: MyProgress | null }) {
             <View key={a.id} style={[styles.tile, taken && styles.tileTaken, !reached && styles.tileLocked]}>
               <Text style={[styles.icon, !reached && styles.iconLocked]}>{a.icon}</Text>
               <Text style={styles.name} numberOfLines={1}>
-                {a.name}
+                {t(a.name)}
               </Text>
               <Text style={styles.text} numberOfLines={2}>
-                {a.text}
+                {t(a.text)}
               </Text>
               {taken ? (
-                <Text style={styles.taken}>✓ Obtenu</Text>
+                <Text style={styles.taken}>{t('✓ Obtenu')}</Text>
               ) : reached ? (
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`${a.name} : prendre ${a.coins} pièces`}
+                  accessibilityLabel={t('{name} : prendre {n} pièces', { name: t(a.name), n: a.coins })}
                   onPress={() => claim(a.id)}
                   disabled={busy !== null}
                   style={styles.claim}

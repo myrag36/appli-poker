@@ -2,6 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { Variant } from '@appli-poker/engine';
 import { Pill } from './LevelPicker';
 import { colors } from '../theme';
+import { t } from '../i18n';
 
 /** Texas Hold'em, or Omaha where everyone gets four cards. */
 export function VariantPicker({ value, onChange }: { value: Variant; onChange: (v: Variant) => void }) {
@@ -13,7 +14,9 @@ export function VariantPicker({ value, onChange }: { value: Variant; onChange: (
       </View>
       {value === 'omaha' && (
         <Text style={styles.hint}>
-          4 cartes chacun, dont exactement 2 avec 3 du tableau. Les mises sont limitées à la taille du pot.
+          {t(
+            '4 cartes chacun, dont exactement 2 avec 3 du tableau. Les mises sont limitées à la taille du pot.',
+          )}
         </Text>
       )}
     </View>

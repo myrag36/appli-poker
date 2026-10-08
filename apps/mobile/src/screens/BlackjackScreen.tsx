@@ -42,6 +42,7 @@ import { TurnTimer } from '../components/TurnTimer';
 import type { OnlineBoardProps, OnlineOptionsProps } from '../online-games/types';
 import { sounds } from '../feedback';
 import { deviceRng } from '../rng';
+import { t, tn } from '../i18n';
 import { colors, gradients, shadow, theme } from '../theme';
 
 interface Settings {
@@ -59,18 +60,18 @@ const BOT_DELAY = 900;
 const DEALER_STEP = 650;
 
 const ACTION_LABELS: Record<BjAction, string> = {
-  hit: 'Tirer',
-  stand: 'Rester',
-  double: 'Doubler',
-  split: 'Séparer',
+  hit: t('Tirer'),
+  stand: t('Rester'),
+  double: t('Doubler'),
+  split: t('Séparer'),
 };
 
 const RESULT_LABELS: Record<BjResult, string> = {
-  blackjack: 'Blackjack !',
-  win: 'Gagné',
-  push: 'Égalité',
-  lose: 'Perdu',
-  bust: 'Sauté',
+  blackjack: t('Blackjack !'),
+  win: t('Gagné'),
+  push: t('Égalité'),
+  lose: t('Perdu'),
+  bust: t('Sauté'),
 };
 
 function newGame(settings: Settings): BjState {
@@ -121,14 +122,14 @@ export function BlackjackScreen({ onBack, onOnline }: { onBack: () => void; onOn
         avatars={Object.fromEntries(settings.avatars.map((a, i) => [`p${i}`, a]))}
       >
         <Button
-          label="Rejouer"
+          label={t('Rejouer')}
           onPress={() => {
             setGame(newGame(settings));
             setStopped(false);
           }}
         />
-        <Button label="Changer les joueurs" variant="secondary" onPress={() => setGame(null)} />
-        <Button label="Retour aux jeux" variant="secondary" onPress={onBack} />
+        <Button label={t('Changer les joueurs')} variant="secondary" onPress={() => setGame(null)} />
+        <Button label={t('Retour aux jeux')} variant="secondary" onPress={onBack} />
       </RankingView>
     );
   }
@@ -167,7 +168,7 @@ function BlackjackSetup({
   const [stack, setStack] = useState(initial?.stack ?? 1000);
   const [picking, setPicking] = useState<number | null>(null);
 
-  const cleaned = names.map((n, i) => n.trim() || `Joueur ${i + 1}`);
+  const cleaned = names.map((n, i) => n.trim() || t('Joueur {n}', { n: i + 1 }));
   const duplicate = new Set(cleaned.map((n) => n.toLowerCase())).size !== cleaned.length;
   const valid = !duplicate && bots.includes(false);
 
@@ -192,12 +193,12 @@ function BlackjackSetup({
           </View>
         </View>
         <Text style={setup.title}>Blackjack</Text>
-        <Text style={setup.subtitle}>Tous contre la banque, sur ce téléphone</Text>
+        <Text style={setup.subtitle}>{t('Tous contre la banque, sur ce téléphone')}</Text>
         {onOnline && <OnlineButton onPress={onOnline} />}
         <RulesButton rules={BLACKJACK_RULES} />
       </View>
 
-      <Text style={setup.section}>Joueurs</Text>
+      <Text style={setup.section}>{t('Joueurs')}</Text>
       {names.map((name, i) => (
         <View key={i}>
           <View style={setup.row}>
@@ -206,25 +207,25 @@ function BlackjackSetup({
                 <AvatarBadge avatar={avatars[i]} size={40} />
                 <View style={[setup.input, setup.flex, setup.botRow]}>
                   <Text style={setup.botName}>{name}</Text>
-                  <Text style={setup.botTag}>Robot</Text>
+                  <Text style={setup.botTag}>{t('Robot')}</Text>
                 </View>
               </>
             ) : (
               <>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={`Changer l'avatar du joueur ${i + 1}`}
+                  accessibilityLabel={t("Changer l'avatar du joueur {n}", { n: i + 1 })}
                   onPress={() => setPicking(picking === i ? null : i)}
                 >
                   <AvatarBadge avatar={avatars[i]} size={40} />
                 </Pressable>
                 <TextInput
                   style={[setup.input, setup.flex]}
-                  placeholder={`Joueur ${i + 1}`}
+                  placeholder={t('Joueur {n}', { n: i + 1 })}
                   placeholderTextColor={colors.muted}
                   value={name}
                   maxLength={12}
-                  onChangeText={(t) => setNames(names.map((n, j) => (j === i ? t : n)))}
+                  onChangeText={(v) => setNames(names.map((n, j) => (j === i ? v : n)))}
                 />
               </>
             )}
@@ -254,18 +255,18 @@ function BlackjackSetup({
       {names.length < BJ_MAX_SEATS && (
         <View style={setup.row}>
           <View style={setup.flex}>
-            <Button label="+ Joueur" variant="secondary" onPress={() => addPlayer(false)} />
+            <Button label={t('+ Joueur')} variant="secondary" onPress={() => addPlayer(false)} />
           </View>
           <View style={setup.flex}>
-            <Button label="+ Robot 🤖" variant="secondary" onPress={() => addPlayer(true)} />
+            <Button label={t('+ Robot 🤖')} variant="secondary" onPress={() => addPlayer(true)} />
           </View>
         </View>
       )}
       <Text style={setup.hint}>
-        De 1 à 7 places. On se passe le téléphone : rien n’est caché, chacun joue contre le croupier.
+        {t('De 1 à 7 places. On se passe le téléphone : rien n’est caché, chacun joue contre le croupier.')}
       </Text>
 
-      <Text style={setup.section}>Jetons de départ</Text>
+      <Text style={setup.section}>{t('Jetons de départ')}</Text>
       <View style={setup.row}>
         {STACKS.map((v) => (
           <Pressable
@@ -280,16 +281,16 @@ function BlackjackSetup({
         ))}
       </View>
 
-      {duplicate && <Text style={setup.error}>Deux joueurs ont le même nom.</Text>}
-      {!bots.includes(false) && <Text style={setup.error}>Il faut au moins un joueur humain.</Text>}
+      {duplicate && <Text style={setup.error}>{t('Deux joueurs ont le même nom.')}</Text>}
+      {!bots.includes(false) && <Text style={setup.error}>{t('Il faut au moins un joueur humain.')}</Text>}
 
       <View style={setup.spacer} />
       <Button
-        label="Lancer la partie"
+        label={t('Lancer la partie')}
         disabled={!valid}
         onPress={() => onStart({ names: cleaned, bots, avatars, stack })}
       />
-      <Button label="Retour" variant="secondary" onPress={onBack} />
+      <Button label={t('Retour')} variant="secondary" onPress={onBack} />
     </ScrollView>
   );
 }
@@ -413,7 +414,7 @@ function BlackjackGame({
     bottom = (
       <BetPanel
         key={`${game.round}-${actor.id}`}
-        title={solo ? 'À toi de miser' : `À ${actor.name} de miser`}
+        title={solo ? t('À toi de miser') : t('À {name} de miser', { name: actor.name })}
         stack={actor.stack}
         initial={lastBets[actor.id] ?? 50}
         onBet={(amount) => {
@@ -426,7 +427,7 @@ function BlackjackGame({
     bottom = (
       <PlayPanel
         game={game}
-        title={solo ? 'À toi de jouer' : `À ${actor.name} de jouer`}
+        title={solo ? t('À toi de jouer') : t('À {name} de jouer', { name: actor.name })}
         error={error}
         onAction={(a) => apply({ type: a })}
       />
@@ -435,7 +436,9 @@ function BlackjackGame({
     bottom = (
       <View style={[ui.panel, ui.botPanel]}>
         <Text style={ui.botText}>
-          🤖 {actor.name} {game.phase === 'betting' ? 'mise…' : 'réfléchit…'}
+          {game.phase === 'betting'
+            ? t('🤖 {name} mise…', { name: actor.name })
+            : t('🤖 {name} réfléchit…', { name: actor.name })}
         </Text>
       </View>
     );
@@ -443,7 +446,7 @@ function BlackjackGame({
     bottom = (
       <View style={[ui.panel, ui.botPanel]}>
         <Text style={ui.botText}>
-          {game.dealerBlackjack ? 'Le croupier a un blackjack !' : 'Le croupier joue…'}
+          {game.dealerBlackjack ? t('Le croupier a un blackjack !') : t('Le croupier joue…')}
         </Text>
       </View>
     );
@@ -453,10 +456,10 @@ function BlackjackGame({
       <View style={[ui.panel, ui.resultPanel]}>
         <Text style={ui.turnTitle}>
           {game.dealerBlackjack
-            ? 'Blackjack du croupier'
+            ? t('Blackjack du croupier')
             : dealerTotal > 21
-              ? `Le croupier saute (${dealerTotal}) !`
-              : `Le croupier fait ${dealerTotal}`}
+              ? t('Le croupier saute ({n}) !', { n: dealerTotal })
+              : t('Le croupier fait {n}', { n: dealerTotal })}
         </Text>
         <View style={ui.nets}>
           {game.seats.map((s) => {
@@ -476,21 +479,21 @@ function BlackjackGame({
         {over ? (
           <>
             <Text style={ui.overText}>
-              {solo ? 'Plus de jetons… la banque gagne !' : 'Plus aucun joueur n’a de jetons.'}
+              {solo ? t('Plus de jetons… la banque gagne !') : t('Plus aucun joueur n’a de jetons.')}
             </Text>
-            <Button compact label="Voir le classement" onPress={onStop} />
+            <Button compact label={t('Voir le classement')} onPress={onStop} />
           </>
         ) : (
           <View style={ui.row}>
             <View style={ui.flex2}>
               <Button
                 compact
-                label="Manche suivante"
+                label={t('Manche suivante')}
                 onPress={() => setGame((g) => (g ? bjNextRound(g) : g))}
               />
             </View>
             <View style={ui.flex1}>
-              <Button compact variant="secondary" label="Arrêter" onPress={onStop} />
+              <Button compact variant="secondary" label={t('Arrêter')} onPress={onStop} />
             </View>
           </View>
         )}
@@ -501,8 +504,8 @@ function BlackjackGame({
   return (
     <GameLayout
       top={
-        <TopBar onBack={onStop} backLabel="← Arrêter">
-          <Text style={ui.round}>Manche {game.round}</Text>
+        <TopBar onBack={onStop} backLabel={t('← Arrêter')}>
+          <Text style={ui.round}>{t('Manche {n}', { n: game.round })}</Text>
           <View style={ui.shoe}>
             <Text style={ui.shoeText}>🂠 {game.shoe.length}</Text>
           </View>
@@ -549,7 +552,7 @@ function PlayPanel({
         </Text>
         {seat.hands.length > 1 && (
           <Text style={ui.turnSub}>
-            Main {game.turn!.hand + 1}/{seat.hands.length}
+            {t('Main {i}/{n}', { i: game.turn!.hand + 1, n: seat.hands.length })}
           </Text>
         )}
       </View>
@@ -626,17 +629,17 @@ function BetPanel({
         <Text style={ui.turnTitle} numberOfLines={1}>
           {title}
         </Text>
-        <Text style={ui.turnSub}>Tapis : {stack}</Text>
+        <Text style={ui.turnSub}>{t('Tapis : {n}', { n: stack })}</Text>
       </View>
       <View style={ui.betRow}>
         <Pressable accessibilityRole="button" onPress={() => setBet(0)} hitSlop={6}>
-          <Text style={ui.clear}>Effacer</Text>
+          <Text style={ui.clear}>{t('Effacer')}</Text>
         </Pressable>
         <View style={ui.betAmount}>
           <ChipStack amount={bet} large />
         </View>
         <Pressable accessibilityRole="button" onPress={() => setBet(stack)} style={ui.maxChip}>
-          <Text style={ui.maxText}>Max</Text>
+          <Text style={ui.maxText}>{t('Max')}</Text>
         </Pressable>
       </View>
       <View style={ui.chips}>
@@ -644,7 +647,7 @@ function BetPanel({
           <Pressable
             key={v}
             accessibilityRole="button"
-            accessibilityLabel={`Ajouter ${v}`}
+            accessibilityLabel={t('Ajouter {n}', { n: v })}
             disabled={bet >= stack}
             onPress={() => setBet(Math.min(stack, bet + v))}
             style={({ pressed }) => [ui.chip, pressed && ui.chipPressed, bet >= stack && ui.chipOff]}
@@ -657,7 +660,7 @@ function BetPanel({
       </View>
       <Button
         compact
-        label={bet >= min ? `Miser ${bet}` : `Mise minimum : ${min}`}
+        label={bet >= min ? t('Miser {n}', { n: bet }) : t('Mise minimum : {n}', { n: min })}
         disabled={disabled || bet < min}
         onPress={() => onBet(bet)}
       />
@@ -780,7 +783,7 @@ function BlackjackTable({
       {/* The dealer, along the flat edge. */}
       <View style={tbl.dealer}>
         <View style={tbl.dealerLabelRow}>
-          <Text style={tbl.dealerLabel}>Croupier</Text>
+          <Text style={tbl.dealerLabel}>{t('Croupier')}</Text>
           {game.dealer.length > 0 && (
             <TotalBadge
               cards={dealerHidden ? game.dealer.slice(0, 1) : dealerShown}
@@ -812,11 +815,11 @@ function BlackjackTable({
       </View>
 
       <View style={[tbl.motto, { top: mottoTop }]} pointerEvents="none">
-        <Text style={tbl.mottoMain}>LE BLACKJACK PAIE 3 CONTRE 2</Text>
-        {!list && <Text style={tbl.mottoSub}>Le croupier tire jusqu’à 16 et reste sur 17</Text>}
+        <Text style={tbl.mottoMain}>{t('LE BLACKJACK PAIE 3 CONTRE 2')}</Text>
+        {!list && <Text style={tbl.mottoSub}>{t('Le croupier tire jusqu’à 16 et reste sur 17')}</Text>}
         {game.reshuffled && game.phase !== 'betting' && (
           <Appear key={`shuffle-${game.round}`}>
-            <Text style={tbl.shuffle}>🔀 Sabot remélangé</Text>
+            <Text style={tbl.shuffle}>{t('🔀 Sabot remélangé')}</Text>
           </Appear>
         )}
       </View>
@@ -881,16 +884,16 @@ function BlackjackTable({
                 </Appear>
               )}
               {!seat && game.phase === 'betting' && pending === undefined && !out && (
-                <Text style={tbl.waiting}>{active ? 'Mise…' : ' '}</Text>
+                <Text style={tbl.waiting}>{active ? t('Mise…') : ' '}</Text>
               )}
               <View style={[tbl.plate, active && tbl.plateActive]}>
                 <AvatarBadge avatar={avatars[p.id]} size={podW < 56 ? 22 : 26} />
                 <View style={tbl.plateText}>
                   <Text style={[tbl.name, active && tbl.nameActive]} numberOfLines={1}>
-                    {p.id === meId ? 'Toi' : p.name}
+                    {p.id === meId ? t('Toi') : p.name}
                   </Text>
                   <Text style={tbl.stack} numberOfLines={1}>
-                    {out ? 'Éliminé' : p.stack}
+                    {out ? t('Éliminé') : p.stack}
                   </Text>
                 </View>
               </View>
@@ -972,9 +975,9 @@ function SeatTile({
       <View style={tbl.tileHead}>
         <AvatarBadge avatar={avatar} size={20} />
         <Text style={[tbl.name, tbl.tileName, active && tbl.nameActive]} numberOfLines={1}>
-          {me ? 'Toi' : p.name}
+          {me ? t('Toi') : p.name}
         </Text>
-        <Text style={tbl.stack}>{out ? 'Éliminé' : p.stack}</Text>
+        <Text style={tbl.stack}>{out ? t('Éliminé') : p.stack}</Text>
       </View>
       <View style={tbl.tileBody}>
         {seat?.hands.map((hand, k) => {
@@ -1005,7 +1008,7 @@ function SeatTile({
             <ChipStack amount={pending} />
           </Appear>
         )}
-        {!seat && active && <Text style={tbl.waiting}>Mise…</Text>}
+        {!seat && active && <Text style={tbl.waiting}>{t('Mise…')}</Text>}
       </View>
     </View>
   );
@@ -1335,10 +1338,9 @@ function RankingView({
   const rows = bjRanking(game);
   return (
     <ScrollView contentContainerStyle={rank.container}>
-      <Text style={rank.title}>Classement</Text>
+      <Text style={rank.title}>{t('Classement')}</Text>
       <Text style={rank.subtitle}>
-        Après {game.phase === 'settled' ? game.round : game.round - 1} manche
-        {(game.phase === 'settled' ? game.round : game.round - 1) > 1 ? 's' : ''}
+        {tn(game.phase === 'settled' ? game.round : game.round - 1, 'Après {n} manche', 'Après {n} manches')}
       </Text>
       <View style={rank.list}>
         {rows.map((r, i) => {
@@ -1346,7 +1348,7 @@ function RankingView({
           return (
             <Appear key={r.id} delay={i * 90} from={14}>
               <View style={[rank.row, r.place === 1 && rank.first]}>
-                <Text style={rank.place}>{MEDALS[r.place - 1] ?? `${r.place}e`}</Text>
+                <Text style={rank.place}>{MEDALS[r.place - 1] ?? t('{n}e', { n: r.place })}</Text>
                 <AvatarBadge avatar={avatars[r.id]} size={34} />
                 <Text style={[rank.name, r.place === 1 && rank.nameFirst]} numberOfLines={1}>
                   {r.name}
@@ -1403,7 +1405,7 @@ export function BlackjackOnlineOptions({ value, onChange }: OnlineOptionsProps) 
   const stack = typeof value.stack === 'number' ? value.stack : 1000;
   return (
     <View>
-      <Text style={setup.section}>Jetons de départ</Text>
+      <Text style={setup.section}>{t('Jetons de départ')}</Text>
       <View style={setup.row}>
         {STACKS.map((v) => (
           <Pressable
@@ -1476,7 +1478,7 @@ export function BlackjackOnlineBoard({
   if (over && ranking) {
     return (
       <RankingView game={game} startStack={view.startStack} avatars={avatars}>
-        <Button label="Quitter la table" onPress={onLeave} />
+        <Button label={t('Quitter la table')} onPress={onLeave} />
       </RankingView>
     );
   }
@@ -1488,7 +1490,7 @@ export function BlackjackOnlineBoard({
       myTurn && me ? (
         <BetPanel
           key={game.round}
-          title="À toi de miser"
+          title={t('À toi de miser')}
           stack={me.stack}
           initial={lastBet}
           disabled={busy}
@@ -1502,12 +1504,14 @@ export function BlackjackOnlineBoard({
         <View style={[ui.panel, ui.botPanel]}>
           <Text style={ui.botText}>
             {myBet !== undefined
-              ? `Mise posée : ${myBet}`
+              ? t('Mise posée : {n}', { n: myBet })
               : me && me.stack === 0
-                ? 'Plus de jetons : tu regardes la table.'
-                : 'Les joueurs misent…'}
+                ? t('Plus de jetons : tu regardes la table.')
+                : t('Les joueurs misent…')}
           </Text>
-          {waitingFor.length > 0 && <Text style={ui.waitText}>On attend {waitingFor.join(', ')}…</Text>}
+          {waitingFor.length > 0 && (
+            <Text style={ui.waitText}>{t('On attend {names}…', { names: waitingFor.join(', ') })}</Text>
+          )}
         </View>
       );
   } else if (game.phase === 'playing' && game.turn) {
@@ -1517,21 +1521,25 @@ export function BlackjackOnlineBoard({
       myTurn && me?.id === actorId ? (
         <PlayPanel
           game={game}
-          title="À toi de jouer"
+          title={t('À toi de jouer')}
           error={error}
           disabled={busy}
           onAction={(a) => onMove({ type: a })}
         />
       ) : (
         <View style={[ui.panel, ui.botPanel]}>
-          <Text style={ui.botText}>{actor.bot ? `🤖 ${actor.name} réfléchit…` : `${actor.name} joue…`}</Text>
+          <Text style={ui.botText}>
+            {actor.bot
+              ? t('🤖 {name} réfléchit…', { name: actor.name })
+              : t('{name} joue…', { name: actor.name })}
+          </Text>
         </View>
       );
   } else if (settled && !revealDone) {
     bottom = (
       <View style={[ui.panel, ui.botPanel]}>
         <Text style={ui.botText}>
-          {game.dealerBlackjack ? 'Le croupier a un blackjack !' : 'Le croupier joue…'}
+          {game.dealerBlackjack ? t('Le croupier a un blackjack !') : t('Le croupier joue…')}
         </Text>
       </View>
     );
@@ -1542,10 +1550,10 @@ export function BlackjackOnlineBoard({
       <View style={[ui.panel, ui.resultPanel]}>
         <Text style={ui.turnTitle}>
           {game.dealerBlackjack
-            ? 'Blackjack du croupier'
+            ? t('Blackjack du croupier')
             : dealerTotal > 21
-              ? `Le croupier saute (${dealerTotal}) !`
-              : `Le croupier fait ${dealerTotal}`}
+              ? t('Le croupier saute ({n}) !', { n: dealerTotal })
+              : t('Le croupier fait {n}', { n: dealerTotal })}
         </Text>
         <View style={ui.nets}>
           {game.seats.map((s) => {
@@ -1553,7 +1561,7 @@ export function BlackjackOnlineBoard({
             return (
               <View key={s.playerId} style={ui.netChip}>
                 <Text style={ui.netName} numberOfLines={1}>
-                  {s.playerId === me?.id ? 'Toi' : name(s.playerId)}
+                  {s.playerId === me?.id ? t('Toi') : name(s.playerId)}
                 </Text>
                 <Text style={[ui.netValue, net > 0 ? ui.netUp : net < 0 ? ui.netDown : null]}>
                   {signed(net)}
@@ -1564,23 +1572,23 @@ export function BlackjackOnlineBoard({
         </View>
         {over ? (
           <>
-            <Text style={ui.overText}>Plus aucun joueur n’a de jetons : la banque gagne !</Text>
-            <Button compact label="Voir le classement" onPress={() => setRanking(true)} />
+            <Text style={ui.overText}>{t('Plus aucun joueur n’a de jetons : la banque gagne !')}</Text>
+            <Button compact label={t('Voir le classement')} onPress={() => setRanking(true)} />
           </>
         ) : betweenRounds ? (
           <>
             {mySeat >= 0 && (
               <Button
                 compact
-                label="Donne suivante"
+                label={t('Donne suivante')}
                 disabled={busy}
                 onPress={() => onMove({ type: 'next' })}
               />
             )}
             <Text style={ui.waitText}>
               {left !== null && left > 0
-                ? `La donne suivante commence toute seule dans ${left} s.`
-                : 'La donne suivante commence bientôt.'}
+                ? t('La donne suivante commence toute seule dans {n} s.', { n: left })
+                : t('La donne suivante commence bientôt.')}
             </Text>
           </>
         ) : null}
@@ -1590,7 +1598,7 @@ export function BlackjackOnlineBoard({
   }
 
   const timerName = myTurn
-    ? 'Toi'
+    ? t('Toi')
     : actors
         .map((id) => name(id))
         .slice(0, 2)
@@ -1600,8 +1608,8 @@ export function BlackjackOnlineBoard({
     <GameLayout
       top={
         <>
-          <TopBar onBack={onLeave} backLabel="← Quitter">
-            <Text style={ui.round}>Manche {game.round}</Text>
+          <TopBar onBack={onLeave} backLabel={t('← Quitter')}>
+            <Text style={ui.round}>{t('Manche {n}', { n: game.round })}</Text>
             <View style={ui.shoe}>
               <Text style={ui.shoeText}>🂠 {view.shoeCount}</Text>
             </View>
