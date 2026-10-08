@@ -231,7 +231,7 @@ export function GamesScreen({
   const insets = useSafeAreaInsets();
   const [tutorial, setTutorial] = useState(tutorialPending);
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
-  const cardHeight = Math.max(250, Math.min(CARD_HEIGHT, screenHeight - 570));
+  const cardHeight = Math.max(300, Math.min(CARD_HEIGHT, screenHeight - 520));
   const viewWidth = Math.min(screenWidth, 520);
   const cardWidth = Math.round(viewWidth * 0.76);
   const step = cardWidth + GAP;
@@ -251,14 +251,13 @@ export function GamesScreen({
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 28, paddingBottom: insets.bottom + 20 }]}>
+    <View style={[styles.container, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 20 }]}>
       <View style={styles.chips}>
         <ProfileChip onPress={onProfile} />
         <CoinsChip onPress={onShop} />
         <LangChip />
       </View>
       <Text style={styles.title}>La Tablée</Text>
-      <Text style={styles.subtitle}>{t('Glisse pour choisir ton jeu.')}</Text>
       <View style={styles.social}>
         <Pressable
           accessibilityRole="button"
