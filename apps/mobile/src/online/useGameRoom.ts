@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { OnlineGameId, OnlineSeat } from '@appli-poker/engine';
 import { callGames, supabase } from './supabase';
+import { t } from '../i18n';
 
 /** What every player at an online table sees (written by the `jeux` server). */
 export interface GamePublicState {
@@ -71,12 +72,12 @@ export function useGameRoom(roomId: string, userId: string) {
     // A newer refresh started meanwhile: let it win so the screen never goes back in time.
     if (request !== latestRequest.current) return;
     if (r.error || p.error || v.error) {
-      setError('Connexion perdue, nouvel essai…');
+      setError(t('Connexion perdue, nouvel essai…'));
       return;
     }
     if (!r.data) {
       if (loaded.current) setRemoved(true);
-      else setError('Table introuvable');
+      else setError(t('Table introuvable'));
       return;
     }
     loaded.current = true;

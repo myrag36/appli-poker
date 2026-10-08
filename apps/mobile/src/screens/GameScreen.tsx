@@ -26,6 +26,8 @@ import { useHandSounds } from '../feedback';
 import { deviceRng } from '../rng';
 import type { GameSettings } from './SetupScreen';
 import { colors } from '../theme';
+import { t } from '../i18n';
+import { tMessage } from '../online/messages';
 
 /** How long a robot seems to think before playing, in ms. */
 const BOT_DELAY = 1100;
@@ -90,7 +92,7 @@ export function GameScreen({ settings, onQuit }: { settings: GameSettings; onQui
       setRevealedFor(null);
       setError(null);
     } catch (e) {
-      setError((e as Error).message);
+      setError(tMessage((e as Error).message));
     }
   }
 
@@ -134,7 +136,7 @@ export function GameScreen({ settings, onQuit }: { settings: GameSettings; onQui
 
   return (
     <GameLayout
-      top={<TopBar onBack={onQuit} backLabel="← Quitter" />}
+      top={<TopBar onBack={onQuit} backLabel={t('← Quitter')} />}
       table={({ width, height }) => (
         <Table
           hand={hand}
@@ -156,14 +158,14 @@ export function GameScreen({ settings, onQuit }: { settings: GameSettings; onQui
                   ))}
                 </View>
               )}
-              <Text style={styles.botText}>🤖 {actor.name} réfléchit…</Text>
+              <Text style={styles.botText}>{t('🤖 {name} réfléchit…', { name: actor.name })}</Text>
             </View>
           )}
 
           {actor && !botTurn && !solo && revealedFor !== actor.id && (
-            <Panel compact title={`Au tour de ${actor.name}`}>
-              <PanelText>Passe-lui le téléphone, les autres ne regardent pas !</PanelText>
-              <Button compact label="Voir mes cartes" onPress={() => setRevealedFor(actor.id)} />
+            <Panel compact title={t('Au tour de {name}', { name: actor.name })}>
+              <PanelText>{t('Passe-lui le téléphone, les autres ne regardent pas !')}</PanelText>
+              <Button compact label={t('Voir mes cartes')} onPress={() => setRevealedFor(actor.id)} />
             </Panel>
           )}
 
@@ -173,7 +175,7 @@ export function GameScreen({ settings, onQuit }: { settings: GameSettings; onQui
               key={hand.log.length}
               hand={hand}
               playerId={actor.id}
-              title={solo ? 'À toi de jouer' : `${actor.name}, à toi de jouer`}
+              title={solo ? t('À toi de jouer') : t('{name}, à toi de jouer', { name: actor.name })}
               hole={actor.hole}
               error={error}
               onAction={play}
@@ -183,17 +185,17 @@ export function GameScreen({ settings, onQuit }: { settings: GameSettings; onQui
           {hand.street === 'finished' && (
             <HandSummary hand={hand}>
               {remaining.length > 1 ? (
-                <Button compact label="Main suivante" onPress={nextHand} />
+                <Button compact label={t('Main suivante')} onPress={nextHand} />
               ) : (
                 <>
-                  <PanelText>🏆 {remaining[0]?.name} gagne la partie !</PanelText>
+                  <PanelText>{t('🏆 {name} gagne la partie !', { name: remaining[0]?.name })}</PanelText>
                   <Ranking
                     entries={[
                       ...remaining.map((p) => ({ name: p.name, place: 1 })),
                       ...Object.entries(allPlaces).map(([name, place]) => ({ name, place })),
                     ]}
                   />
-                  <Button compact label="Nouvelle partie" onPress={onQuit} />
+                  <Button compact label={t('Nouvelle partie')} onPress={onQuit} />
                 </>
               )}
             </HandSummary>

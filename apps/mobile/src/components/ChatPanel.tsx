@@ -15,15 +15,16 @@ import type { Avatar } from '@appli-poker/engine';
 import { AvatarBadge } from './AvatarPicker';
 import { type ChatMessage, MAX_MESSAGE_LENGTH } from '../online/useRoom';
 import { colors } from '../theme';
+import { t } from '../i18n';
 
 /** Ready-made lines, one tap to send. */
 const QUICK = [
-  'Bien joué ! 👏',
-  'Allez ! 🔥',
-  'Je bluffe pas 😏',
-  'Trop de chance 😅',
+  t('Bien joué ! 👏'),
+  t('Allez ! 🔥'),
+  t('Je bluffe pas 😏'),
+  t('Trop de chance 😅'),
   'GG 🤝',
-  'Dépêche ⏰',
+  t('Dépêche ⏰'),
 ];
 
 interface Props {
@@ -61,7 +62,7 @@ export function ChatPanel({ visible, onClose, messages, meId, names, avatars, on
       await onSend(value);
       setText('');
     } catch (e) {
-      setError((e as Error).message);
+      setError(t((e as Error).message));
     } finally {
       setSending(false);
     }
@@ -70,13 +71,13 @@ export function ChatPanel({ visible, onClose, messages, meId, names, avatars, on
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.overlay}>
-        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel="Fermer la discussion" />
+        <Pressable style={styles.backdrop} onPress={onClose} accessibilityLabel={t('Fermer la discussion')} />
         <View style={[styles.sheet, { paddingBottom: insets.bottom + 10 }]}>
           <View style={styles.header}>
-            <Text style={styles.title}>💬 Discussion</Text>
+            <Text style={styles.title}>{t('💬 Discussion')}</Text>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Fermer"
+              accessibilityLabel={t('Fermer')}
               onPress={onClose}
               hitSlop={10}
               style={styles.close}
@@ -87,7 +88,7 @@ export function ChatPanel({ visible, onClose, messages, meId, names, avatars, on
 
           <ScrollView ref={list} style={styles.list} contentContainerStyle={styles.listContent}>
             {messages.length === 0 && (
-              <Text style={styles.empty}>Pas encore de message. Dis bonjour à la table !</Text>
+              <Text style={styles.empty}>{t('Pas encore de message. Dis bonjour à la table !')}</Text>
             )}
             {messages.map((m, i) => {
               const mine = m.user_id === meId;
@@ -103,7 +104,7 @@ export function ChatPanel({ visible, onClose, messages, meId, names, avatars, on
                   )}
                   <View style={[styles.bubble, mine ? styles.bubbleMine : styles.bubbleOther]}>
                     {!mine && !sameAuthor && (
-                      <Text style={styles.author}>{names[m.user_id] ?? 'Ancien joueur'}</Text>
+                      <Text style={styles.author}>{names[m.user_id] ?? t('Ancien joueur')}</Text>
                     )}
                     <Text style={[styles.body, mine && styles.bodyMine]}>{m.body}</Text>
                     <Text style={[styles.time, mine && styles.timeMine]}>{time(m.created_at)}</Text>
@@ -137,7 +138,7 @@ export function ChatPanel({ visible, onClose, messages, meId, names, avatars, on
             <TextInput
               value={text}
               onChangeText={setText}
-              placeholder="Écris un message…"
+              placeholder={t('Écris un message…')}
               placeholderTextColor={colors.muted}
               maxLength={MAX_MESSAGE_LENGTH}
               returnKeyType="send"
@@ -147,7 +148,7 @@ export function ChatPanel({ visible, onClose, messages, meId, names, avatars, on
             />
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Envoyer"
+              accessibilityLabel={t('Envoyer')}
               disabled={sending || !text.trim()}
               onPress={() => send(text)}
               style={({ pressed }) => [
