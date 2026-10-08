@@ -10,6 +10,7 @@ import {
 } from '@appli-poker/engine';
 import {
   Animated,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -32,6 +33,7 @@ import { Token } from '../components/Token';
 import { UnoCard } from '../components/UnoCard';
 import { TarotCard } from '../components/TarotCard';
 import { colors, gradients, shadow } from '../theme';
+import { LANGS, lang, setLang, t } from '../i18n';
 
 export type GameId =
   | 'poker'
@@ -59,80 +61,80 @@ const GAMES: Game[] = [
   {
     id: 'poker',
     title: 'Poker',
-    tagline: "Texas Hold'em ou Omaha, en ligne ou sur un seul téléphone.",
-    players: '2 à 8 joueurs',
+    tagline: t("Texas Hold'em ou Omaha, en ligne ou sur un seul téléphone."),
+    players: t('2 à 8 joueurs'),
     art: ['As', 'Kh', 'Qd'],
     ready: true,
   },
   {
     id: 'blackjack',
     title: 'Blackjack',
-    tagline: 'Approche-toi de 21 sans dépasser, contre la banque.',
-    players: '1 à 7 joueurs',
+    tagline: t('Approche-toi de 21 sans dépasser, contre la banque.'),
+    players: t('1 à 7 joueurs'),
     art: ['Ah', 'Js'],
     ready: true,
   },
   {
     id: 'president',
-    title: 'Président',
-    tagline: 'Débarrasse-toi de tes cartes le premier pour devenir président.',
-    players: '3 à 8 joueurs',
+    title: t('Président'),
+    tagline: t('Débarrasse-toi de tes cartes le premier pour devenir président.'),
+    players: t('3 à 8 joueurs'),
     art: ['2c', '2d', '2h', '2s'],
     ready: true,
   },
   {
     id: 'yams',
     title: 'Yams',
-    tagline: 'Cinq dés, trois lancers, une grille de combinaisons à remplir.',
-    players: '1 à 6 joueurs',
+    tagline: t('Cinq dés, trois lancers, une grille de combinaisons à remplir.'),
+    players: t('1 à 6 joueurs'),
     art: ['⚄', '⚄', '⚄', '⚀', '⚅'],
     ready: true,
   },
   {
     id: 'belote',
     title: 'Belote',
-    tagline: 'Deux équipes, un atout, et la belote-rebelote pour les chanceux.',
-    players: '4 joueurs',
+    tagline: t('Deux équipes, un atout, et la belote-rebelote pour les chanceux.'),
+    players: t('4 joueurs'),
     art: ['Jh', '9h', 'Ah', 'Kh', 'Qh'],
     ready: true,
   },
   {
     id: 'puissance4',
-    title: 'Puissance 4',
-    tagline: 'Fais tomber tes jetons et aligne-en quatre avant l’autre.',
-    players: '2 joueurs ou contre le robot',
+    title: t('Puissance 4'),
+    tagline: t('Fais tomber tes jetons et aligne-en quatre avant l’autre.'),
+    players: t('2 joueurs ou contre le robot'),
     art: ['r', 'y', 'r', 'y', 'r'],
     ready: true,
   },
   {
     id: 'rami',
     title: 'Rami',
-    tagline: 'Pose tes suites et tes brelans, ouvre à 51 et vide ta main le premier.',
-    players: '2 à 4 joueurs',
+    tagline: t('Pose tes suites et tes brelans, ouvre à 51 et vide ta main le premier.'),
+    players: t('2 à 4 joueurs'),
     art: ['7d', '8d', 'Xr', '9d'],
     ready: true,
   },
   {
     id: 'uno',
     title: 'Uno',
-    tagline: 'Couleur ou chiffre, +2, +4 et Joker : crie « Uno ! » avant de gagner.',
-    players: '2 à 6 joueurs',
+    tagline: t('Couleur ou chiffre, +2, +4 et Joker : crie « Uno ! » avant de gagner.'),
+    players: t('2 à 6 joueurs'),
     art: ['bSa', 'y7a', 'wFa', 'rDa', 'g2a'],
     ready: true,
   },
   {
     id: 'huit',
-    title: '8 américain',
-    tagline: 'Le 8 change la couleur, le 2 fait piocher : vide ta main le premier.',
-    players: '2 à 6 joueurs',
+    title: t('8 américain'),
+    tagline: t('Le 8 change la couleur, le 2 fait piocher : vide ta main le premier.'),
+    players: t('2 à 6 joueurs'),
     art: ['2h', '8s', '8h', 'Jd'],
     ready: true,
   },
   {
     id: 'tarot',
     title: 'Tarot',
-    tagline: 'Prends, garde ou passe : seul contre trois, avec les bouts pour alliés.',
-    players: '4 joueurs',
+    tagline: t('Prends, garde ou passe : seul contre trois, avec les bouts pour alliés.'),
+    players: t('4 joueurs'),
     art: ['1t', 'EX', '21t', 'Rh', 'Cs'],
     ready: true,
   },
@@ -156,10 +158,10 @@ function Art({ game }: { game: Game }) {
   if (game.id === 'puissance4') {
     return (
       <View style={styles.tokens}>
-        {game.art.map((t, i) => (
+        {game.art.map((tok, i) => (
           <Token
             key={i}
-            player={t === 'r' ? 0 : 1}
+            player={tok === 'r' ? 0 : 1}
             size={46}
             style={{ transform: [{ translateY: (i % 2 ? 10 : -8) + Math.abs(i - 2) * 3 }] }}
           />
@@ -250,23 +252,24 @@ export function GamesScreen({
       <View style={styles.chips}>
         <ProfileChip onPress={onProfile} />
         <CoinsChip onPress={onShop} />
+        <LangChip />
       </View>
-      <Text style={styles.title}>Jeux entre amis</Text>
-      <Text style={styles.subtitle}>Glisse pour choisir ton jeu.</Text>
+      <Text style={styles.title}>{t('Jeux entre amis')}</Text>
+      <Text style={styles.subtitle}>{t('Glisse pour choisir ton jeu.')}</Text>
       <View style={styles.social}>
         <Pressable
           accessibilityRole="button"
           onPress={onFriends}
           style={({ pressed }) => [styles.socialButton, pressed && styles.pressed]}
         >
-          <Text style={styles.socialText}>👥 Amis</Text>
+          <Text style={styles.socialText}>{t('👥 Amis')}</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
           onPress={onTournaments}
           style={({ pressed }) => [styles.socialButton, pressed && styles.pressed]}
         >
-          <Text style={styles.socialText}>🏆 Tournois</Text>
+          <Text style={styles.socialText}>{t('🏆 Tournois')}</Text>
         </Pressable>
         <SeasonPill onPress={onShop} />
       </View>
@@ -277,7 +280,7 @@ export function GamesScreen({
           onPress={onResume}
           style={({ pressed }) => [styles.resume, pressed && styles.pressed]}
         >
-          <Text style={styles.resumeText}>▶ Reprendre ma table de poker</Text>
+          <Text style={styles.resumeText}>{t('▶ Reprendre ma table de poker')}</Text>
         </Pressable>
       )}
 
@@ -311,7 +314,11 @@ export function GamesScreen({
               <Animated.View key={game.id} style={{ width: cardWidth, transform: [{ scale }], opacity }}>
                 <Pressable
                   accessibilityRole="button"
-                  accessibilityLabel={game.ready ? `Jouer : ${game.title}` : `${game.title}, bientôt`}
+                  accessibilityLabel={
+                    game.ready
+                      ? t('Jouer : {game}', { game: game.title })
+                      : t('{game}, bientôt', { game: game.title })
+                  }
                   onPress={() => (i === index ? game.ready && onPlay(game.id) : goTo(i))}
                   style={[styles.card, shadow, { height: cardHeight }]}
                 >
@@ -325,11 +332,11 @@ export function GamesScreen({
                   <View style={styles.cardFooter}>
                     {game.ready ? (
                       <LinearGradient colors={gradients.gold} style={styles.play}>
-                        <Text style={styles.playText}>Jouer</Text>
+                        <Text style={styles.playText}>{t('Jouer')}</Text>
                       </LinearGradient>
                     ) : (
                       <View style={styles.soon}>
-                        <Text style={styles.soonText}>Bientôt</Text>
+                        <Text style={styles.soonText}>{t('Bientôt')}</Text>
                       </View>
                     )}
                   </View>
@@ -373,14 +380,14 @@ function ProfileChip({ onPress }: { onPress: () => void }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Mon profil, niveau ${level}`}
+      accessibilityLabel={t('Mon profil, niveau {n}', { n: level })}
       onPress={onPress}
       style={({ pressed }) => [styles.profile, pressed && styles.pressed]}
     >
       <AvatarBadge avatar={{ ...avatar, frame: progress?.equipped.frame }} size={40} />
       <View style={styles.profileBody}>
         <Text style={styles.profileLevel}>
-          Niveau {level}
+          {t('Niveau {n}', { n: level })}
           {progress && progress.streak > 0 ? (
             <Text style={styles.profileStreak}> 🔥{progress.streak}</Text>
           ) : null}
@@ -389,7 +396,7 @@ function ProfileChip({ onPress }: { onPress: () => void }) {
           <View style={[styles.profileFill, { width: `${Math.max(4, ratio * 100)}%` }]} />
         </View>
       </View>
-      <Text style={styles.profileGo}>Profil ›</Text>
+      <Text style={styles.profileGo}>{t('Profil ›')}</Text>
     </Pressable>
   );
 }
@@ -407,7 +414,14 @@ function CoinsChip({ onPress }: { onPress: () => void }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`${progress?.coins ?? 0} pièces, quêtes et boutique${ready ? `, ${ready} récompenses à prendre` : ''}`}
+      accessibilityLabel={
+        ready
+          ? t('{coins} pièces, quêtes et boutique, {n} récompenses à prendre', {
+              coins: progress?.coins ?? 0,
+              n: ready,
+            })
+          : t('{coins} pièces, quêtes et boutique', { coins: progress?.coins ?? 0 })
+      }
       onPress={onPress}
       style={({ pressed }) => [styles.coins, pressed && styles.pressed]}
     >
@@ -422,13 +436,30 @@ function CoinsChip({ onPress }: { onPress: () => void }) {
   );
 }
 
+/** The flag of the app's language; switches to the next language (the app reloads). */
+function LangChip() {
+  if (Platform.OS !== 'web') return null;
+  const i = LANGS.findIndex((l) => l.id === lang);
+  const next = LANGS[(i + 1) % LANGS.length];
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${LANGS[i].name} → ${next.name}`}
+      onPress={() => setLang(next.id)}
+      style={({ pressed }) => [styles.lang, pressed && styles.pressed]}
+    >
+      <Text style={styles.langFlag}>{LANGS[i].flag}</Text>
+    </Pressable>
+  );
+}
+
 /** The season of the month, with its limited items in the shop. */
 function SeasonPill({ onPress }: { onPress: () => void }) {
   const season = seasonOf();
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={`Saison ${season.name}, articles limités à la boutique`}
+      accessibilityLabel={t('Saison {name}, articles limités à la boutique', { name: t(season.name) })}
       onPress={onPress}
       style={({ pressed }) => [styles.socialButton, pressed && styles.pressed]}
     >
@@ -438,7 +469,7 @@ function SeasonPill({ onPress }: { onPress: () => void }) {
         end={{ x: 1, y: 1 }}
         style={[StyleSheet.absoluteFill, { borderRadius: 18 }]}
       />
-      <Text style={styles.socialText}>{season.emoji} Saison</Text>
+      <Text style={styles.socialText}>{t('{emoji} Saison', { emoji: season.emoji })}</Text>
     </Pressable>
   );
 }
@@ -482,6 +513,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   badgeText: { color: '#fff', fontSize: 12, fontWeight: '900' },
+  lang: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.glass,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+  },
+  langFlag: { fontSize: 20 },
   profile: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -1,5 +1,14 @@
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import {
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  useWindowDimensions,
+} from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   type Avatar,
@@ -29,19 +38,25 @@ import { TopBar } from '../components/TopBar';
 import { equipReward, syncMe, useMyProgress } from '../online/progress';
 import { loadAvatar, loadName, saveAvatar, saveName } from '../online/supabase';
 import { colors, gradients } from '../theme';
+import { LANGS, lang, setLang, t, tn } from '../i18n';
 
 const GAME_NAMES: Record<ProgressGame, string> = {
   poker: '🃏 Poker',
   blackjack: '🂡 Blackjack',
-  president: '👑 Président',
+  president: t('👑 Président'),
   yams: '🎲 Yams',
   belote: '♠️ Belote',
-  puissance4: '🔴 Puissance 4',
+  puissance4: t('🔴 Puissance 4'),
   rami: '🃏 Rami',
   uno: '🌈 Uno',
-  huit: '🎱 8 américain',
+  huit: t('🎱 8 américain'),
   tarot: '🌙 Tarot',
 };
+
+/** One reward of a kind ("Bordures" gives "Bordure"), in the app's language. */
+function kindName(kind: Reward['kind']) {
+  return t(REWARD_KIND_NAMES[kind].replace(/s$/, ''));
+}
 
 type Tab = keyof Equipped | 'avatar';
 const TABS: Tab[] = ['frame', 'title', 'avatar', 'cardBack', 'banner'];
@@ -107,8 +122,8 @@ export function ProfileScreen({ onBack, onShop }: { onBack: () => void; onShop: 
   );
   return (
     <ScrollView contentContainerStyle={[styles.container, { width }]} keyboardShouldPersistTaps="handled">
-      <TopBar onBack={onBack} backLabel="← Jeux">
-        <Text style={styles.topTitle}>Mon profil</Text>
+      <TopBar onBack={onBack} backLabel={t('← Jeux')}>
+        <Text style={styles.topTitle}>{t('Mon profil')}</Text>
       </TopBar>
 
       <View style={styles.bannerBox}>
@@ -116,7 +131,7 @@ export function ProfileScreen({ onBack, onShop }: { onBack: () => void; onShop: 
           <View style={styles.bannerContent}>
             <AvatarBadge avatar={me} size={84} />
             <Text style={styles.name} numberOfLines={1}>
-              {name.trim() || 'Joueur'}
+              {name.trim() || t('Joueur')}
             </Text>
             <View style={styles.titleRow}>
               <TitleBadge id={equipped.title} />
@@ -127,19 +142,19 @@ export function ProfileScreen({ onBack, onShop }: { onBack: () => void; onShop: 
 
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${progress?.coins ?? 0} pièces, aller à la boutique`}
+        accessibilityLabel={t('{coins} pièces, aller à la boutique', { coins: progress?.coins ?? 0 })}
         onPress={onShop}
         style={({ pressed }) => [styles.wallet, pressed && { opacity: 0.8 }]}
       >
         <Text style={styles.walletCoins}>🪙 {progress?.coins ?? 0}</Text>
-        <Text style={styles.walletGo}>Quêtes et boutique ›</Text>
+        <Text style={styles.walletGo}>{t('Quêtes et boutique ›')}</Text>
       </Pressable>
 
       <View style={styles.card}>
         <View style={styles.levelRow}>
-          <Text style={styles.level}>Niveau {level}</Text>
+          <Text style={styles.level}>{t('Niveau {n}', { n: level })}</Text>
           <Text style={styles.xp}>
-            {level >= MAX_LEVEL ? `${xp} XP · niveau max !` : `${into} / ${needed} XP`}
+            {level >= MAX_LEVEL ? t('{xp} XP · niveau max !', { xp }) : `${into} / ${needed} XP`}
           </Text>
         </View>
         <View style={styles.track}>
@@ -152,47 +167,57 @@ export function ProfileScreen({ onBack, onShop }: { onBack: () => void; onShop: 
         </View>
         {coming && (
           <Text style={styles.next}>
-            {`Prochaine récompense au niveau ${coming.level} : ${REWARD_KIND_NAMES[coming.kind].replace(/s$/, '').toLowerCase()} «\u00a0${coming.kind === 'avatar' ? coming.id : coming.name}\u00a0»`}
+            {t('Prochaine récompense au niveau {n} : {kind} «\u00a0{name}\u00a0»', {
+              n: coming.level,
+              kind: kindName(coming.kind).toLowerCase(),
+              name: coming.kind === 'avatar' ? coming.id : t(coming.name),
+            })}
           </Text>
         )}
         <Text style={styles.how}>
-          Chaque partie finie : +{XP_PLAY} XP, +{XP_WIN} si tu gagnes, +{XP_DAILY} pour la première du jour.
+          {t('Chaque partie finie : +{play} XP, +{win} si tu gagnes, +{daily} pour la première du jour.', {
+            play: XP_PLAY,
+            win: XP_WIN,
+            daily: XP_DAILY,
+          })}
         </Text>
-        {!progress && <Text style={styles.offline}>Connexion au serveur… ton niveau s’affichera ici.</Text>}
+        {!progress && (
+          <Text style={styles.offline}>{t('Connexion au serveur… ton niveau s’affichera ici.')}</Text>
+        )}
       </View>
 
       <StreakCard progress={progress} />
 
-      <Text style={styles.section}>Mes récompenses</Text>
+      <Text style={styles.section}>{t('Mes récompenses')}</Text>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
-        {TABS.map((t) => (
+        {TABS.map((k) => (
           <Pressable
-            key={t}
+            key={k}
             accessibilityRole="button"
-            accessibilityState={{ selected: t === tab }}
-            onPress={() => setTab(t)}
-            style={[styles.tab, t === tab && styles.tabActive]}
+            accessibilityState={{ selected: k === tab }}
+            onPress={() => setTab(k)}
+            style={[styles.tab, k === tab && styles.tabActive]}
           >
-            <Text style={[styles.tabText, t === tab && styles.tabTextActive]}>{REWARD_KIND_NAMES[t]}</Text>
+            <Text style={[styles.tabText, k === tab && styles.tabTextActive]}>{t(REWARD_KIND_NAMES[k])}</Text>
           </Pressable>
         ))}
       </ScrollView>
 
       {tab === 'avatar' ? (
         <View style={styles.card}>
-          <Text style={styles.label}>Ton prénom</Text>
+          <Text style={styles.label}>{t('Ton prénom')}</Text>
           <TextInput
             style={styles.input}
             value={name}
-            onChangeText={(t) => {
-              setName(t);
-              saveName(t.trim());
+            onChangeText={(text) => {
+              setName(text);
+              saveName(text.trim());
             }}
             maxLength={16}
-            placeholder="Ton prénom"
+            placeholder={t('Ton prénom')}
             placeholderTextColor={colors.muted}
           />
-          <Text style={styles.label}>Ton avatar</Text>
+          <Text style={styles.label}>{t('Ton avatar')}</Text>
           <AvatarPicker value={avatar} onChange={changeAvatar} level={level} owned={owned} />
         </View>
       ) : (
@@ -204,7 +229,9 @@ export function ProfileScreen({ onBack, onShop }: { onBack: () => void; onShop: 
               <Pressable
                 key={reward.id}
                 accessibilityRole="button"
-                accessibilityLabel={`${reward.name}${locked ? `, niveau ${reward.level}` : ''}`}
+                accessibilityLabel={
+                  locked ? t('{name}, niveau {n}', { name: t(reward.name), n: reward.level }) : t(reward.name)
+                }
                 accessibilityState={{ selected: worn, disabled: locked }}
                 onPress={() => wear(tab, reward)}
                 style={[styles.tile, worn && styles.tileWorn, locked && styles.tileLocked]}
@@ -213,10 +240,10 @@ export function ProfileScreen({ onBack, onShop }: { onBack: () => void; onShop: 
                   <RewardPreview reward={reward} avatar={avatar} />
                 </View>
                 <Text style={styles.tileName} numberOfLines={1}>
-                  {reward.name}
+                  {t(reward.name)}
                 </Text>
                 <Text style={[styles.tileState, worn && styles.tileStateWorn]}>
-                  {locked ? `🔒 Niveau ${reward.level}` : worn ? '✓ Porté' : 'Choisir'}
+                  {locked ? t('🔒 Niveau {n}', { n: reward.level }) : worn ? t('✓ Porté') : t('Choisir')}
                 </Text>
               </Pressable>
             );
@@ -224,14 +251,14 @@ export function ProfileScreen({ onBack, onShop }: { onBack: () => void; onShop: 
         </View>
       )}
       <Pressable accessibilityRole="button" onPress={onShop} hitSlop={8}>
-        <Text style={styles.more}>Encore plus de choix à la boutique ›</Text>
+        <Text style={styles.more}>{t('Encore plus de choix à la boutique ›')}</Text>
       </Pressable>
       {error && <Text style={styles.error}>{error}</Text>}
 
-      <Text style={styles.section}>Succès</Text>
+      <Text style={styles.section}>{t('Succès')}</Text>
       <AchievementList progress={progress} />
 
-      <Text style={styles.section}>Mes parties</Text>
+      <Text style={styles.section}>{t('Mes parties')}</Text>
       <View style={styles.card}>
         {PROGRESS_GAMES.map((g) => {
           const c = progress?.games[g];
@@ -239,13 +266,39 @@ export function ProfileScreen({ onBack, onShop }: { onBack: () => void; onShop: 
             <View key={g} style={styles.statRow}>
               <Text style={styles.statGame}>{GAME_NAMES[g]}</Text>
               <Text style={styles.statValue}>
-                {c?.played ?? 0} partie{(c?.played ?? 0) > 1 ? 's' : ''} · {c?.won ?? 0} gagnée
-                {(c?.won ?? 0) > 1 ? 's' : ''}
+                {tn(c?.played ?? 0, '{n} partie', '{n} parties')} ·{' '}
+                {tn(c?.won ?? 0, '{n} gagnée', '{n} gagnées')}
               </Text>
             </View>
           );
         })}
       </View>
+
+      {Platform.OS === 'web' && (
+        <>
+          <Text style={styles.section}>{t('Langue')}</Text>
+          <View style={styles.langs}>
+            {LANGS.map((l) => (
+              <Pressable
+                key={l.id}
+                accessibilityRole="button"
+                accessibilityState={{ selected: l.id === lang }}
+                accessibilityLabel={l.name}
+                onPress={() => setLang(l.id)}
+                style={({ pressed }) => [
+                  styles.lang,
+                  l.id === lang && styles.langActive,
+                  pressed && { opacity: 0.8 },
+                ]}
+              >
+                <Text style={styles.langFlag}>{l.flag}</Text>
+                <Text style={[styles.langName, l.id === lang && styles.langNameActive]}>{l.name}</Text>
+                {l.id === lang && <Text style={styles.langCheck}>✓</Text>}
+              </Pressable>
+            ))}
+          </View>
+        </>
+      )}
     </ScrollView>
   );
 }
@@ -341,4 +394,22 @@ const styles = StyleSheet.create({
   statGame: { color: colors.text, fontSize: 15, fontWeight: '700' },
   statValue: { color: colors.muted, fontSize: 14 },
   error: { color: colors.gold, marginTop: 10, textAlign: 'center' },
+  langs: { flexDirection: 'row', gap: 10, marginTop: 10 },
+  lang: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    backgroundColor: colors.glass,
+    borderWidth: 1.5,
+    borderColor: colors.glassBorder,
+  },
+  langActive: { borderColor: colors.gold, backgroundColor: 'rgba(255,193,7,0.12)' },
+  langFlag: { fontSize: 22 },
+  langName: { flex: 1, color: colors.text, fontSize: 15, fontWeight: '700' },
+  langNameActive: { color: colors.gold },
+  langCheck: { color: colors.gold, fontSize: 16, fontWeight: '900' },
 });

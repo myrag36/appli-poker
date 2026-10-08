@@ -4,6 +4,7 @@ import { FunctionsHttpError } from '@supabase/supabase-js';
 import { AppState, Platform } from 'react-native';
 import type { Action, Avatar, OnlineGameId, Variant } from '@appli-poker/engine';
 import { SUPABASE_KEY, SUPABASE_URL } from './config';
+import { t } from '../i18n';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
   auth: {
@@ -28,7 +29,7 @@ export async function ensureSignedIn(): Promise<string> {
   if (data.session) return data.session.user.id;
   const { data: signedIn, error } = await supabase.auth.signInAnonymously();
   if (error || !signedIn.user) {
-    throw new Error('Connexion impossible. Les connexions anonymes sont-elles activées dans Supabase ?');
+    throw new Error(t('Connexion impossible. Les connexions anonymes sont-elles activées dans Supabase ?'));
   }
   return signedIn.user.id;
 }
@@ -102,9 +103,10 @@ async function invoke<T>(fn: string, body: unknown): Promise<T> {
   if (error) {
     if (error instanceof FunctionsHttpError) {
       const payload = await error.context.json().catch(() => null);
-      throw new Error(payload?.error ?? 'Erreur du serveur');
+      // The servers answer in French: shown in the app's language when a translation exists.
+      throw new Error(t(payload?.error ?? 'Erreur du serveur'));
     }
-    throw new Error('Pas de connexion au serveur');
+    throw new Error(t('Pas de connexion au serveur'));
   }
   return data as T;
 }
@@ -212,7 +214,7 @@ export interface PlayerStats {
 export async function loadStats(): Promise<PlayerStats[]> {
   await ensureSignedIn();
   const { data, error } = await supabase.rpc('player_stats');
-  if (error) throw new Error('Impossible de charger les statistiques');
+  if (error) throw new Error(t('Impossible de charger les statistiques'));
   return (data as PlayerStats[]).sort((a, b) => b.net - a.net);
 }
 
