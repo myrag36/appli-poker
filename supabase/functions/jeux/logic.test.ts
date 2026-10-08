@@ -175,6 +175,41 @@ test('belote: robots complete the table to four and only my own hand reaches me'
   assert.equal(pub.stock, undefined);
 });
 
+test('rami: a robot joins a player alone, hands and stock stay secret, a slow player is played for', () => {
+  assert.deepEqual(cleanOptions('rami', undefined), { target: 300 });
+  assert.throws(() => cleanOptions('rami', { target: 1000 }), GameError);
+  const { bots, snapshot } = startGame(
+    room({ game: 'rami', options: { target: 150 } }),
+    [player('a', 0)],
+    'a',
+    newId,
+    rng,
+    NOW,
+  );
+  assert.equal(bots.length, 1);
+  assert.equal(snapshot.public.seats.length, 2);
+  type V = { hands: string[][]; handCounts: number[]; stockCount: number; target: number; stock?: unknown };
+  const mine = snapshot.privates.a as V;
+  assert.equal(mine.target, 150);
+  assert.equal(mine.hands[1].length, 0);
+  assert.ok(mine.hands[0].length >= 13);
+  assert.equal(mine.stock, undefined);
+  assert.equal(mine.stockCount, 108 - 27);
+  const pub = snapshot.public.view as V;
+  assert.ok(pub.hands.every((h) => h.length === 0));
+  assert.deepEqual(pub.handCounts, mine.handCounts);
+  // Six seats at most.
+  const six = ['a', 'b', 'c', 'd', 'e', 'f'].map((id, i) => player(id, i));
+  assert.equal(startGame(room({ game: 'rami' }), six, 'a', newId, rng, NOW).snapshot.public.seats.length, 6);
+  assert.throws(() => checkJoin(room({ game: 'rami' }), six, 'g', 'G'), GameError);
+  // Whoever has to play and does not is played for, one step at a time.
+  let s = snapshot;
+  for (let i = 0; i < 6 && !s.public.over; i++) {
+    assert.equal(s.public.actors.length, s.public.betweenRounds ? 0 : 1);
+    s = playGameTimeout(s.secret, rng, s.secret.deadline!);
+  }
+});
+
 test('experience: a little each round, more at the end, and the winners get the bonus', () => {
   // A Yams game for one person and a robot, played to the end with timeouts.
   const { snapshot } = startGame(room(), [player('a', 0), player('r', 1, true)], 'a', newId, rng, NOW);

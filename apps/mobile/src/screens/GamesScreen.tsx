@@ -110,7 +110,7 @@ const GAMES: Game[] = [
     id: 'rami',
     title: 'Rami',
     tagline: t('Pose tes suites et tes brelans, ouvre à 51 et vide ta main le premier.'),
-    players: t('2 à 4 joueurs'),
+    players: t('2 à 6 joueurs'),
     art: ['7d', '8d', 'Xr', '9d'],
     ready: true,
   },

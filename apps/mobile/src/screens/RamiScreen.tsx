@@ -7,6 +7,7 @@ import {
   type RamiMeld,
   type RamiMove,
   type RamiState,
+  type RamiView,
   RAMI_OPENING,
   botName,
   defaultAvatar,
@@ -21,10 +22,12 @@ import {
   ramiRanking,
   ramiSortHand,
   ramiSwapJoker,
+  ramiView,
 } from '@appli-poker/engine';
 import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
 import { reportLocalGame } from '../online/progress';
+import { OnlineButton } from '../components/OnlineButton';
 import { RulesButton } from '../components/Rules';
 import { RAMI_RULES } from '../rules';
 import { GameLayout } from '../components/GameLayout';
@@ -32,7 +35,9 @@ import { Pill } from '../components/LevelPicker';
 import { Appear, FloatUp } from '../components/Motion';
 import { PlayingCard } from '../components/PlayingCard';
 import { TopBar } from '../components/TopBar';
+import { TurnTimer } from '../components/TurnTimer';
 import { sounds } from '../feedback';
+import type { OnlineBoardProps, OnlineOptionsProps } from '../online-games/types';
 import { deviceRng } from '../rng';
 import { lang, t, tn } from '../i18n';
 import { colors, gradients, seatColors, shadow } from '../theme';
@@ -57,7 +62,7 @@ function cardLabel(card: Card): string {
   return rank + SUIT_SYMBOLS[card[1]];
 }
 
-export function RamiScreen({ onBack }: { onBack: () => void }) {
+export function RamiScreen({ onBack, onOnline }: { onBack: () => void; onOnline?: () => void }) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [last, setLast] = useState<Settings | null>(null);
   const [round, setRound] = useState(0);
@@ -66,6 +71,7 @@ export function RamiScreen({ onBack }: { onBack: () => void }) {
       <RamiSetup
         initial={last}
         onBack={onBack}
+        onOnline={onOnline}
         onStart={(s) => {
           setLast(s);
           setSettings(s);
@@ -89,10 +95,12 @@ function RamiSetup({
   initial,
   onStart,
   onBack,
+  onOnline,
 }: {
   initial: Settings | null;
   onStart: (s: Settings) => void;
   onBack: () => void;
+  onOnline?: () => void;
 }) {
   const [name, setName] = useState(initial && initial.names[0] !== t('Toi') ? initial.names[0] : '');
   const [avatar, setAvatar] = useState<Avatar>(initial?.avatars[0] ?? defaultAvatar(0));
@@ -119,6 +127,7 @@ function RamiSetup({
       </View>
       <Text style={styles.title}>Rami</Text>
       <Text style={styles.subtitle}>{t('Pose tes combinaisons et vide ta main le premier.')}</Text>
+      {onOnline && <OnlineButton onPress={onOnline} />}
       <RulesButton rules={RAMI_RULES} />
 
       <Text style={styles.section}>{t('Toi')}</Text>
@@ -162,23 +171,7 @@ function RamiSetup({
         </View>
       ))}
 
-      <Text style={styles.section}>{t('Partie en')}</Text>
-      <View style={styles.pills}>
-        {[150, 300, 500].map((p) => (
-          <Pill
-            key={p}
-            label={t('{n} points', { n: p })}
-            active={target === p}
-            onPress={() => setTarget(p)}
-          />
-        ))}
-      </View>
-      <Text style={styles.hint}>
-        {t(
-          'Les cartes qui restent en main sont des points de pénalité. Dès que quelqu’un atteint {target}, la partie s’arrête : le plus petit score gagne.',
-          { target },
-        )}
-      </Text>
+      <TargetPills target={target} onChange={setTarget} />
 
       <View style={styles.spacer} />
       <Button
@@ -193,6 +186,26 @@ function RamiSetup({
       />
       <Button label={t('Retour')} variant="secondary" onPress={onBack} />
     </ScrollView>
+  );
+}
+
+/** Length of the game: the first to reach it stops the game. */
+function TargetPills({ target, onChange }: { target: number; onChange: (n: number) => void }) {
+  return (
+    <>
+      <Text style={styles.section}>{t('Partie en')}</Text>
+      <View style={styles.pills}>
+        {[150, 300, 500].map((p) => (
+          <Pill key={p} label={t('{n} points', { n: p })} active={target === p} onPress={() => onChange(p)} />
+        ))}
+      </View>
+      <Text style={styles.hint}>
+        {t(
+          'Les cartes qui restent en main sont des points de pénalité. Dès que quelqu’un atteint {target}, la partie s’arrête : le plus petit score gagne.',
+          { target },
+        )}
+      </Text>
+    </>
   );
 }
 
@@ -216,46 +229,27 @@ function RamiGame({
       rng: deviceRng,
     }),
   );
-  const [selected, setSelected] = useState<Card[]>([]);
-  /** Melds put aside before opening, until they reach 51 points together. */
-  const [staged, setStaged] = useState<Card[][]>([]);
-  const [sortBy, setSortBy] = useState<'suit' | 'rank'>('suit');
   const [error, setError] = useState<string | null>(null);
-  /** The card I just drew, shown with a glow. */
-  const [fresh, setFresh] = useState<Card | null>(null);
-  const names = settings.names;
-
   const active = game.phase === 'draw' || game.phase === 'play';
-  const myTurn = active && game.current === ME;
   const robotTurn = active && game.current !== ME;
-  const myPlay = myTurn && game.phase === 'play';
-  const opened = game.opened[ME];
 
-  function apply(move: RamiMove) {
-    try {
-      const next = ramiApply(game, move, deviceRng);
-      if (move.type === 'draw' || move.type === 'take') {
-        const added = next.hands[ME].find((c) => !game.hands[ME].includes(c));
-        setFresh(added ?? null);
-      }
-      if (move.type === 'swap') setFresh(next.hands[ME].find((c) => !game.hands[ME].includes(c)) ?? null);
-      afterMove(game, next, move);
-      setSelected([]);
-      setError(null);
-      setGame(next);
-    } catch (e) {
-      setError(t((e as Error).message));
-    }
-  }
-
-  function afterMove(before: RamiState, next: RamiState, move: RamiMove) {
-    if (move.type === 'meld' || move.type === 'add' || move.type === 'swap') sounds.chips();
-    else sounds.card();
+  function afterMove(before: RamiState, next: RamiState) {
     if (next.phase === 'gameOver' && before.phase !== 'gameOver') {
       const won = ramiRanking(next)[0].score === next.scores[ME];
       if (won) sounds.win();
       reportLocalGame('rami', won);
     } else if (next.phase === 'roundOver' && next.result?.winner === ME) sounds.win();
+  }
+
+  function apply(move: RamiMove) {
+    try {
+      const next = ramiApply(game, move, deviceRng);
+      afterMove(game, next);
+      setError(null);
+      setGame(next);
+    } catch (e) {
+      setError(t((e as Error).message));
+    }
   }
 
   // Robots play one step at a time so everyone can follow.
@@ -265,11 +259,125 @@ function RamiGame({
     const delay = move.type === 'meld' ? BOT_DELAY * 1.4 : move.type === 'draw' ? BOT_DELAY * 0.8 : BOT_DELAY;
     const id = setTimeout(() => {
       const next = ramiApply(game, move, deviceRng);
-      afterMove(game, next, move);
+      afterMove(game, next);
       setGame(next);
     }, delay);
     return () => clearTimeout(id);
   }, [game, robotTurn]);
+
+  useEffect(() => {
+    if (!error) return;
+    const id = setTimeout(() => setError(null), 3200);
+    return () => clearTimeout(id);
+  }, [error]);
+
+  const view = ramiView(game, ME);
+  return (
+    <RamiTable
+      game={view}
+      me={ME}
+      names={settings.names}
+      avatars={settings.avatars}
+      myTurn={active && game.current === ME}
+      busy={false}
+      error={error}
+      onError={setError}
+      onMove={apply}
+      onBack={onBack}
+      overlay={
+        game.phase === 'gameOver' ? (
+          <FinalPanel game={view} me={ME} avatars={settings.avatars}>
+            <View style={styles.finalButtons}>
+              <View style={styles.flex}>
+                <Button compact label={t('Rejouer')} onPress={onReplay} />
+              </View>
+              <View style={styles.flex}>
+                <Button compact variant="secondary" label={t('Réglages')} onPress={onSettings} />
+              </View>
+            </View>
+            <Button compact variant="secondary" label={t('Retour aux jeux')} onPress={onBack} />
+          </FinalPanel>
+        ) : game.phase === 'roundOver' ? (
+          <RoundPanel game={view} me={ME} avatars={settings.avatars}>
+            <Button
+              compact
+              label={t('Manche suivante')}
+              onPress={() => setGame((g) => (g.phase === 'roundOver' ? ramiNextRound(g, deviceRng) : g))}
+            />
+          </RoundPanel>
+        ) : null
+      }
+    />
+  );
+}
+
+/**
+ * The table seen from one seat, used alone and online: my hand at the bottom, the melds in the middle.
+ * `me` is -1 for someone only watching.
+ */
+function RamiTable({
+  game,
+  me,
+  names,
+  avatars,
+  myTurn,
+  busy,
+  error,
+  onError,
+  onMove,
+  onBack,
+  timer,
+  overlay,
+}: {
+  game: RamiView;
+  me: number;
+  names: string[];
+  avatars: Avatar[];
+  myTurn: boolean;
+  busy: boolean;
+  error: string | null;
+  onError: (message: string) => void;
+  onMove: (move: RamiMove) => void;
+  onBack: () => void;
+  timer?: ReactNode;
+  overlay: ReactNode;
+}) {
+  const [selected, setSelected] = useState<Card[]>([]);
+  /** Melds put aside before opening, until they reach 51 points together. */
+  const [staged, setStaged] = useState<Card[][]>([]);
+  const [sortBy, setSortBy] = useState<'suit' | 'rank'>('suit');
+  /** The card I just drew, shown with a glow. */
+  const [fresh, setFresh] = useState<Card | null>(null);
+
+  const active = game.phase === 'draw' || game.phase === 'play';
+  const myPlay = myTurn && game.phase === 'play' && !busy;
+  const opened = me >= 0 && game.opened[me];
+  const myHand = me >= 0 ? game.hands[me] : [];
+  const actor = active && !myTurn ? game.current : null;
+
+  // What just happened at the table: sounds, and the card I picked up glows.
+  const before = useRef(game);
+  useEffect(() => {
+    const prev = before.current;
+    before.current = game;
+    if (prev === game) return;
+    if (game.round !== prev.round) setFresh(null);
+    const ev = game.last;
+    if (ev && ev !== prev.last && JSON.stringify(ev) !== JSON.stringify(prev.last)) {
+      if (ev.type === 'meld' || ev.type === 'add' || ev.type === 'swap') sounds.chips();
+      else sounds.card();
+    }
+    if (
+      me >= 0 &&
+      ev?.player === me &&
+      (ev.type === 'draw' || ev.type === 'reshuffle' || ev.type === 'take' || ev.type === 'swap')
+    ) {
+      const added = game.hands[me].find((c) => !prev.hands[me].includes(c));
+      if (added) setFresh(added);
+    }
+    // A move went through: the selection is used up.
+    if (me >= 0 && game.hands[me].join() !== prev.hands[me]?.join()) setSelected([]);
+  }, [game]);
 
   const wasMyTurn = useRef(false);
   useEffect(() => {
@@ -281,15 +389,9 @@ function RamiGame({
     }
   }, [myTurn]);
 
-  useEffect(() => {
-    if (!error) return;
-    const id = setTimeout(() => setError(null), 3200);
-    return () => clearTimeout(id);
-  }, [error]);
-
   const stagedCards = staged.flat();
   const stagedPoints = staged.reduce((s, m) => s + ramiMeldPoints(ramiLayout(m)!), 0);
-  const hand = ramiSortHand(game.hands[ME], sortBy).filter((c) => !stagedCards.includes(c));
+  const hand = ramiSortHand(myHand, sortBy).filter((c) => !stagedCards.includes(c));
   const layout = selected.length >= 3 ? ramiLayout(selected) : null;
   /** Melds on the table the selection can go on (adding to them, or winning their joker back). */
   const targets =
@@ -307,12 +409,12 @@ function RamiGame({
 
   function lay() {
     if (!layout) return;
-    if (opened) return apply({ type: 'meld', melds: [selected] });
+    if (opened) return onMove({ type: 'meld', melds: [selected] });
     const all = [...staged, selected];
     const total = stagedPoints + ramiMeldPoints(layout);
     if (total >= RAMI_OPENING) {
       setStaged([]);
-      apply({ type: 'meld', melds: all });
+      onMove({ type: 'meld', melds: all });
     } else {
       setStaged(all);
       setSelected([]);
@@ -322,23 +424,26 @@ function RamiGame({
 
   function onMeld(meld: RamiMeld) {
     if (!myPlay || selected.length === 0) return;
-    if (!opened) return setError(t('Ouvre d’abord avec {n} points', { n: RAMI_OPENING }));
+    if (!opened) return onError(t('Ouvre d’abord avec {n} points', { n: RAMI_OPENING }));
     if (selected.length === 1 && ramiSwapJoker(meld, selected[0]))
-      return apply({ type: 'swap', meld: meld.id, card: selected[0] });
-    apply({ type: 'add', meld: meld.id, cards: selected });
+      return onMove({ type: 'swap', meld: meld.id, card: selected[0] });
+    onMove({ type: 'add', meld: meld.id, cards: selected });
   }
 
   function discard() {
     if (selected.length !== 1) return;
     setStaged([]);
-    apply({ type: 'discard', card: selected[0] });
+    onMove({ type: 'discard', card: selected[0] });
   }
 
   // ---- What to tell the player.
   let prompt: string;
   if (game.phase === 'roundOver' || game.phase === 'gameOver')
     prompt = game.phase === 'gameOver' ? t('Partie terminée') : t('Fin de la manche');
-  else if (robotTurn) prompt = t('🤖 {name} joue…', { name: names[game.current] });
+  else if (actor !== null)
+    prompt = game.players[actor].bot
+      ? t('🤖 {name} joue…', { name: names[actor] })
+      : t('{name} joue…', { name: names[actor] });
   else if (game.phase === 'draw') prompt = t('À toi : pioche ou prends la défausse');
   else if (staged.length > 0 && !layout)
     prompt = t('Ouverture : {pts}/{n} pts, encore {left}', {
@@ -353,7 +458,7 @@ function RamiGame({
         : t('Combinaison valable : appuie sur Poser');
   else if (targets.length > 0) prompt = t('Touche une combinaison qui brille');
   else if (selected.length === 1) prompt = t('Défausse-la pour finir ton tour');
-  else if (game.turns === 0 && game.hands[ME].length > 13) prompt = t('Tu commences : pose ou défausse');
+  else if (game.turns === 0 && myHand.length > 13) prompt = t('Tu commences : pose ou défausse');
   else
     prompt = opened
       ? t('Pose, complète ou défausse')
@@ -367,7 +472,8 @@ function RamiGame({
             <Text style={styles.roundText}>{t('Manche {n}', { n: game.round })}</Text>
             <Text style={styles.targetText}>{t('· {n} pts', { n: game.target })}</Text>
           </TopBar>
-          <Scoreboard game={game} names={names} avatars={settings.avatars} />
+          <Scoreboard game={game} me={me} names={names} avatars={avatars} />
+          {timer}
         </>
       }
       table={({ width, height }) => (
@@ -377,14 +483,15 @@ function RamiGame({
             <LinearGradient colors={gradients.felt} style={StyleSheet.absoluteFill} />
             <Piles
               game={game}
+              me={me}
               names={names}
-              canDraw={myTurn && game.phase === 'draw'}
-              onDraw={() => apply({ type: 'draw' })}
-              onTake={() => apply({ type: 'take' })}
+              canDraw={myTurn && !busy && game.phase === 'draw'}
+              onDraw={() => onMove({ type: 'draw' })}
+              onTake={() => onMove({ type: 'take' })}
             />
             <Melds
               melds={game.melds}
-              avatars={settings.avatars}
+              avatars={avatars}
               targets={targets}
               staged={staged}
               stagedPoints={stagedPoints}
@@ -392,34 +499,7 @@ function RamiGame({
               onUnstage={() => setStaged([])}
               width={Math.min(width, 520) - 40}
             />
-            {(game.phase === 'roundOver' || game.phase === 'gameOver') && (
-              <View style={styles.overlay}>
-                {game.phase === 'gameOver' ? (
-                  <FinalPanel game={game} avatars={settings.avatars}>
-                    <View style={styles.finalButtons}>
-                      <View style={styles.flex}>
-                        <Button compact label={t('Rejouer')} onPress={onReplay} />
-                      </View>
-                      <View style={styles.flex}>
-                        <Button compact variant="secondary" label={t('Réglages')} onPress={onSettings} />
-                      </View>
-                    </View>
-                    <Button compact variant="secondary" label={t('Retour aux jeux')} onPress={onBack} />
-                  </FinalPanel>
-                ) : (
-                  <RoundPanel game={game} avatars={settings.avatars}>
-                    <Button
-                      compact
-                      label={t('Manche suivante')}
-                      onPress={() => {
-                        setFresh(null);
-                        setGame((g) => (g.phase === 'roundOver' ? ramiNextRound(g, deviceRng) : g));
-                      }}
-                    />
-                  </RoundPanel>
-                )}
-              </View>
-            )}
+            {overlay && <View style={styles.overlay}>{overlay}</View>}
           </View>
         </View>
       )}
@@ -437,35 +517,39 @@ function RamiGame({
               {error ?? prompt}
             </Text>
           </View>
-          <View style={styles.actions}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('Trier')}
-              onPress={() => setSortBy(sortBy === 'suit' ? 'rank' : 'suit')}
-              style={({ pressed }) => [styles.sort, pressed && styles.pressed]}
-            >
-              <Text style={styles.sortIcon}>⇅</Text>
-              <Text style={styles.sortText}>{sortBy === 'suit' ? t('Couleur') : t('Valeur')}</Text>
-            </Pressable>
-            <View style={styles.flex}>
-              <Button
-                compact
-                label={layout ? t('Poser · {pts}', { pts: ramiMeldPoints(layout) }) : t('Poser')}
-                disabled={!myPlay || !layout}
-                onPress={lay}
-              />
-            </View>
-            <View style={styles.flex}>
-              <Button
-                compact
-                variant="secondary"
-                label={t('Défausser')}
-                disabled={!myPlay || selected.length !== 1}
-                onPress={discard}
-              />
-            </View>
-          </View>
-          <Hand hand={hand} selected={selected} fresh={fresh} enabled={myPlay} onToggle={toggle} />
+          {me >= 0 && (
+            <>
+              <View style={styles.actions}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('Trier')}
+                  onPress={() => setSortBy(sortBy === 'suit' ? 'rank' : 'suit')}
+                  style={({ pressed }) => [styles.sort, pressed && styles.pressed]}
+                >
+                  <Text style={styles.sortIcon}>⇅</Text>
+                  <Text style={styles.sortText}>{sortBy === 'suit' ? t('Couleur') : t('Valeur')}</Text>
+                </Pressable>
+                <View style={styles.flex}>
+                  <Button
+                    compact
+                    label={layout ? t('Poser · {pts}', { pts: ramiMeldPoints(layout) }) : t('Poser')}
+                    disabled={!myPlay || !layout}
+                    onPress={lay}
+                  />
+                </View>
+                <View style={styles.flex}>
+                  <Button
+                    compact
+                    variant="secondary"
+                    label={t('Défausser')}
+                    disabled={!myPlay || selected.length !== 1}
+                    onPress={discard}
+                  />
+                </View>
+              </View>
+              <Hand hand={hand} selected={selected} fresh={fresh} enabled={myPlay} onToggle={toggle} />
+            </>
+          )}
         </>
       }
     />
@@ -474,7 +558,17 @@ function RamiGame({
 
 // ------------------------------------------------------------------ Pieces
 
-function Scoreboard({ game, names, avatars }: { game: RamiState; names: string[]; avatars: Avatar[] }) {
+function Scoreboard({
+  game,
+  me,
+  names,
+  avatars,
+}: {
+  game: RamiView;
+  me: number;
+  names: string[];
+  avatars: Avatar[];
+}) {
   const active = game.phase === 'draw' || game.phase === 'play';
   return (
     <View style={styles.board}>
@@ -492,7 +586,7 @@ function Scoreboard({ game, names, avatars }: { game: RamiState; names: string[]
             </View>
             <View style={styles.boardText}>
               <Text style={[styles.boardName, turn && styles.boardNameActive]} numberOfLines={1}>
-                {i === ME ? t('Toi') : name}
+                {i === me ? t('Toi') : name}
               </Text>
               <View style={styles.boardLine}>
                 <Text style={styles.boardScore} numberOfLines={1}>
@@ -500,7 +594,7 @@ function Scoreboard({ game, names, avatars }: { game: RamiState; names: string[]
                 </Text>
                 <View style={styles.boardCount}>
                   <View style={styles.boardBack} />
-                  <Text style={styles.boardCards}>{game.hands[i].length}</Text>
+                  <Text style={styles.boardCards}>{game.handCounts[i]}</Text>
                 </View>
               </View>
             </View>
@@ -514,12 +608,14 @@ function Scoreboard({ game, names, avatars }: { game: RamiState; names: string[]
 /** Stock and discard pile, with what just happened beside them. */
 function Piles({
   game,
+  me: seat,
   names,
   canDraw,
   onDraw,
   onTake,
 }: {
-  game: RamiState;
+  game: RamiView;
+  me: number;
   names: string[];
   canDraw: boolean;
   onDraw: () => void;
@@ -530,7 +626,7 @@ function Piles({
   let text = '';
   if (ev) {
     const who = names[ev.player];
-    const me = ev.player === ME;
+    const me = ev.player === seat;
     const card = ev.cards[0] ? cardLabel(ev.cards[0]) : '';
     if (ev.type === 'draw') text = me ? t('Tu as pioché') : t('{who} pioche', { who });
     else if (ev.type === 'reshuffle') text = t('Pioche vide : la défausse est remélangée');
@@ -564,9 +660,9 @@ function Piles({
         onPress={onDraw}
         style={[styles.pile, canDraw && styles.pileReady]}
       >
-        {game.stock.length > 0 ? (
+        {game.stockCount > 0 ? (
           <View>
-            {game.stock.length > 1 && (
+            {game.stockCount > 1 && (
               <View style={styles.stockUnder}>
                 <PlayingCard card="As" hidden width={cw} />
               </View>
@@ -576,7 +672,7 @@ function Piles({
         ) : (
           <PlayingCard width={cw} />
         )}
-        <Text style={styles.pileLabel}>{t('Pioche · {n}', { n: game.stock.length })}</Text>
+        <Text style={styles.pileLabel}>{t('Pioche · {n}', { n: game.stockCount })}</Text>
       </Pressable>
       <Pressable
         accessibilityRole="button"
@@ -750,10 +846,12 @@ function Hand({
 
 function RoundPanel({
   game,
+  me,
   avatars,
   children,
 }: {
-  game: RamiState;
+  game: RamiView;
+  me: number;
   avatars: Avatar[];
   children: ReactNode;
 }) {
@@ -761,7 +859,7 @@ function RoundPanel({
   const title =
     r.winner === null
       ? t('Manche bloquée')
-      : r.winner === ME
+      : r.winner === me
         ? t('Tu gagnes la manche ! 🎉')
         : t('{name} gagne la manche', { name: game.players[r.winner].name });
   return (
@@ -777,7 +875,7 @@ function RoundPanel({
             <View style={styles.flex}>
               <View style={styles.resultNameLine}>
                 <Text style={styles.resultName} numberOfLines={1}>
-                  {i === ME ? t('Toi') : p.name}
+                  {i === me ? t('Toi') : p.name}
                 </Text>
                 {!game.opened[i] && i !== r.winner && <Text style={styles.resultTag}>{t('pas ouvert')}</Text>}
               </View>
@@ -806,15 +904,17 @@ function RoundPanel({
 
 function FinalPanel({
   game,
+  me,
   avatars,
   children,
 }: {
-  game: RamiState;
+  game: RamiView;
+  me: number;
   avatars: Avatar[];
   children: ReactNode;
 }) {
   const ranking = ramiRanking(game);
-  const won = ranking[0].score === game.scores[ME];
+  const won = me >= 0 && ranking[0].score === game.scores[me];
   const winners = ranking.filter((r) => r.place === 1);
   const title = won
     ? winners.length > 1
@@ -831,7 +931,7 @@ function FinalPanel({
           {tn(game.round, '{n} manche', '{n} manches')} ·{' '}
           {r.winner === null
             ? t('dernière manche bloquée')
-            : r.winner === ME
+            : r.winner === me
               ? t('dernière manche pour toi')
               : t('dernière manche pour {name}', { name: game.players[r.winner].name })}
         </Text>
@@ -840,7 +940,7 @@ function FinalPanel({
             <Text style={styles.podiumPlace}>{MEDALS[row.place - 1] ?? t('{n}e', { n: row.place })}</Text>
             <AvatarBadge avatar={avatars[row.player]} size={24} />
             <Text style={[styles.podiumName, row.place === 1 && styles.podiumNameFirst]} numberOfLines={1}>
-              {row.player === ME ? t('Toi') : row.name}
+              {row.player === me ? t('Toi') : row.name}
             </Text>
             <Text style={styles.podiumScore}>{row.score}</Text>
           </View>
@@ -848,6 +948,105 @@ function FinalPanel({
         {children}
       </View>
     </Appear>
+  );
+}
+
+// ------------------------------------------------------------------ Online
+
+/** Length of the game, chosen when creating an online table. */
+export function RamiOnlineOptions({ value, onChange }: OnlineOptionsProps) {
+  const target = value.target === 150 || value.target === 500 ? value.target : 300;
+  return <TargetPills target={target} onChange={(n) => onChange({ ...value, target: n })} />;
+}
+
+/** The same table, each player on their own phone: only my own hand reaches me. */
+export function RamiOnlineBoard({
+  view: game,
+  mySeat,
+  seats,
+  actors,
+  deadline,
+  now,
+  busy,
+  error,
+  onMove,
+  onLeave,
+}: OnlineBoardProps<RamiView>) {
+  const names = seats.map((s) => s.name);
+  const avatars = seats.map((s) => s.avatar);
+  const me = mySeat;
+  const active = game.phase === 'draw' || game.phase === 'play';
+  const myTurn = active && me >= 0 && game.current === me && actors.includes(seats[me].id);
+  const actor = active ? seats[game.current] : undefined;
+  const [hint, setHint] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!hint) return;
+    const id = setTimeout(() => setHint(null), 3200);
+    return () => clearTimeout(id);
+  }, [hint]);
+  // A new refusal from the server replaces the hint shown here.
+  useEffect(() => setHint(null), [error]);
+
+  const last = useRef(game);
+  useEffect(() => {
+    const before = last.current;
+    last.current = game;
+    if (me < 0 || before === game) return;
+    if (game.phase === 'gameOver' && before.phase !== 'gameOver') {
+      if (ramiRanking(game)[0].score === game.scores[me]) sounds.win();
+    } else if (game.phase === 'roundOver' && before.phase !== 'roundOver' && game.result?.winner === me)
+      sounds.win();
+  }, [game]);
+
+  const nextIn = deadline ? Math.max(0, Math.ceil((deadline - now) / 1000)) : null;
+  const nextHint = (
+    <Text style={styles.summaryNote}>
+      {nextIn
+        ? t('La suite commence toute seule dans {n} s.', { n: nextIn })
+        : t('La suite commence toute seule.')}
+    </Text>
+  );
+
+  return (
+    <RamiTable
+      game={game}
+      me={me}
+      names={names}
+      avatars={avatars}
+      myTurn={myTurn}
+      busy={busy}
+      error={hint ?? (error ? t(error) : null)}
+      onError={setHint}
+      onMove={onMove}
+      onBack={onLeave}
+      timer={
+        deadline &&
+        actor &&
+        !actor.bot && (
+          <TurnTimer deadline={deadline} now={now} name={myTurn ? t('Toi') : actor.name} seconds={60} />
+        )
+      }
+      overlay={
+        game.phase === 'gameOver' ? (
+          <FinalPanel game={game} me={me} avatars={avatars}>
+            <Button compact label={t('Quitter la table')} onPress={onLeave} />
+          </FinalPanel>
+        ) : game.phase === 'roundOver' ? (
+          <RoundPanel game={game} me={me} avatars={avatars}>
+            {me >= 0 && (
+              <Button
+                compact
+                label={t('Manche suivante')}
+                disabled={busy}
+                onPress={() => onMove({ type: 'next' })}
+              />
+            )}
+            {nextHint}
+          </RoundPanel>
+        ) : null
+      }
+    />
   );
 }
 
