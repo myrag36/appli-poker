@@ -20,3 +20,4 @@ export * from './seasons.ts';
 export * from './rami.ts';
 export * from './uno.ts';
 export * from './tarot.ts';
+export * from './classement.ts';

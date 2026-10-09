@@ -92,6 +92,7 @@ type ProfileRequest =
   | { type: 'addFriend'; code: string }
   | { type: 'removeFriend'; userId: string }
   | { type: 'podium' }
+  | { type: 'classement' }
   | { type: 'challenge' }
   | { type: 'pushKey' }
   | { type: 'pushSubscribe'; subscription: unknown; lang: string }

@@ -13,6 +13,7 @@ import {
   cleanTournamentGames,
   cleanTournamentName,
   tournamentResults,
+  onlineResults,
   newGameBot,
   playGameMove,
   playGameTimeout,
@@ -78,7 +79,10 @@ test('starting gives each person their own view and the first turn to the first 
 
 test('only the host starts, and only once', () => {
   assert.throws(() => startGame(room(), [player('a', 0)], 'b', newId, rng, NOW), /créateur/);
-  assert.throws(() => startGame(room({ status: 'playing' }), [player('a', 0)], 'a', newId, rng, NOW), /commencé/);
+  assert.throws(
+    () => startGame(room({ status: 'playing' }), [player('a', 0)], 'a', newId, rng, NOW),
+    /commencé/,
+  );
 });
 
 test('a player can only move on their turn, and the move is applied', () => {
@@ -105,14 +109,7 @@ test('robots play once their short pause is over, and a slow player is played fo
 });
 
 test('robots fill the table when a game needs more players', () => {
-  const { bots, snapshot } = startGame(
-    room({ game: 'yams' }),
-    [player('a', 0)],
-    'a',
-    newId,
-    rng,
-    NOW,
-  );
+  const { bots, snapshot } = startGame(room({ game: 'yams' }), [player('a', 0)], 'a', newId, rng, NOW);
   assert.equal(bots.length, 0);
   assert.equal(snapshot.public.seats.length, 1);
 });
@@ -209,8 +206,6 @@ test('tarot: robots complete the table, the chien stays hidden, and the game rea
   }
   assert.ok(s.public.over);
 });
-
-
 
 test('uno and 8 américain: a robot fills the table to two, hidden hands stay hidden, games end', () => {
   let seed = 11;
@@ -406,4 +401,33 @@ test('revanche: once the game is over, a new table with the asker, the robots an
   assert.equal(gameRematchJoin(next, [...there, player('x', 0)], seated, 'a')!.seat, 3);
   assert.throws(() => gameRematchJoin(next, there, seated, 'z'), /pas à cette table/);
   assert.throws(() => gameRematchJoin({ ...next, status: 'playing' }, there, seated, 'a'), /commencé/);
+});
+
+test('weekly ranking: one row per person once a table ends, winners first', () => {
+  const { snapshot } = startGame(
+    room(),
+    [player('a', 0), player('b', 1), player('r', 2, true)],
+    'a',
+    newId,
+    rng,
+    NOW,
+  );
+  let s = snapshot;
+  let rows = onlineResults('room', s.secret, s);
+  assert.deepEqual(rows, []);
+  for (let i = 0; i < 4000 && !s.public.over; i++) {
+    const next = playGameTimeout(s.secret, rng, s.secret.deadline!);
+    rows = onlineResults('room', s.secret, next);
+    if (!next.public.over) assert.deepEqual(rows, []);
+    s = next;
+  }
+  assert.ok(s.public.over);
+  assert.deepEqual(rows.map((r) => r.user_id).sort(), ['a', 'b']);
+  for (const r of rows) {
+    assert.equal(r.room_id, 'room');
+    assert.equal(r.game, 'yams');
+    assert.equal(r.players, 3);
+    assert.equal(r.placement === 1, r.won);
+    assert.ok(r.placement >= 1 && r.placement <= 3);
+  }
 });

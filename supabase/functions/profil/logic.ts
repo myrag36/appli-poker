@@ -33,13 +33,28 @@ import {
   type Challenge,
   challengeFor,
   challengeProgress,
+  type LeaderboardLine,
+  type LeaderboardPlayer,
+  type OnlineResult,
+  leaderboardGames,
+  leaderboardPodium,
+  previousWeek,
+  rankLeaderboard,
+  tallyResults,
+  weekEndsAt,
 } from '../_shared/engine/index.ts';
 import { GameError } from '../poker/logic.ts';
 
 const SLOTS: (keyof Equipped)[] = ['frame', 'title', 'cardBack', 'banner'];
 
 /** Puts on a reward the player has unlocked or bought, keeping the rest of what they wear. */
-export function equip(xp: number, current: unknown, slot: unknown, id: unknown, owned: unknown = []): Equipped {
+export function equip(
+  xp: number,
+  current: unknown,
+  slot: unknown,
+  id: unknown,
+  owned: unknown = [],
+): Equipped {
   if (!SLOTS.includes(slot as keyof Equipped)) throw new GameError('Emplacement inconnu');
   const level = levelFromXp(xp);
   const kind = slot as keyof Equipped;
@@ -99,7 +114,9 @@ export function chestContents(
 ): { coins: number; item: string | null } {
   const roll = rollChest(kind === 'grand' ? 'grand' : ('normal' as ChestKind), rnd);
   const mine = cleanOwned(owned);
-  const missing = SHOP_ITEMS.filter((x) => forSale(x, month)).map((x) => ownedKey(x.kind as RewardKind, x.id)).filter((k) => !mine.includes(k));
+  const missing = SHOP_ITEMS.filter((x) => forSale(x, month))
+    .map((x) => ownedKey(x.kind as RewardKind, x.id))
+    .filter((k) => !mine.includes(k));
   const item = roll.item && missing.length > 0 ? missing[Math.floor(rnd() * missing.length)] : null;
   return { coins: roll.coins, item };
 }
@@ -146,3 +163,57 @@ export function cleanFriendCode(raw: unknown): string {
 }
 
 export { podiumChest };
+
+/** A person in my weekly ranking, as read from the profiles and progress tables. */
+export interface LeaderboardPerson {
+  user_id: string;
+  name?: string | null;
+  avatar?: string | null;
+  avatar_color?: string | null;
+  xp?: number | null;
+  equipped?: unknown;
+  owned?: unknown;
+}
+
+/**
+ * This week's ranking between me and my friends (online games only), and last week's
+ * podium. `players` lets the phone rank again for one game without asking the server.
+ */
+export function weeklyLeaderboard(
+  meId: string,
+  people: LeaderboardPerson[],
+  results: OnlineResult[],
+  monday: string,
+  now: number,
+) {
+  const tallies = tallyResults(results, monday);
+  const players: LeaderboardPlayer[] = people.map((p) => ({
+    user_id: p.user_id,
+    name: p.name || 'Joueur',
+    avatar: p.avatar ?? null,
+    avatar_color: p.avatar_color ?? null,
+    xp: p.xp ?? 0,
+    equipped: p.equipped ?? {},
+    owned: p.owned ?? [],
+    me: p.user_id === meId,
+    week: tallies.get(p.user_id)?.week ?? {},
+    lastWeek: tallies.get(p.user_id)?.lastWeek ?? {},
+  }));
+  const short = (l: LeaderboardLine) => ({
+    user_id: l.player.user_id,
+    place: l.place,
+    played: l.played,
+    won: l.won,
+    points: l.points,
+    best: l.best,
+  });
+  return {
+    week: monday,
+    lastWeek: previousWeek(monday),
+    endsAt: weekEndsAt(now),
+    games: leaderboardGames(),
+    players,
+    ranking: rankLeaderboard(players, 'week').map(short),
+    podium: leaderboardPodium(players).map(short),
+  };
+}

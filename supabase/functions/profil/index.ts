@@ -8,6 +8,8 @@ import {
   cleanAvatar,
   defaultAvatar,
   parisDay,
+  previousWeek,
+  weekStart,
 } from '../_shared/engine/index.ts';
 import { GameError, cleanName, makeRoomCode } from '../poker/logic.ts';
 import { levelChests, unlockedEmojis } from '../_shared/xp.ts';
@@ -24,6 +26,7 @@ import {
   localGame,
   reachedAchievement,
   shopItem,
+  weeklyLeaderboard,
 } from './logic.ts';
 
 const cors = {
@@ -49,7 +52,19 @@ async function loadProgress(userId: string) {
     .eq('user_id', userId)
     .maybeSingle();
   if (error) throw error;
-  return data ?? { xp: 0, equipped: {}, owned: [], stats_day: null, day_stats: {}, games: {}, best_streak: 0, quests_done: 0, feats: [] };
+  return (
+    data ?? {
+      xp: 0,
+      equipped: {},
+      owned: [],
+      stats_day: null,
+      day_stats: {},
+      games: {},
+      best_streak: 0,
+      quests_done: 0,
+      feats: [],
+    }
+  );
 }
 
 async function wear(userId: string, body: Record<string, unknown>) {
@@ -111,7 +126,11 @@ async function claimChallenge(userId: string) {
 }
 
 async function openChest(userId: string, body: Record<string, unknown>) {
-  const { data, error } = await admin.from('player_progress').select('chests, owned').eq('user_id', userId).maybeSingle();
+  const { data, error } = await admin
+    .from('player_progress')
+    .select('chests, owned')
+    .eq('user_id', userId)
+    .maybeSingle();
   if (error) throw error;
   const chest = ((data?.chests ?? []) as { id: string; kind: string }[]).find((c) => c.id === body.chest);
   if (!chest) throw new GameError('Coffre déjà ouvert');
@@ -143,8 +162,14 @@ async function me(userId: string, body: Record<string, unknown>) {
     });
     if (error) throw error;
   }
-  await admin.from('player_progress').upsert({ user_id: userId }, { onConflict: 'user_id', ignoreDuplicates: true });
-  const { data, error } = await admin.from('player_progress').select('friend_code').eq('user_id', userId).single();
+  await admin
+    .from('player_progress')
+    .upsert({ user_id: userId }, { onConflict: 'user_id', ignoreDuplicates: true });
+  const { data, error } = await admin
+    .from('player_progress')
+    .select('friend_code')
+    .eq('user_id', userId)
+    .single();
   if (error) throw error;
   if (data.friend_code) return { code: data.friend_code };
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -156,7 +181,11 @@ async function me(userId: string, body: Record<string, unknown>) {
       .is('friend_code', null);
     if (taken?.code === '23505') continue;
     if (taken) throw taken;
-    const { data: again } = await admin.from('player_progress').select('friend_code').eq('user_id', userId).single();
+    const { data: again } = await admin
+      .from('player_progress')
+      .select('friend_code')
+      .eq('user_id', userId)
+      .single();
     return { code: again?.friend_code ?? code };
   }
   throw new GameError('Impossible de créer ton code ami, réessaie');
@@ -197,6 +226,30 @@ async function podium(userId: string) {
   const kind = podiumChest(userId, data ?? []);
   if (!kind) throw new GameError('Pas de podium pour toi la semaine dernière');
   return await rpc('claim_podium', { p_user: userId, p_kind: kind });
+}
+
+/** This week's ranking of online games between me and my friends, and last week's podium. */
+async function classement(userId: string) {
+  const { data: friends, error } = await admin.from('friendships').select('friend_id').eq('user_id', userId);
+  if (error) throw error;
+  const ids = [userId, ...(friends ?? []).map((f) => f.friend_id as string)];
+  const monday = weekStart(parisDay());
+  const [profiles, progress, results] = await Promise.all([
+    admin.from('profiles').select('user_id, name, avatar, avatar_color').in('user_id', ids),
+    admin.from('player_progress').select('user_id, xp, equipped, owned').in('user_id', ids),
+    admin
+      .from('online_results')
+      .select('user_id, game, won, week')
+      .in('user_id', ids)
+      .in('week', [monday, previousWeek(monday)]),
+  ]);
+  for (const r of [profiles, progress, results]) if (r.error) throw r.error;
+  const people = ids.map((id) => ({
+    ...(progress.data ?? []).find((p) => p.user_id === id),
+    ...(profiles.data ?? []).find((p) => p.user_id === id),
+    user_id: id,
+  }));
+  return weeklyLeaderboard(userId, people, results.data ?? [], monday, Date.now());
 }
 
 /** The public half of the server's notification keys, for the browser to subscribe. */
@@ -268,7 +321,9 @@ async function invite(userId: string, body: Record<string, unknown>) {
   const friendId = String(body.friendId ?? '');
   if (!/^[0-9a-f-]{36}$/i.test(friendId)) throw new GameError('Joueur inconnu');
   const game = String(body.game ?? '');
-  const code = String(body.code ?? '').trim().toUpperCase();
+  const code = String(body.code ?? '')
+    .trim()
+    .toUpperCase();
   if (!/^[a-z0-9]{1,20}$/.test(game) || !/^[A-Z0-9]{4,8}$/.test(code)) {
     throw new GameError('Aucune table avec ce code');
   }
@@ -352,6 +407,8 @@ Deno.serve(async (req) => {
         return json(await removeFriend(user.id, body));
       case 'podium':
         return json(await podium(user.id));
+      case 'classement':
+        return json(await classement(user.id));
       case 'pushKey':
         return json(await pushKey());
       case 'pushSubscribe':

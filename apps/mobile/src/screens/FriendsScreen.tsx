@@ -24,6 +24,7 @@ import {
 import { AvatarBadge } from '../components/AvatarPicker';
 import { TitleBadge } from '../components/TitleBadge';
 import { TopBar } from '../components/TopBar';
+import { ClassementPanel } from './ClassementPanel';
 import {
   type FriendRow,
   addFriend,
@@ -54,8 +55,11 @@ function daysToMonday(): number {
 export function FriendsScreen({
   onBack,
   onJoin,
+  initialTab = 'amis',
 }: {
   onBack: () => void;
+  /** Opens straight on the weekly ranking of online games. */
+  initialTab?: 'amis' | 'classement';
   /** Goes to a friend's table from an invitation. */
   onJoin?: (game: string, code: string) => void;
 }) {
@@ -72,6 +76,7 @@ export function FriendsScreen({
   const [error, setError] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
   const [invites, setInvites] = useState<TableInvite[]>([]);
+  const [tab, setTab] = useState<'amis' | 'classement'>(initialTab);
 
   async function reload() {
     try {
@@ -315,7 +320,24 @@ export function FriendsScreen({
       <TopBar onBack={onBack} backLabel={t('← Jeux')}>
         <Text style={styles.topTitle}>{t('Amis')}</Text>
       </TopBar>
-      {desktop ? (
+      <View style={[styles.tabs, desktop && styles.tabsDesktop]} accessibilityRole="tablist">
+        {(['amis', 'classement'] as const).map((id) => (
+          <Pressable
+            key={id}
+            accessibilityRole="tab"
+            accessibilityState={{ selected: tab === id }}
+            onPress={() => setTab(id)}
+            style={[styles.tab, tab === id && styles.tabOn]}
+          >
+            <Text style={[styles.tabText, tab === id && styles.tabTextOn]}>
+              {id === 'amis' ? t('👥 Mes amis') : t('🏆 Classement')}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+      {tab === 'classement' ? (
+        <ClassementPanel desktop={desktop} />
+      ) : desktop ? (
         <View style={styles.columns}>
           <View style={{ width: DESK_LEFT }}>{mine}</View>
           <View style={styles.right}>{ranking}</View>
@@ -377,6 +399,21 @@ const styles = StyleSheet.create({
   right: { flex: 1, minWidth: 0 },
   sectionRowDesktop: { marginTop: 4 },
   topTitle: { color: colors.text, fontSize: 17, fontWeight: '800' },
+  tabs: {
+    flexDirection: 'row',
+    marginTop: 8,
+    padding: 4,
+    gap: 4,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+  },
+  tabsDesktop: { alignSelf: 'flex-start', minWidth: 400 },
+  tab: { flex: 1, paddingVertical: 9, paddingHorizontal: 14, borderRadius: 10, alignItems: 'center' },
+  tabOn: { backgroundColor: colors.gold },
+  tabText: { color: colors.muted, fontSize: 14, fontWeight: '800' },
+  tabTextOn: { color: colors.onGold, fontWeight: '900' },
   codeCard: {
     marginTop: 8,
     padding: 18,

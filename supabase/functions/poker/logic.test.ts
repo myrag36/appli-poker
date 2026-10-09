@@ -17,6 +17,7 @@ import {
   playTimeout,
   pokerRematch,
   pokerRematchJoin,
+  pokerResults,
   rematchSeat,
 } from './logic.ts';
 
@@ -181,6 +182,18 @@ test('main finie : historique, résultats, et fin de partie quand un seul joueur
       players: 3,
       tournament: false,
     });
+});
+
+test('classement de la semaine : le gagnant premier, les autres deuxièmes, sans les robots', () => {
+  const seated = [
+    { user_id: 'a', name: 'Simon', seat: 0, stack: 0 },
+    { user_id: 'b', name: 'Léa', seat: 1, stack: 2000 },
+    { user_id: 'r', name: 'Robby', seat: 2, stack: 0, is_bot: true },
+  ];
+  assert.deepEqual(pokerResults('room', seated, 'b'), [
+    { room_id: 'room', user_id: 'a', game: 'poker', placement: 2, won: false, players: 3 },
+    { room_id: 'room', user_id: 'b', game: 'poker', placement: 1, won: true, players: 3 },
+  ]);
 });
 
 test('le numéro de la main distribuée est celui enregistré', () => {
