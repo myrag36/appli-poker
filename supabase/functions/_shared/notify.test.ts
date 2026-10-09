@@ -183,3 +183,43 @@ test('at an online table, a turn notice goes to the next person once the previou
   assert.deepEqual(t.public.actors, ['r']);
   assert.deepEqual(humanActors(t.secret), []);
 });
+
+test('uno: forgetting to announce does not tell the others it is their turn, and the next one is told', () => {
+  const room = {
+    id: 'room',
+    code: 'ABCDEF',
+    game: 'uno' as const,
+    host_id: 'a',
+    options: { target: 0 },
+    status: 'lobby' as const,
+    version: 0,
+  };
+  const seat = (user_id: string, s: number) => ({
+    user_id,
+    name: user_id.toUpperCase(),
+    seat: s,
+    is_bot: false,
+  });
+  const rng = (n: number) => 0 % n;
+  const { snapshot } = startGame(room, [seat('a', 0), seat('b', 1), seat('c', 2)], 'a', () => 'x', rng, 1000);
+  // A plays their second to last card without announcing it: B must play, C may only catch A.
+  const state = snapshot.secret.state as { game: { players: { hand: string[] }[] } };
+  const game = state.game;
+  const hand = ['r5a', 'g7a'];
+  const players = game.players.map((p, i) => (i === 0 ? { ...p, hand } : p));
+  const before = {
+    ...snapshot.secret,
+    state: {
+      ...state,
+      game: { ...game, players, discard: ['r3a'], color: 'r', current: 0, direction: 1, pendingDraw: 0 },
+    },
+  };
+  const played = playGameMove(before, 'a', { type: 'play', card: 'r5a' }, rng, 1000);
+  assert.deepEqual(played.public.actors, ['b', 'a', 'c']);
+  assert.deepEqual(humanActors(played.secret), ['b']);
+  assert.deepEqual(newTurns(humanActors(before), humanActors(played.secret)), ['b']);
+  // B lets their time run out: C's turn comes, and C is told.
+  const after = playGameTimeout(played.secret, rng, played.secret.deadline!);
+  assert.deepEqual(after.public.actors, ['c']);
+  assert.deepEqual(newTurns(humanActors(played.secret), humanActors(after.secret)), ['c']);
+});

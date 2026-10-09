@@ -44,6 +44,11 @@ export interface OnlineGame<S = any> {
   start(seats: OnlineSeat[], options: Record<string, unknown>, rng: Rng): S;
   /** Seats that may move now; empty between rounds or at the end. */
   actors(state: S): number[];
+  /**
+   * Seats whose turn it really is, told on their phone; `actors` when missing. Uno lets everyone
+   * catch a forgotten announcement, but only the current player is waited for.
+   */
+  toPlay?(state: S): number[];
   /** Plays a move for a seat; throws an Error with a French message when it is not allowed. */
   apply(state: S, seat: number, move: unknown, rng: Rng): S;
   /** A sensible move for a seat: used for robots and for players who let their time run out. */

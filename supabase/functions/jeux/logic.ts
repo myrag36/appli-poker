@@ -222,8 +222,7 @@ export function snapshot(secret: GameSecret, now: number): GameSnapshot {
 export function humanActors(secret: GameSecret): string[] {
   const def = gameDef(secret.game);
   if (def.over(secret.state) || def.betweenRounds(secret.state)) return [];
-  return def
-    .actors(secret.state)
+  return (def.toPlay ?? def.actors)(secret.state)
     .filter((s) => !secret.seats[s].bot)
     .map((s) => secret.seats[s].id);
 }
