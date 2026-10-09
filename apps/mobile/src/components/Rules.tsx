@@ -2,6 +2,7 @@ import { type ReactNode, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { type DecorId, GameDecor } from './GameDecor';
+import { StillCards } from './Motion';
 import { colors, gradients, shadow } from '../theme';
 import { t } from '../i18n';
 
@@ -123,7 +124,9 @@ export function RulesSheet({
 export function RuleExample({ label, children }: { label?: string; children: ReactNode }) {
   return (
     <View style={styles.example}>
-      <View style={styles.exampleItems}>{children}</View>
+      <View style={styles.exampleItems}>
+        <StillCards>{children}</StillCards>
+      </View>
       {label && <Text style={styles.exampleLabel}>{label}</Text>}
     </View>
   );

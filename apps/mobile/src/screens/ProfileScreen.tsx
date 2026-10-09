@@ -40,6 +40,7 @@ import { Tutorial } from '../components/Tutorial';
 import { equipReward, syncMe, useMyProgress } from '../online/progress';
 import { loadAvatar, loadName, saveAvatar, saveName } from '../online/supabase';
 import { colors, gradients } from '../theme';
+import { SoundSettings } from '../components/SoundSettings';
 import { LANGS, lang, setLang, t, tn } from '../i18n';
 import { useDesktop } from '../layout';
 
@@ -305,6 +306,8 @@ export function ProfileScreen({ onBack, onShop }: { onBack: () => void; onShop: 
         <>
           <Text style={styles.section}>{t('Notifications')}</Text>
           <NotificationSettings />
+          <Text style={styles.section}>{t('Sons et vibrations')}</Text>
+          <SoundSettings />
           <Text style={styles.section}>{t('Langue')}</Text>
           <View style={styles.langs}>
             {LANGS.map((l) => (

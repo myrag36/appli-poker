@@ -215,6 +215,7 @@ function TarotGame({
     if (next.phase === 'gameOver' && game.phase !== 'gameOver') {
       const won = next.winners!.includes(ME);
       if (won) sounds.win();
+      else sounds.lose();
       reportLocalGame('tarot', won);
     }
     setGame(next);
@@ -1058,7 +1059,10 @@ export function TarotOnlineBoard({
     if (played) sounds.card();
     if (played && game.trick.length === 0 && game.lastTrick) setHolding(true);
     if (game.phase !== 'ecart') setSelected([]);
-    if (game.phase === 'gameOver' && before.phase !== 'gameOver' && game.winners?.includes(me)) sounds.win();
+    if (game.phase === 'gameOver' && before.phase !== 'gameOver') {
+      if (game.winners?.includes(me)) sounds.win();
+      else if (me >= 0) sounds.lose();
+    }
     if (myTurn && !(before.toAct === me && before.phase === game.phase)) sounds.myTurn();
   }, [game]);
 
