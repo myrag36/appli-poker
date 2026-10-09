@@ -1030,7 +1030,7 @@ function Match({
     const won = game.winner === 0;
     reportLocalGame('bataille', won);
     if (won) reportFeat('bataille');
-    const sound = setTimeout(() => (won ? sounds.win() : sounds.fold()), 500);
+    const sound = setTimeout(() => (won ? sounds.win() : sounds.lose()), 500);
     const id = setTimeout(() => setOver(true), END_DELAY);
     return () => {
       clearTimeout(sound);
