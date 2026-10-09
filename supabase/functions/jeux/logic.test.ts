@@ -249,6 +249,46 @@ test('uno and 8 américain: a robot fills the table to two, hidden hands stay hi
   }
 });
 
+test('perudo: a robot joins a player alone, the others’ dice stay under their cups, the game ends', () => {
+  let seed = 23;
+  const random = (n: number) => {
+    seed = (seed * 1103515245 + 12345) % 2147483648;
+    return seed % n;
+  };
+  assert.deepEqual(cleanOptions('perudo', undefined), { calza: true });
+  assert.deepEqual(cleanOptions('perudo', { calza: false }), { calza: false });
+  assert.throws(() => cleanOptions('perudo', { calza: 'oui' }), GameError);
+  const { bots, snapshot } = startGame(
+    room({ game: 'perudo', options: cleanOptions('perudo', {}) }),
+    [player('a', 0)],
+    'a',
+    newId,
+    random,
+    NOW,
+  );
+  assert.equal(bots.length, 1);
+  assert.equal(snapshot.public.seats.length, 2);
+  type View = { phase: string; players: { dice: number[]; count: number }[] };
+  let s = snapshot;
+  let reveals = 0;
+  for (let i = 0; i < 3000 && !s.public.over; i++) {
+    const secret = s.secret.state as View;
+    const mine = s.privates.a as View;
+    const pub = s.public.view as View;
+    assert.deepEqual(mine.players[0].dice, secret.players[0].dice);
+    if (secret.phase === 'bidding') {
+      assert.ok(mine.players[1].dice.every((d) => d === 0));
+      assert.ok(pub.players.every((p) => p.dice.every((d) => d === 0)));
+    } else {
+      reveals++;
+      assert.deepEqual(pub.players, secret.players);
+    }
+    s = playGameTimeout(s.secret, random, s.secret.deadline!);
+  }
+  assert.ok(s.public.over);
+  assert.ok(reveals > 0);
+});
+
 test('rami: a robot joins a player alone, hands and stock stay secret, a slow player is played for', () => {
   assert.deepEqual(cleanOptions('rami', undefined), { target: 300 });
   assert.throws(() => cleanOptions('rami', { target: 1000 }), GameError);

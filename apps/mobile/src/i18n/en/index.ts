@@ -18,6 +18,7 @@ import notifications from './notifications';
 import pcAccueil from './pcAccueil';
 import pcAutres from './pcAutres';
 import plisPc from './plisPc';
+import perudo from './perudo';
 
 export const EN: Record<string, string> = {
   ...accueil,
@@ -39,4 +40,5 @@ export const EN: Record<string, string> = {
   ...pcAccueil,
   ...pcAutres,
   ...plisPc,
+  ...perudo,
 };

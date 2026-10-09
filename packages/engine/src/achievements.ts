@@ -103,6 +103,9 @@ const DEFS: Def[] = [
   def('president-10', '👑', 'Chef d’État', 'Gagne 10 parties de Président', 10, 100, (s) =>
     wonIn(s, 'president'),
   ),
+  def('perudo-10', '🗣️', 'Menteur de génie', 'Gagne 10 parties de Perudo', 10, 100, (s) =>
+    wonIn(s, 'perudo'),
+  ),
   def('level-10', '⭐', 'Niveau 10', 'Atteins le niveau 10', 10, 100, (s) => levelFromXp(s.xp)),
   def('level-25', '🌟', 'Niveau 25', 'Atteins le niveau 25', 25, 250, (s) => levelFromXp(s.xp)),
   def('level-50', '💫', 'Niveau 50', 'Atteins le niveau maximum', 50, 600, (s) => levelFromXp(s.xp)),

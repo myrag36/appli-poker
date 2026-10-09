@@ -6,6 +6,7 @@ import { Puissance4OnlineBoard, Puissance4OnlineOptions } from '../screens/Puiss
 import { RamiOnlineBoard, RamiOnlineOptions } from '../screens/RamiScreen';
 import { YamsOnlineBoard } from '../screens/YamsScreen';
 import { TarotOnlineBoard, TarotOnlineOptions } from '../screens/TarotScreen';
+import { PerudoOnlineBoard, PerudoOnlineOptions } from '../screens/PerudoScreen';
 import { HuitOnlineBoard, HuitOnlineOptions, UnoOnlineBoard, UnoOnlineOptions } from '../screens/UnoScreen';
 import { t } from '../i18n';
 import type { OnlineGameUi } from './types';
@@ -82,5 +83,13 @@ export const ONLINE_UI: Record<OnlineGameId, OnlineGameUi> = {
     Board: HuitOnlineBoard,
     Options: HuitOnlineOptions,
     defaultOptions: { target: 100 },
+  },
+  perudo: {
+    title: 'Perudo',
+    emoji: '🎲',
+    players: t('2 à 6 joueurs, un robot complète si tu es seul'),
+    Board: PerudoOnlineBoard,
+    Options: PerudoOnlineOptions,
+    defaultOptions: { calza: true },
   },
 };
