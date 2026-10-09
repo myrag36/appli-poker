@@ -10,6 +10,7 @@ export type DecorId =
   | 'yams'
   | 'belote'
   | 'puissance4'
+  | 'bataille'
   | 'rami'
   | 'uno'
   | 'huit'
@@ -457,6 +458,31 @@ function Puissance4({ w, h }: Size) {
   );
 }
 
+function Bataille({ w, h }: Size) {
+  // Open sea under a night sky: waves, a lighthouse beam and a few distant ships.
+  return (
+    <>
+      <LinearGradient colors={['#0b2a4f', '#0f4c81', '#062440']} style={StyleSheet.absoluteFill} />
+      <Pattern w={w} h={h} step={34} symbols={['〰', '∿']} color="rgba(190,230,255,0.08)" size={16} />
+      <Glow x={w * 0.8} y={h * 0.1} size={w * 0.3} color="rgba(255,240,200,0.12)" />
+      {['⛴', '🚢', '⚓'].map((s, i) => (
+        <Text
+          key={s}
+          style={{
+            position: 'absolute',
+            left: w * (0.08 + i * 0.36),
+            top: h * (0.04 + (i % 2) * 0.05),
+            fontSize: 22,
+            opacity: 0.35,
+          }}
+        >
+          {s}
+        </Text>
+      ))}
+    </>
+  );
+}
+
 /** A tiny face-up card for the decors: rank and suit only. */
 function MiniCard({
   x,
@@ -656,6 +682,7 @@ const DECORS: Record<DecorId, (size: Size) => ReactNode> = {
   yams: Yams,
   belote: Belote,
   puissance4: Puissance4,
+  bataille: Bataille,
   rami: Rami,
   uno: Uno,
   huit: Huit,

@@ -25,7 +25,7 @@ export function challengeStreakBonus(days: number): number {
 }
 
 // Kept fixed so that adding a game never changes the challenge of a day already started.
-const CHALLENGE_GAMES: ProgressGame[] = [
+export const CHALLENGE_GAMES: ProgressGame[] = [
   'poker',
   'blackjack',
   'president',
@@ -45,6 +45,7 @@ const NAMES: Record<ProgressGame, { label: string; emoji: string }> = {
   yams: { label: 'de Yams', emoji: '🎲' },
   belote: { label: 'de belote', emoji: '♥️' },
   puissance4: { label: 'de Puissance 4', emoji: '🔴' },
+  bataille: { label: 'de bataille navale', emoji: '🚢' },
   rami: { label: 'de rami', emoji: '🎴' },
   uno: { label: 'de Uno', emoji: '🌈' },
   huit: { label: 'de 8 américain', emoji: '🎱' },

@@ -3,6 +3,7 @@ import { BeloteOnlineBoard, BeloteOnlineOptions } from '../screens/BeloteScreen'
 import { BlackjackOnlineBoard, BlackjackOnlineOptions } from '../screens/BlackjackScreen';
 import { PresidentOnlineBoard, PresidentOnlineOptions } from '../screens/PresidentScreen';
 import { Puissance4OnlineBoard, Puissance4OnlineOptions } from '../screens/Puissance4Screen';
+import { BatailleOnlineBoard } from '../screens/BatailleScreen';
 import { RamiOnlineBoard, RamiOnlineOptions } from '../screens/RamiScreen';
 import { YamsOnlineBoard } from '../screens/YamsScreen';
 import { TarotOnlineBoard, TarotOnlineOptions } from '../screens/TarotScreen';
@@ -50,6 +51,13 @@ export const ONLINE_UI: Record<OnlineGameId, OnlineGameUi> = {
     Board: Puissance4OnlineBoard,
     Options: Puissance4OnlineOptions,
     defaultOptions: { rounds: 3 },
+  },
+  bataille: {
+    title: t('Bataille navale'),
+    emoji: '⚓',
+    players: t('2 joueurs, un robot prend la place libre'),
+    Board: BatailleOnlineBoard,
+    defaultOptions: {},
   },
   rami: {
     title: 'Rami',

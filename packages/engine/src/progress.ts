@@ -11,6 +11,7 @@ export type ProgressGame =
   | 'yams'
   | 'belote'
   | 'puissance4'
+  | 'bataille'
   | 'rami'
   | 'uno'
   | 'huit'
@@ -22,6 +23,7 @@ export const PROGRESS_GAMES: ProgressGame[] = [
   'yams',
   'belote',
   'puissance4',
+  'bataille',
   'rami',
   'uno',
   'huit',
