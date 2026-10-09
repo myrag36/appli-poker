@@ -148,6 +148,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave, onSwitch }: Props) {
       await refresh();
     } catch (e) {
       setError(tMessage((e as Error).message));
+      sounds.invalid();
       await refresh();
     } finally {
       setBusy(false);

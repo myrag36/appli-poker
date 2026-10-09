@@ -35,7 +35,7 @@ function ThemePreview({ id, width, height }: { id: ThemeId; width: number; heigh
           {width >= 80 && (
             <View style={styles.previewCards}>
               {['Ah', 'Ks', 'Qd'].map((c) => (
-                <PlayingCard key={c} card={c} width={Math.round(width * 0.11)} />
+                <PlayingCard key={c} card={c} width={Math.round(width * 0.11)} still />
               ))}
             </View>
           )}

@@ -246,10 +246,11 @@ function YamsGame({
     try {
       setGame((g) => yamsApply(g, move, deviceRng));
       setError(null);
-      if (move.type === 'roll') sounds.card();
+      if (move.type === 'roll') sounds.dice();
       if (move.type === 'score') sounds.chips();
     } catch (e) {
       setError((e as Error).message);
+      sounds.invalid();
     }
   }
 
@@ -260,7 +261,7 @@ function YamsGame({
     const id = setTimeout(
       () => {
         setGame((g) => (g === game ? yamsApply(g, move, deviceRng) : g));
-        if (move.type === 'roll') sounds.card();
+        if (move.type === 'roll') sounds.dice();
         if (move.type === 'score') sounds.chips();
       },
       move.type === 'toggle' ? BOT_DELAY / 2 : move.type === 'score' ? BOT_DELAY * 1.4 : BOT_DELAY,
@@ -272,7 +273,10 @@ function YamsGame({
   const lastTurn = useRef(-1);
   useEffect(() => {
     if (game.finished) {
-      sounds.win();
+      // Against robots only, losing to them sounds like it.
+      const top = yamsRanking(game).filter((r) => r.place === 1);
+      if (humans > 1 || top.some((w) => !game.players[Number(w.id.slice(1))].bot)) sounds.win();
+      else sounds.lose();
       return;
     }
     if (lastTurn.current !== game.current && !player.bot && humans > 1) sounds.myTurn();
@@ -406,8 +410,11 @@ export function YamsOnlineBoard({
   useEffect(() => {
     const before = last.current;
     last.current = game;
-    if (game.finished && !before.finished) sounds.win();
-    else if (game.rollCount > before.rollCount && game.current === before.current) sounds.card();
+    if (game.finished && !before.finished) {
+      const top = yamsRanking(game).filter((r) => r.place === 1);
+      if (mySeat < 0 || top.some((w) => w.id === game.players[mySeat]?.id)) sounds.win();
+      else sounds.lose();
+    } else if (game.rollCount > before.rollCount && game.current === before.current) sounds.dice();
     if (
       game.players.some((p, i) => Object.keys(p.scores).length > Object.keys(before.players[i].scores).length)
     )

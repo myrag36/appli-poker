@@ -1,6 +1,7 @@
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Animated, Platform, StyleSheet, Text, View } from 'react-native';
 import type { UnoVariant } from '@appli-poker/engine';
 import { PlayingCard } from './PlayingCard';
+import { useDealIn } from './Motion';
 import { shadow } from '../theme';
 
 /** Card colors of the Uno deck, and the black of the wild cards. */
@@ -51,10 +52,23 @@ interface Props {
   card?: string;
   width?: number;
   hidden?: boolean;
+  /** No dealing animation when it appears (it is already animated, or only illustrates). */
+  still?: boolean;
+}
+
+/** A Uno card that slides in from the deck the first time it appears. */
+export function UnoCard({ still, ...props }: Props) {
+  const dealt = useDealIn(!still);
+  if (!dealt) return <UnoFace {...props} />;
+  return (
+    <Animated.View style={dealt}>
+      <UnoFace {...props} />
+    </Animated.View>
+  );
 }
 
 /** A Uno card drawn with plain views: colored face, tilted white oval, big symbol. */
-export function UnoCard({ card, width = 56, hidden }: Props) {
+function UnoFace({ card, width = 56, hidden }: Props) {
   const w = width;
   const h = Math.round(w * 1.4);
   const radius = Math.max(4, w * 0.1);
@@ -162,14 +176,16 @@ export function GameCard({
   card,
   width,
   hidden,
+  still,
 }: {
   variant: UnoVariant;
   card?: string;
   width: number;
   hidden?: boolean;
+  still?: boolean;
 }) {
-  if (variant === 'uno') return <UnoCard card={card} width={width} hidden={hidden} />;
-  return <PlayingCard card={card ?? 'As'} width={width} hidden={hidden || !card} />;
+  if (variant === 'uno') return <UnoCard card={card} width={width} hidden={hidden} still={still} />;
+  return <PlayingCard card={card ?? 'As'} width={width} hidden={hidden || !card} still={still} />;
 }
 
 const styles = StyleSheet.create({

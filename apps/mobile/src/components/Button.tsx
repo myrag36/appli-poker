@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, gradients } from '../theme';
+import { play } from '../sound';
 
 interface Props {
   label: string;
@@ -15,7 +16,10 @@ export function Button({ label, onPress, disabled, variant = 'primary', compact 
   return (
     <Pressable
       accessibilityRole="button"
-      onPress={onPress}
+      onPress={() => {
+        play('tap');
+        onPress();
+      }}
       disabled={disabled}
       style={({ pressed }) => [
         styles.base,

@@ -1,7 +1,8 @@
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Animated, Platform, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, shadow } from '../theme';
 import { CardBackFace, useCardBack } from './cardBacks';
+import { useDealIn } from './Motion';
 
 const SUIT_SYMBOLS: Record<string, string> = { s: '♠', h: '♥', d: '♦', c: '♣' };
 /** Chess pieces stand in for the portraits on court cards. */
@@ -18,25 +19,34 @@ interface Props {
   /** Card width in points; height follows the usual 7:5 card ratio. */
   width?: number;
   small?: boolean;
+  /** No dealing animation when it appears (it is already animated, or only illustrates). */
+  still?: boolean;
 }
 
-export function PlayingCard({ card, hidden, width, small }: Props) {
+export function PlayingCard({ card, hidden, width, small, still }: Props) {
   const w = width ?? (small ? 34 : 56);
   const h = Math.round(w * 1.4);
   const radius = Math.max(4, w * 0.1);
   const size = { width: w, height: h, borderRadius: radius };
   const back = useCardBack();
+  // Empty slots are part of the table, not dealt.
+  const dealt = useDealIn(!still && !!card);
 
   if (!card) return <View style={[styles.base, size, styles.slot]} />;
   if (hidden) {
     return (
-      <View style={styles.backSpot}>
+      <Animated.View style={[styles.backSpot, dealt]}>
         <CardBackFace id={back} width={w} height={h} radius={radius} />
-      </View>
+      </Animated.View>
     );
   }
 
-  if (card[0] === 'X') return <JokerFace width={w} height={h} radius={radius} red={card[1] === 'r'} />;
+  if (card[0] === 'X')
+    return (
+      <Animated.View style={dealt}>
+        <JokerFace width={w} height={h} radius={radius} red={card[1] === 'r'} />
+      </Animated.View>
+    );
 
   const r = card[0];
   const rank = r === 'T' ? '10' : r;
@@ -69,14 +79,14 @@ export function PlayingCard({ card, hidden, width, small }: Props) {
   }
 
   return (
-    <View style={[styles.base, size, styles.face, shadow]}>
+    <Animated.View style={[styles.base, size, styles.face, shadow, dealt]}>
       <LinearGradient colors={['#ffffff', '#fbf7ec', '#efe7d3']} style={StyleSheet.absoluteFill} />
       <View style={styles.corner}>
         <Text style={[styles.rank, { color, fontSize: w * 0.32, lineHeight: w * 0.34 }]}>{rank}</Text>
         <Text style={{ color, fontSize: w * 0.24, lineHeight: w * 0.26 }}>{suit}</Text>
       </View>
       {middle}
-    </View>
+    </Animated.View>
   );
 }
 

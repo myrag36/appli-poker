@@ -1,4 +1,4 @@
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Animated, Platform, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   type Card,
@@ -10,6 +10,7 @@ import {
 } from '@appli-poker/engine';
 import { colors, shadow } from '../theme';
 import { CardBackFace, useCardBack } from './cardBacks';
+import { useDealIn } from './Motion';
 import { lang } from '../i18n';
 
 /** Tarot cards are taller than standard ones. */
@@ -67,9 +68,22 @@ interface Props {
   hidden?: boolean;
   /** Card width in points; the height follows the tarot ratio. */
   width?: number;
+  /** No dealing animation when it appears (it is already animated, or only illustrates). */
+  still?: boolean;
 }
 
-export function TarotCard({ card, hidden, width = 50 }: Props) {
+/** A tarot card that slides in from the deck the first time it appears. */
+export function TarotCard({ still, ...props }: Props) {
+  const dealt = useDealIn(!still && (!!props.card || !!props.hidden));
+  if (!dealt) return <TarotFace {...props} />;
+  return (
+    <Animated.View style={dealt}>
+      <TarotFace {...props} />
+    </Animated.View>
+  );
+}
+
+function TarotFace({ card, hidden, width = 50 }: Props) {
   const w = width;
   const h = Math.round(w * TAROT_RATIO);
   const radius = Math.max(4, w * 0.1);

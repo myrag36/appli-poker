@@ -213,6 +213,7 @@ function BeloteGame({
       if (next.trick.length === 0) setHolding(true);
     }
     if (next.phase === 'gameOver' && next.winner === 0) sounds.win();
+    else if (next.phase === 'gameOver' && game.phase !== 'gameOver') sounds.lose();
     if (next.phase === 'gameOver' && game.phase !== 'gameOver') reportLocalGame('belote', next.winner === 0);
     setGame(next);
   }
@@ -1284,7 +1285,10 @@ export function BeloteOnlineBoard({
     const played = before.phase === 'playing' && cardsLeft(game) < cardsLeft(before);
     if (played) sounds.card();
     if (played && game.trick.length === 0 && game.lastTrick) setHolding(true);
-    if (game.phase === 'gameOver' && before.phase !== 'gameOver' && game.winner === myTeam) sounds.win();
+    if (game.phase === 'gameOver' && before.phase !== 'gameOver') {
+      if (game.winner === myTeam) sounds.win();
+      else if (me >= 0) sounds.lose();
+    }
     if (myTurn && !(before.toAct === me && before.phase === game.phase)) sounds.myTurn();
   }, [game]);
 

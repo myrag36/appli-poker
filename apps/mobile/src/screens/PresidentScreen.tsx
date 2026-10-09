@@ -267,6 +267,7 @@ function Game({
     if (before === state) return;
     if (state.phase === 'roundOver' && before.phase !== 'roundOver') {
       if (state.titles[ME] === 'president') sounds.win();
+      else if (state.titles[ME] === 'trouduc') sounds.lose();
       else sounds.chips();
       return;
     }
@@ -292,6 +293,7 @@ function Game({
       setError(null);
     } catch (e) {
       setError((e as Error).message);
+      sounds.invalid();
     }
   }
 
@@ -1021,6 +1023,7 @@ export function PresidentOnlineBoard({
     if (before === state) return;
     if (state.phase === 'roundOver' && before.phase !== 'roundOver') {
       if (!spectator && state.titles[ME] === 'president') sounds.win();
+      else if (!spectator && state.titles[ME] === 'trouduc') sounds.lose();
       else sounds.chips();
       return;
     }

@@ -19,6 +19,7 @@ import pcAccueil from './pcAccueil';
 import pcAutres from './pcAutres';
 import plisPc from './plisPc';
 import classement from './classement';
+import sons from './sons';
 
 export const EN: Record<string, string> = {
   ...accueil,
@@ -41,4 +42,5 @@ export const EN: Record<string, string> = {
   ...pcAutres,
   ...plisPc,
   ...classement,
+  ...sons,
 };

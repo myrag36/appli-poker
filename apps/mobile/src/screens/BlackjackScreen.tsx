@@ -382,7 +382,10 @@ function BlackjackGame({
     prevCards.current = cardCount;
   }, [cardCount]);
   useEffect(() => {
-    if (revealDone && game.players.some((p) => !p.bot && bjRoundNet(game, p.id) > 0)) sounds.win();
+    if (!revealDone) return;
+    const nets = game.players.filter((p) => !p.bot).map((p) => bjRoundNet(game, p.id));
+    if (nets.some((n) => n > 0)) sounds.win();
+    else if (nets.length > 0 && nets.every((n) => n < 0)) sounds.lose();
   }, [revealDone]);
   useEffect(() => {
     if (actor && !actor.bot && !solo) sounds.myTurn();
@@ -392,9 +395,10 @@ function BlackjackGame({
     try {
       setGame((g) => (g ? bjApply(g, move, deviceRng) : g));
       setError(null);
-      if (move.type === 'bet' || move.type === 'double' || move.type === 'split') sounds.chips();
+      if (move.type === 'bet' || move.type === 'double' || move.type === 'split') sounds.bet();
     } catch (e) {
       setError((e as Error).message);
+      sounds.invalid();
     }
   }
 
@@ -1514,6 +1518,7 @@ export function BlackjackOnlineBoard({
   }, [chipCount]);
   useEffect(() => {
     if (revealDone && me && bjRoundNet(game, me.id) > 0) sounds.win();
+    else if (revealDone && me && bjRoundNet(game, me.id) < 0) sounds.lose();
   }, [revealDone]);
   useEffect(() => {
     if (myTurn) sounds.myTurn();

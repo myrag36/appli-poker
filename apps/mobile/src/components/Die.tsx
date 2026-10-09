@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors } from '../theme';
 import { t } from '../i18n';
+import { play } from '../sound';
+import { reducedMotion } from './Motion';
 
 const native = Platform.OS !== 'web';
 
@@ -63,6 +65,12 @@ export function Die({ value, size = 48, held, rollKey, onPress, disabled, access
   useEffect(() => {
     if (first.current || held || !value) {
       first.current = false;
+      setFace(value);
+      return;
+    }
+    // Several dice rolled together rattle once.
+    play('dice');
+    if (reducedMotion()) {
       setFace(value);
       return;
     }

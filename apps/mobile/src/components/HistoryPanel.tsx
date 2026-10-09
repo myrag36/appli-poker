@@ -61,7 +61,7 @@ function HandCard({
       {hand.board.length > 0 && (
         <View style={styles.board}>
           {hand.board.map((c) => (
-            <PlayingCard key={c} card={c} width={30} />
+            <PlayingCard key={c} card={c} width={30} still />
           ))}
         </View>
       )}
@@ -80,7 +80,7 @@ function HandCard({
             </Text>
             <View style={styles.hole}>
               {p.hole.map((c) => (
-                <PlayingCard key={c} card={c} width={20} />
+                <PlayingCard key={c} card={c} width={20} still />
               ))}
             </View>
             <Text style={[styles.net, o.net < 0 && styles.loss, o.net === 0 && styles.even]}>
