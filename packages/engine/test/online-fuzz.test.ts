@@ -289,6 +289,9 @@ function play(game: OnlineGameId, count: number, seed: number) {
       actors.every((a) => a >= 0 && a < count),
       `${game} : joueur hors table ${actors}`,
     );
+    // Whose turn it really is (told by a notification): one of those who may move.
+    const toPlay = (def.toPlay ?? def.actors)(state);
+    assert.ok(toPlay.length > 0 && toPlay.every((s) => actors.includes(s)), `${game} : tour de ${toPlay}`);
 
     // What everyone sees: no card from another hand or from a secret pile.
     const hands = HANDS[game]?.(state);
