@@ -51,7 +51,8 @@ export type GameId =
   | 'rami'
   | 'uno'
   | 'huit'
-  | 'tarot';
+  | 'tarot'
+  | 'perudo';
 
 interface Game {
   id: GameId;
@@ -152,6 +153,14 @@ const GAMES: Game[] = [
     art: ['1t', 'EX', '21t', 'Rh', 'Cs'],
     ready: true,
   },
+  {
+    id: 'perudo',
+    title: 'Perudo',
+    tagline: t('Des dés cachés sous les gobelets : surenchéris, bluffe ou crie « Dudo ! ».'),
+    players: t('2 à 6 joueurs'),
+    art: ['⚀', '⚃', '⚃', '⚀', '⚃'],
+    ready: true,
+  },
 ];
 
 const GAP = 14;
@@ -184,12 +193,16 @@ function Art({ game }: { game: Game }) {
       </View>
     );
   }
-  if (game.id === 'yams') {
+  if (game.id === 'yams' || game.id === 'perudo') {
+    const perudo = game.id === 'perudo';
     return (
       <View style={styles.dice}>
         {game.art.map((d, i) => (
-          <View key={i} style={[styles.die, { transform: [{ rotate: `${(i - 2) * 9}deg` }] }]}>
-            <Text style={styles.dieText}>{d}</Text>
+          <View
+            key={i}
+            style={[styles.die, perudo && styles.dieRed, { transform: [{ rotate: `${(i - 2) * 9}deg` }] }]}
+          >
+            <Text style={[styles.dieText, perudo && styles.dieTextRed]}>{d}</Text>
           </View>
         ))}
       </View>
@@ -458,7 +471,9 @@ function DesktopGames({
           <View style={desk.top}>
             <View style={desk.brand}>
               <Text style={desk.logo}>La Tablée</Text>
-              <Text style={desk.tagline}>{t('10 jeux de cartes et de dés à partager entre amis')}</Text>
+              <Text style={desk.tagline}>
+                {t('12 jeux de cartes, de dés et de plateau à partager entre amis')}
+              </Text>
             </View>
             <View style={desk.chips}>
               <ProfileChip onPress={onProfile} />
@@ -792,6 +807,8 @@ const styles = StyleSheet.create({
     boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
   },
   dieText: { fontSize: 40, lineHeight: 44, color: '#1b1b1b' },
+  dieRed: { backgroundColor: '#b3261e' },
+  dieTextRed: { color: '#fff4e0' },
   cardTitle: { color: '#fff', fontSize: 32, fontWeight: '900' },
   cardPlayers: { color: colors.gold, fontSize: 13, fontWeight: '800', marginTop: 2, letterSpacing: 0.5 },
   cardText: { color: 'rgba(255,255,255,0.8)', fontSize: 15, lineHeight: 20, marginTop: 8 },

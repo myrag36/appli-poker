@@ -21,6 +21,7 @@ import pcAutres from './pcAutres';
 import plisPc from './plisPc';
 import classement from './classement';
 import sons from './sons';
+import perudo from './perudo';
 
 export const EN: Record<string, string> = {
   ...accueil,
@@ -45,4 +46,5 @@ export const EN: Record<string, string> = {
   ...plisPc,
   ...classement,
   ...sons,
+  ...perudo,
 };

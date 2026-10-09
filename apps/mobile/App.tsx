@@ -25,6 +25,7 @@ import { BatailleScreen } from './src/screens/BatailleScreen';
 import { RamiScreen } from './src/screens/RamiScreen';
 import { HuitScreen, UnoScreen } from './src/screens/UnoScreen';
 import { TarotScreen } from './src/screens/TarotScreen';
+import { PerudoScreen } from './src/screens/PerudoScreen';
 import { Backdrop } from './src/components/Backdrop';
 import { OnlineLobbyScreen } from './src/screens/OnlineLobbyScreen';
 import { OnlineRoomScreen } from './src/screens/OnlineRoomScreen';
@@ -188,6 +189,9 @@ export default function App() {
         )}
         {screen.name === 'game' && screen.game === 'huit' && (
           <HuitScreen onBack={games} onOnline={online('huit')} />
+        )}
+        {screen.name === 'game' && screen.game === 'perudo' && (
+          <PerudoScreen onBack={games} onOnline={online('perudo')} />
         )}
         {screen.name === 'game-online' && (
           <OnlineGameScreen

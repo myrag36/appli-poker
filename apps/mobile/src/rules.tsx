@@ -593,3 +593,52 @@ export const TAROT_RULES: GameRules = {
   ],
   tip: t('Le Petit au bout : le mener au dernier pli rapporte 10 × le multiplicateur au camp qui le gagne.'),
 };
+
+export const PERUDO_RULES: GameRules = {
+  game: 'perudo',
+  title: 'Perudo',
+  goal: t('Sois le dernier à avoir encore des dés sous ton gobelet.'),
+  steps: [
+    {
+      icon: '🎲',
+      title: t('Des dés cachés'),
+      text: t('Chacun lance ses 5 dés sous son gobelet et ne regarde que les siens.'),
+    },
+    {
+      icon: '🗣️',
+      title: t('Les enchères'),
+      text: t(
+        'À ton tour, annonce combien de dés d’une face il y a sur toute la table, par exemple « trois 4 ». Le suivant doit monter : plus de dés, ou autant d’une face plus forte.',
+      ),
+      visual: <Dice values={[4, 4, 4]} label={t('« Trois 4 »')} />,
+    },
+    {
+      icon: '⭐',
+      title: t('Les Pacos'),
+      text: t(
+        'Les 1, les Pacos, comptent pour toutes les faces. Passer aux Pacos divise le nombre par deux (arrondi au-dessus) ; en revenir le double, plus un.',
+      ),
+      visual: <Dice values={[1, 1, 5, 5]} label={t('Quatre 5 avec les Pacos')} />,
+    },
+    {
+      icon: '🙅',
+      title: t('Dudo !'),
+      text: t(
+        'Tu ne crois pas l’enchère d’avant ? Crie « Dudo ! » : tout le monde montre ses dés. S’il y en a moins qu’annoncé, celui qui a annoncé perd un dé ; sinon c’est toi.',
+      ),
+    },
+    {
+      icon: '🎯',
+      title: t('Calza'),
+      text: t(
+        'Si l’option est choisie, tu peux dire que l’enchère est pile juste. Gagné, tu récupères un dé ; raté, tu en perds un. Pas de Calza à deux joueurs.',
+      ),
+    },
+    {
+      icon: '🔁',
+      title: t('Manche suivante'),
+      text: t('Celui qui a perdu un dé ouvre la manche suivante. Sans dé, on est éliminé.'),
+    },
+  ],
+  tip: t('Compte tes dés : en moyenne, un tiers des dés cachés vont avec la face annoncée, Pacos compris.'),
+};
