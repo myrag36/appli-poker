@@ -686,10 +686,10 @@ function Placement({
 
   const tools = (
     <View style={styles.tools}>
-      <View style={styles.flex}>
+      <View style={styles.tool}>
         <Button label={t('🎲 Au hasard')} variant="secondary" compact onPress={shuffle} />
       </View>
-      <View style={styles.flex}>
+      <View style={styles.tool}>
         <Button
           label={horizontal ? t('↻ Pivoter (—)') : t('↻ Pivoter (|)')}
           variant="secondary"
@@ -697,7 +697,7 @@ function Placement({
           onPress={() => setHorizontal(!horizontal)}
         />
       </View>
-      <View style={styles.flex}>
+      <View style={styles.tool}>
         <Button label={t('Effacer')} variant="secondary" compact onPress={clear} />
       </View>
     </View>
@@ -1449,7 +1449,8 @@ const styles = StyleSheet.create({
   dockCells: { flexDirection: 'row', gap: 2 },
   dockCell: { width: 10, height: 10, borderRadius: 2, backgroundColor: SHIP },
   dockCellSelected: { backgroundColor: colors.gold },
-  tools: { flexDirection: 'row', gap: 6 },
+  tools: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  tool: { flexGrow: 1, flexShrink: 0 },
 
   // Battle
   sidesRow: { flexDirection: 'row', gap: 6, marginTop: 2, marginBottom: 4 },
