@@ -1,0 +1,31 @@
+// Weekly ranking of online games between friends (tab of the friends screen).
+export default {
+  '👥 Mes amis': '👥 My friends',
+  '🏆 Classement': '🏆 Leaderboard',
+  '🏆 Classement des amis': '🏆 Friends leaderboard',
+  'Parties en ligne · {win} pts la victoire, {play} pt la partie perdue':
+    'Online games · {win} pts per win, {play} pt per game lost',
+  'Fin de la semaine dans {time}': 'Week ends in {time}',
+  'Fin dans': 'Ends in',
+  '{d} j {h} h': '{d} d {h} h',
+  '{h} h {m} min': '{h} h {m} min',
+  '{m} min': '{m} min',
+  'Tous les jeux': 'All games',
+  'Cette semaine': 'This week',
+  'Aucune partie en ligne cette semaine. Lance une table avec tes amis !':
+    'No online games this week. Start a table with your friends!',
+  'Aucune partie de {game} en ligne cette semaine.': 'No online {game} games this week.',
+  'Podium de la semaine dernière': 'Last week’s podium',
+  'Pas de podium la semaine dernière.': 'No podium last week.',
+  'Ma semaine': 'My week',
+  'Pas encore joué': 'No games yet',
+  '1ᵉʳ': '1st',
+  '{n}ᵉ': '#{n}',
+  Place: 'Rank',
+  Victoire: 'Win',
+  Victoires: 'Wins',
+  Partie: 'Game',
+  Parties: 'Games',
+  'Meilleur jeu : {emoji} {game}': 'Best game: {emoji} {game}',
+  '{place}e, {name}, {points} points': '#{place}, {name}, {points} points',
+};

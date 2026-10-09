@@ -466,6 +466,7 @@ function Game({
     if (before === state || before.seq === state.seq) return;
     if (state.phase !== 'playing' && before.phase === 'playing') {
       if (state.roundWinner !== null && !bots[state.roundWinner]) sounds.win();
+      else if (state.roundWinner !== null) sounds.lose();
       else sounds.chips();
       return;
     }
@@ -493,6 +494,7 @@ function Game({
       setError(null);
     } catch (e) {
       setError((e as Error).message);
+      sounds.invalid();
     }
   }
 
@@ -1461,6 +1463,7 @@ function SheddingOnlineBoard({
     if (before.seq === state.seq && before.round === state.round) return;
     if (state.phase !== 'playing' && before.phase === 'playing') {
       if (state.roundWinner === mySeat) sounds.win();
+      else if (state.roundWinner !== null && !watching) sounds.lose();
       else sounds.chips();
       return;
     }

@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import type { Avatar, HandView } from '@appli-poker/engine';
@@ -8,6 +9,7 @@ import { PlayingCard } from './PlayingCard';
 import { colors, gradients, seatColors, shadow, theme } from '../theme';
 import { t } from '../i18n';
 import { tMessage } from '../online/messages';
+import { play } from '../sound';
 
 const STREET_NAMES: Record<string, string> = {
   preflop: t('Avant le flop'),
@@ -55,6 +57,7 @@ export function Table({
   wide,
 }: Props) {
   const seatWidth = wide ? WIDE_SEAT_WIDTH : SEAT_WIDTH;
+  const collecting = useCollectedBets(hand);
   let w: number;
   let h: number;
   if (wide) {
@@ -91,6 +94,13 @@ export function Table({
     : Math.max(26, Math.min(46, Math.floor((w * 0.62) / 5) - 4, Math.floor(h / 13)));
   // The middle of the table (board, pot, blinds) sits a little above centre when the table lies wide.
   const centerTop = cy - (cardWidth * 1.4) / 2 - (wide ? 24 : 0);
+  // Where each player's bet lies: a fixed distance from the seat, towards the middle of the table.
+  const betAt = (i: number) => {
+    const { x, y } = seatAt(i);
+    const along = Math.min(0.45, Math.min(wide ? 110 : 75, h * 0.17) / Math.hypot(cx - x, cy - y));
+    return { x: x + (cx - x) * along, y: y + (cy - y) * along };
+  };
+  const potTop = centerTop + Math.round(cardWidth * 1.4) + 10;
 
   return (
     <View style={[styles.wrap, { width: w, height: h }]}>
@@ -155,12 +165,28 @@ export function Table({
         );
       })}
 
+      {collecting?.bets.map((b) => {
+        const i = hand.players.findIndex((p) => p.id === b.id);
+        if (i < 0) return null;
+        const at = betAt(i);
+        return (
+          // At the end of a betting round, the bets slide into the pot.
+          <FlyTo
+            key={`${collecting.key}-${b.id}`}
+            from={{ x: at.x - 30, y: at.y - 10 }}
+            to={{ x: cx - 30, y: potTop }}
+            duration={520}
+          >
+            <View style={styles.flyingChips}>
+              <ChipStack amount={b.amount} />
+            </View>
+          </FlyTo>
+        );
+      })}
+
       {hand.players.map((p, i) => {
         const { x, y } = seatAt(i);
-        // Bets sit a fixed distance from the seat, towards the middle of the table.
-        const along = Math.min(0.45, Math.min(wide ? 110 : 75, h * 0.17) / Math.hypot(cx - x, cy - y));
-        const bx = x + (cx - x) * along;
-        const by = y + (cy - y) * along;
+        const { x: bx, y: by } = betAt(i);
         const shown = hand.showdown[p.id];
         const active = i === hand.toAct;
         const avatar = avatars?.[p.id];
@@ -267,6 +293,40 @@ export function Table({
       })}
     </View>
   );
+}
+
+/**
+ * The bets that were just swept into the pot, when a betting round ends: shown sliding to the
+ * middle for a moment, with the clink of the chips.
+ */
+function useCollectedBets(hand: HandView) {
+  const last = useRef<{ street: string; board: number; bets: Record<string, number> } | null>(null);
+  const [collecting, setCollecting] = useState<{
+    key: string;
+    bets: { id: string; amount: number }[];
+  } | null>(null);
+  useEffect(() => {
+    const before = last.current;
+    last.current = {
+      street: hand.street,
+      board: hand.board.length,
+      bets: Object.fromEntries(hand.players.map((p) => [p.id, p.bet])),
+    };
+    // Only the same hand moving to its next street; a new deal starts clean.
+    if (!before || before.street === hand.street || hand.board.length < before.board) return;
+    const bets = hand.players
+      .filter((p) => (before.bets[p.id] ?? 0) > 0 && p.bet === 0)
+      .map((p) => ({ id: p.id, amount: before.bets[p.id] }));
+    if (bets.length === 0) return;
+    setCollecting({ key: `${hand.street}-${hand.log.length}`, bets });
+    play('bet');
+  }, [hand]);
+  useEffect(() => {
+    if (!collecting) return;
+    const id = setTimeout(() => setCollecting(null), 600);
+    return () => clearTimeout(id);
+  }, [collecting]);
+  return collecting;
 }
 
 const styles = StyleSheet.create({

@@ -9,6 +9,7 @@ import cartes3 from './cartes3';
 import divers from './divers';
 import tutoriel from './tutoriel';
 import puissance4 from './puissance4';
+import bataille from './bataille';
 import ramiEnLigne from './ramiEnLigne';
 import defi from './defi';
 import tarotEnLigne from './tarotEnLigne';
@@ -18,6 +19,9 @@ import notifications from './notifications';
 import pcAccueil from './pcAccueil';
 import pcAutres from './pcAutres';
 import plisPc from './plisPc';
+import classement from './classement';
+import sons from './sons';
+import perudo from './perudo';
 
 export const EN: Record<string, string> = {
   ...accueil,
@@ -30,6 +34,7 @@ export const EN: Record<string, string> = {
   ...divers,
   ...tutoriel,
   ...puissance4,
+  ...bataille,
   ...ramiEnLigne,
   ...defi,
   ...tarotEnLigne,
@@ -39,4 +44,7 @@ export const EN: Record<string, string> = {
   ...pcAccueil,
   ...pcAutres,
   ...plisPc,
+  ...classement,
+  ...sons,
+  ...perudo,
 };

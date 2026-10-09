@@ -281,6 +281,23 @@ export function handRecords(room: RoomRow, players: PlayerRow[], saved: SavePara
 }
 
 /**
+ * Rows of the weekly ranking between friends once a poker game is won: the winner first,
+ * everyone else second. Robots are not listed.
+ */
+export function pokerResults(roomId: string, players: PlayerRow[], winnerId: string) {
+  return players
+    .filter((p) => !p.is_bot)
+    .map((p) => ({
+      room_id: roomId,
+      user_id: p.user_id,
+      game: 'poker',
+      placement: p.user_id === winnerId ? 1 : 2,
+      won: p.user_id === winnerId,
+      players: players.length,
+    }));
+}
+
+/**
  * Pausing stops the turn clock; resuming gives the player to act a full turn again.
  * Returns the new public state, or null when no hand is being played.
  */

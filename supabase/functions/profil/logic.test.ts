@@ -13,6 +13,7 @@ import {
   localGame,
   reachedAchievement,
   shopItem,
+  weeklyLeaderboard,
 } from './logic.ts';
 
 test('only unlocked rewards can be worn, the rest of the outfit stays', () => {
@@ -106,4 +107,49 @@ test('the daily challenge is paid only once done, with today’s stats', () => {
   // Yesterday's wins do not count.
   assert.throws(() => finishedChallenge(day, '2026-10-08', { won: { tarot: 2 } }, {}), /pas encore/);
   assert.equal(finishedChallenge(day, day, { won: { tarot: 2 } }, {}).coins, c.coins);
+});
+
+test('weekly ranking between friends: online games of this week, and last week’s podium', () => {
+  const monday = '2026-10-05';
+  const r = (user_id: string, game: string, won: boolean, week = monday) => ({ user_id, game, won, week });
+  const board = weeklyLeaderboard(
+    'moi',
+    [
+      { user_id: 'moi', name: 'Simon', xp: 1200, equipped: { frame: 'gold' } },
+      { user_id: 'lea', name: 'Léa', avatar: '🦄', avatar_color: '#8e7dbe' },
+      { user_id: 'tom' },
+    ],
+    [
+      r('moi', 'uno', true),
+      r('moi', 'poker', false),
+      r('lea', 'uno', true),
+      r('lea', 'uno', true),
+      r('lea', 'yams', false),
+      r('tom', 'poker', true, '2026-09-28'),
+      r('moi', 'poker', false, '2026-09-28'),
+      r('lea', 'tarot', true, '2026-09-21'),
+    ],
+    monday,
+    Date.UTC(2026, 9, 8, 10),
+  );
+  assert.equal(board.week, monday);
+  assert.equal(board.lastWeek, '2026-09-28');
+  assert.equal(board.endsAt, Date.UTC(2026, 9, 11, 22));
+  assert.ok(board.games.includes('poker') && board.games.includes('uno'));
+  assert.deepEqual(board.ranking, [
+    { user_id: 'lea', place: 1, played: 3, won: 2, points: 7, best: 'uno' },
+    { user_id: 'moi', place: 2, played: 2, won: 1, points: 4, best: 'uno' },
+    { user_id: 'tom', place: 3, played: 0, won: 0, points: 0, best: null },
+  ]);
+  assert.deepEqual(
+    board.podium.map((p) => [p.user_id, p.place, p.points]),
+    [
+      ['tom', 1, 3],
+      ['moi', 2, 1],
+    ],
+  );
+  const tom = board.players.find((p) => p.user_id === 'tom')!;
+  assert.equal(tom.name, 'Joueur');
+  assert.equal(tom.me, false);
+  assert.equal(board.players.find((p) => p.user_id === 'moi')!.me, true);
 });

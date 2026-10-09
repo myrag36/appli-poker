@@ -246,6 +246,7 @@ function RamiGame({
     if (next.phase === 'gameOver' && before.phase !== 'gameOver') {
       const won = ramiRanking(next)[0].score === next.scores[ME];
       if (won) sounds.win();
+      else sounds.lose();
       reportLocalGame('rami', won);
     } else if (next.phase === 'roundOver' && next.result?.winner === ME) sounds.win();
   }
@@ -276,6 +277,7 @@ function RamiGame({
 
   useEffect(() => {
     if (!error) return;
+    sounds.invalid();
     const id = setTimeout(() => setError(null), 3200);
     return () => clearTimeout(id);
   }, [error]);
@@ -1117,6 +1119,7 @@ export function RamiOnlineBoard({
 
   useEffect(() => {
     if (!hint) return;
+    sounds.invalid();
     const id = setTimeout(() => setHint(null), 3200);
     return () => clearTimeout(id);
   }, [hint]);
@@ -1130,6 +1133,7 @@ export function RamiOnlineBoard({
     if (me < 0 || before === game) return;
     if (game.phase === 'gameOver' && before.phase !== 'gameOver') {
       if (ramiRanking(game)[0].score === game.scores[me]) sounds.win();
+      else sounds.lose();
     } else if (game.phase === 'roundOver' && before.phase !== 'roundOver' && game.result?.winner === me)
       sounds.win();
   }, [game]);

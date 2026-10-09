@@ -34,8 +34,8 @@ export function rollChest(kind: ChestKind, rnd: () => number): { coins: number; 
 }
 
 /** Rare moments spotted during a game, worth a badge. */
-export type Feat = 'yams' | 'capot' | 'blackjack' | 'president' | 'carre' | 'puissance4';
-export const FEATS: Feat[] = ['yams', 'capot', 'blackjack', 'president', 'carre', 'puissance4'];
+export type Feat = 'yams' | 'capot' | 'blackjack' | 'president' | 'carre' | 'puissance4' | 'bataille';
+export const FEATS: Feat[] = ['yams', 'capot', 'blackjack', 'president', 'carre', 'puissance4', 'bataille'];
 
 /** Everything achievements are measured on. */
 export interface AchievementStats {
@@ -103,6 +103,9 @@ const DEFS: Def[] = [
   def('president-10', '👑', 'Chef d’État', 'Gagne 10 parties de Président', 10, 100, (s) =>
     wonIn(s, 'president'),
   ),
+  def('perudo-10', '🗣️', 'Menteur de génie', 'Gagne 10 parties de Perudo', 10, 100, (s) =>
+    wonIn(s, 'perudo'),
+  ),
   def('level-10', '⭐', 'Niveau 10', 'Atteins le niveau 10', 10, 100, (s) => levelFromXp(s.xp)),
   def('level-25', '🌟', 'Niveau 25', 'Atteins le niveau 25', 25, 250, (s) => levelFromXp(s.xp)),
   def('level-50', '💫', 'Niveau 50', 'Atteins le niveau maximum', 50, 600, (s) => levelFromXp(s.xp)),
@@ -119,6 +122,7 @@ const DEFS: Def[] = [
   feat('president', '🎩', 'Président', 'Finis premier d’une manche de Président', 40),
   feat('carre', '🍀', 'Carré gagnant', 'Gagne un coup de poker avec un carré ou mieux', 100),
   feat('puissance4', '🔴', 'Aligné', 'Gagne une partie de Puissance 4', 40),
+  feat('bataille', '⚓', 'Amiral', 'Gagne une partie de bataille navale', 60),
 ];
 
 /** Every achievement, in display order. */

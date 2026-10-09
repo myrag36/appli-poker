@@ -20,6 +20,7 @@ import {
   gameDef,
   humanActors,
   newGameBot,
+  onlineResults,
   playGameMove,
   playGameTimeout,
   progressAwards,
@@ -113,15 +114,13 @@ async function createRoom(userId: string, body: Record<string, unknown>) {
       .single();
     if (error?.code === '23505') continue; // code already used, draw another
     if (error) throw error;
-    const { error: seatError } = await admin
-      .from('game_players')
-      .insert({
-        room_id: room.id,
-        user_id: userId,
-        name,
-        seat: 0,
-        ...avatarColumns(body.avatar, 0, await unlockedEmojis(admin, userId)),
-      });
+    const { error: seatError } = await admin.from('game_players').insert({
+      room_id: room.id,
+      user_id: userId,
+      name,
+      seat: 0,
+      ...avatarColumns(body.avatar, 0, await unlockedEmojis(admin, userId)),
+    });
     if (seatError) throw seatError;
     if (tournament) {
       const { error: linkError } = await admin
@@ -219,15 +218,13 @@ async function joinRoom(userId: string, body: Record<string, unknown>) {
   if (players.some((p) => p.user_id === userId)) return { roomId: room.id, game: room.game };
   checkJoin(room as GameRoomRow, players, userId, name);
   const seat = firstFreeGameSeat(players);
-  const { error: insertError } = await admin
-    .from('game_players')
-    .insert({
-      room_id: room.id,
-      user_id: userId,
-      name,
-      seat,
-      ...avatarColumns(body.avatar, seat, await unlockedEmojis(admin, userId)),
-    });
+  const { error: insertError } = await admin.from('game_players').insert({
+    room_id: room.id,
+    user_id: userId,
+    name,
+    seat,
+    ...avatarColumns(body.avatar, seat, await unlockedEmojis(admin, userId)),
+  });
   if (insertError?.code === '23505') throw new GameError('Cette place vient d’être prise, réessaie');
   if (insertError) throw insertError;
   return { roomId: room.id, game: room.game };
@@ -296,12 +293,21 @@ async function saveAndAward(room: GameRoomRow, before: GameSecret, after: GameSn
   await Promise.all(
     progressAwards(before, after).map((a) => awardXp(admin, a.userId, room.game, a.amount, a.finished)),
   );
+  await recordResults(room, before, after);
   const results = room.tournament_id ? tournamentResults(before, after) : null;
   if (results) {
     const { error } = await admin.rpc('tournament_round_done', { p_room: room.id, p_results: results });
     if (error) console.error('tournoi non mis à jour', error);
   }
   return saved;
+}
+
+/** A table just ended: keeps each person's result for the weekly ranking between friends. */
+async function recordResults(room: GameRoomRow, before: GameSecret, after: GameSnapshot) {
+  const rows = onlineResults(room.id, before, after);
+  if (rows.length === 0) return;
+  const { error } = await admin.from('online_results').upsert(rows, { ignoreDuplicates: true });
+  if (error) console.error('résultats non enregistrés', error);
 }
 
 async function tick(userId: string, roomId: string) {

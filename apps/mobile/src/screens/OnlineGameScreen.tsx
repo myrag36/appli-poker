@@ -412,6 +412,7 @@ function Room({
       await refresh();
     } catch (e) {
       setMoveError(tMessage((e as Error).message));
+      sounds.invalid();
     } finally {
       setBusy(false);
     }

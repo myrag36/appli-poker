@@ -3,9 +3,11 @@ import { BeloteOnlineBoard, BeloteOnlineOptions } from '../screens/BeloteScreen'
 import { BlackjackOnlineBoard, BlackjackOnlineOptions } from '../screens/BlackjackScreen';
 import { PresidentOnlineBoard, PresidentOnlineOptions } from '../screens/PresidentScreen';
 import { Puissance4OnlineBoard, Puissance4OnlineOptions } from '../screens/Puissance4Screen';
+import { BatailleOnlineBoard } from '../screens/BatailleScreen';
 import { RamiOnlineBoard, RamiOnlineOptions } from '../screens/RamiScreen';
 import { YamsOnlineBoard } from '../screens/YamsScreen';
 import { TarotOnlineBoard, TarotOnlineOptions } from '../screens/TarotScreen';
+import { PerudoOnlineBoard, PerudoOnlineOptions } from '../screens/PerudoScreen';
 import { HuitOnlineBoard, HuitOnlineOptions, UnoOnlineBoard, UnoOnlineOptions } from '../screens/UnoScreen';
 import { t } from '../i18n';
 import type { OnlineGameUi } from './types';
@@ -51,6 +53,13 @@ export const ONLINE_UI: Record<OnlineGameId, OnlineGameUi> = {
     Options: Puissance4OnlineOptions,
     defaultOptions: { rounds: 3 },
   },
+  bataille: {
+    title: t('Bataille navale'),
+    emoji: '⚓',
+    players: t('2 joueurs, un robot prend la place libre'),
+    Board: BatailleOnlineBoard,
+    defaultOptions: {},
+  },
   rami: {
     title: 'Rami',
     emoji: '🃏',
@@ -82,5 +91,13 @@ export const ONLINE_UI: Record<OnlineGameId, OnlineGameUi> = {
     Board: HuitOnlineBoard,
     Options: HuitOnlineOptions,
     defaultOptions: { target: 100 },
+  },
+  perudo: {
+    title: 'Perudo',
+    emoji: '🎲',
+    players: t('2 à 6 joueurs, un robot complète si tu es seul'),
+    Board: PerudoOnlineBoard,
+    Options: PerudoOnlineOptions,
+    defaultOptions: { calza: true },
   },
 };

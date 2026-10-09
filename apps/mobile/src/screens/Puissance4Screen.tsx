@@ -258,7 +258,7 @@ function Match({
   function drop(col: number) {
     if (botTurn || finished || p4DropRow(game.board, col) < 0) return;
     setGame(p4Drop(game, col));
-    sounds.card();
+    sounds.drop();
   }
 
   // The robot drops its token after a short pause, once the previous token has landed.
@@ -267,7 +267,7 @@ function Match({
     const id = setTimeout(() => {
       const col = p4BotMove(game, settings.level, deviceRng);
       setGame((g) => (g === game ? p4Drop(g, col) : g));
-      sounds.card();
+      sounds.drop();
     }, BOT_DELAY);
     return () => clearTimeout(id);
   }, [game, botTurn]);
@@ -283,7 +283,7 @@ function Match({
     const id = setTimeout(() => {
       if (game.draw) sounds.chips();
       else if (humanWon) sounds.win();
-      else sounds.fold();
+      else sounds.lose();
     }, 350);
     return () => clearTimeout(id);
   }, [finished, game.round]);
@@ -796,12 +796,12 @@ export function Puissance4OnlineBoard({
     const before = last.current;
     last.current = game;
     if (game === before) return;
-    if (game.moves > before.moves || game.round !== before.round) sounds.card();
+    if (game.moves > before.moves || game.round !== before.round) sounds.drop();
     if (finished && !p4Finished(before)) {
       const id = setTimeout(() => {
         if (game.draw) sounds.chips();
         else if (game.winner === mySeat || !seated) sounds.win();
-        else sounds.fold();
+        else if (seated) sounds.lose();
       }, 350);
       return () => clearTimeout(id);
     }

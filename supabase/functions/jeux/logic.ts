@@ -222,8 +222,7 @@ export function snapshot(secret: GameSecret, now: number): GameSnapshot {
 export function humanActors(secret: GameSecret): string[] {
   const def = gameDef(secret.game);
   if (def.over(secret.state) || def.betweenRounds(secret.state)) return [];
-  return def
-    .actors(secret.state)
+  return (def.toPlay ?? def.actors)(secret.state)
     .filter((s) => !secret.seats[s].bot)
     .map((s) => secret.seats[s].id);
 }
@@ -318,4 +317,33 @@ export function tournamentResults(
   const finished = progressAwards(before, after).filter((a) => a.finished);
   if (finished.length === 0) return null;
   return finished.map((a) => ({ userId: a.userId, won: a.finished!.won }));
+}
+
+/** A finished online game for the weekly ranking between friends. */
+export interface OnlineResultRow {
+  room_id: string;
+  user_id: string;
+  game: string;
+  placement: number;
+  won: boolean;
+  players: number;
+}
+
+/**
+ * Rows for the weekly ranking once a table has just ended, or [] while it goes on: the
+ * winners are first, everyone else shares the next place. Robots are not ranked.
+ */
+export function onlineResults(roomId: string, before: GameSecret, after: GameSnapshot): OnlineResultRow[] {
+  const finished = progressAwards(before, after).filter((a) => a.finished);
+  if (finished.length === 0) return [];
+  // Robots can win too: they still take the first place.
+  const winners = Math.max(1, gameDef(before.game).winners(after.secret.state).length);
+  return finished.map((a) => ({
+    room_id: roomId,
+    user_id: a.userId,
+    game: before.game,
+    placement: a.finished!.won ? 1 : winners + 1,
+    won: a.finished!.won,
+    players: before.seats.length,
+  }));
 }

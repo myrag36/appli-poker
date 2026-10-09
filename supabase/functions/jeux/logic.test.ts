@@ -13,6 +13,7 @@ import {
   cleanTournamentGames,
   cleanTournamentName,
   tournamentResults,
+  onlineResults,
   newGameBot,
   playGameMove,
   playGameTimeout,
@@ -78,7 +79,10 @@ test('starting gives each person their own view and the first turn to the first 
 
 test('only the host starts, and only once', () => {
   assert.throws(() => startGame(room(), [player('a', 0)], 'b', newId, rng, NOW), /créateur/);
-  assert.throws(() => startGame(room({ status: 'playing' }), [player('a', 0)], 'a', newId, rng, NOW), /commencé/);
+  assert.throws(
+    () => startGame(room({ status: 'playing' }), [player('a', 0)], 'a', newId, rng, NOW),
+    /commencé/,
+  );
 });
 
 test('a player can only move on their turn, and the move is applied', () => {
@@ -105,14 +109,7 @@ test('robots play once their short pause is over, and a slow player is played fo
 });
 
 test('robots fill the table when a game needs more players', () => {
-  const { bots, snapshot } = startGame(
-    room({ game: 'yams' }),
-    [player('a', 0)],
-    'a',
-    newId,
-    rng,
-    NOW,
-  );
+  const { bots, snapshot } = startGame(room({ game: 'yams' }), [player('a', 0)], 'a', newId, rng, NOW);
   assert.equal(bots.length, 0);
   assert.equal(snapshot.public.seats.length, 1);
 });
@@ -210,8 +207,6 @@ test('tarot: robots complete the table, the chien stays hidden, and the game rea
   assert.ok(s.public.over);
 });
 
-
-
 test('uno and 8 américain: a robot fills the table to two, hidden hands stay hidden, games end', () => {
   let seed = 11;
   const random = (n: number) => {
@@ -247,6 +242,46 @@ test('uno and 8 américain: a robot fills the table to two, hidden hands stay hi
       s = playGameTimeout(s.secret, random, s.secret.deadline!);
     assert.ok(s.public.over);
   }
+});
+
+test('perudo: a robot joins a player alone, the others’ dice stay under their cups, the game ends', () => {
+  let seed = 23;
+  const random = (n: number) => {
+    seed = (seed * 1103515245 + 12345) % 2147483648;
+    return seed % n;
+  };
+  assert.deepEqual(cleanOptions('perudo', undefined), { calza: true });
+  assert.deepEqual(cleanOptions('perudo', { calza: false }), { calza: false });
+  assert.throws(() => cleanOptions('perudo', { calza: 'oui' }), GameError);
+  const { bots, snapshot } = startGame(
+    room({ game: 'perudo', options: cleanOptions('perudo', {}) }),
+    [player('a', 0)],
+    'a',
+    newId,
+    random,
+    NOW,
+  );
+  assert.equal(bots.length, 1);
+  assert.equal(snapshot.public.seats.length, 2);
+  type View = { phase: string; players: { dice: number[]; count: number }[] };
+  let s = snapshot;
+  let reveals = 0;
+  for (let i = 0; i < 3000 && !s.public.over; i++) {
+    const secret = s.secret.state as View;
+    const mine = s.privates.a as View;
+    const pub = s.public.view as View;
+    assert.deepEqual(mine.players[0].dice, secret.players[0].dice);
+    if (secret.phase === 'bidding') {
+      assert.ok(mine.players[1].dice.every((d) => d === 0));
+      assert.ok(pub.players.every((p) => p.dice.every((d) => d === 0)));
+    } else {
+      reveals++;
+      assert.deepEqual(pub.players, secret.players);
+    }
+    s = playGameTimeout(s.secret, random, s.secret.deadline!);
+  }
+  assert.ok(s.public.over);
+  assert.ok(reveals > 0);
 });
 
 test('rami: a robot joins a player alone, hands and stock stay secret, a slow player is played for', () => {
@@ -358,6 +393,44 @@ test('puissance4: a robot takes the empty seat, rounds pause, the match ends wit
   assert.equal(awards[0].userId, 'a');
 });
 
+test('bataille: a robot takes the empty seat, fleets stay hidden, the game ends with experience', () => {
+  const { bots, snapshot } = startGame(
+    room({ game: 'bataille', options: cleanOptions('bataille', {}) }),
+    [player('a', 0)],
+    'a',
+    newId,
+    rng,
+    NOW,
+  );
+  assert.equal(bots.length, 1);
+  // Both place their fleet at once: the robot first, on its short timeout.
+  assert.deepEqual(snapshot.public.actors, ['a', bots[0].user_id]);
+  assert.equal(snapshot.secret.deadline, NOW + BOT_MS);
+  let s = playGameTimeout(snapshot.secret, rng, snapshot.secret.deadline!);
+  assert.deepEqual(s.public.actors, ['a']);
+  assert.equal(s.secret.deadline, NOW + BOT_MS + TURN_MS);
+  type View = { game: { boards: ({ ships: unknown[] } | null)[] } };
+  // Nobody but the robot knows where its ships are.
+  assert.equal((s.privates.a as View).game.boards[1]!.ships.length, 0);
+  assert.equal((s.public.view as View).game.boards[1]!.ships.length, 0);
+  // A slow player gets a random fleet.
+  s = playGameTimeout(s.secret, rng, s.secret.deadline!);
+  assert.equal((s.privates.a as View).game.boards[0]!.ships.length, 5);
+  assert.equal((s.privates.a as View).game.boards[1]!.ships.length, 0);
+  assert.deepEqual(s.public.actors, ['a']);
+  assert.throws(() => playGameMove(s.secret, 'a', { type: 'shoot', x: 10, y: 0 }, rng, NOW), /Case inconnue/);
+  let before = s;
+  for (let i = 0; i < 400 && !s.public.over; i++) {
+    before = s;
+    s = playGameTimeout(s.secret, rng, s.secret.deadline!);
+  }
+  assert.ok(s.public.over);
+  assert.equal((s.public.view as View).game.boards[1]!.ships.length, 5);
+  const awards = progressAwards(before.secret, s);
+  assert.equal(awards.length, 1);
+  assert.equal(awards[0].userId, 'a');
+});
+
 test('revanche: once the game is over, a new table with the asker, the robots and old seats', () => {
   const seated = [
     { ...player('a', 0), avatar: '🦊', avatar_color: '#f00' },
@@ -406,4 +479,33 @@ test('revanche: once the game is over, a new table with the asker, the robots an
   assert.equal(gameRematchJoin(next, [...there, player('x', 0)], seated, 'a')!.seat, 3);
   assert.throws(() => gameRematchJoin(next, there, seated, 'z'), /pas à cette table/);
   assert.throws(() => gameRematchJoin({ ...next, status: 'playing' }, there, seated, 'a'), /commencé/);
+});
+
+test('weekly ranking: one row per person once a table ends, winners first', () => {
+  const { snapshot } = startGame(
+    room(),
+    [player('a', 0), player('b', 1), player('r', 2, true)],
+    'a',
+    newId,
+    rng,
+    NOW,
+  );
+  let s = snapshot;
+  let rows = onlineResults('room', s.secret, s);
+  assert.deepEqual(rows, []);
+  for (let i = 0; i < 4000 && !s.public.over; i++) {
+    const next = playGameTimeout(s.secret, rng, s.secret.deadline!);
+    rows = onlineResults('room', s.secret, next);
+    if (!next.public.over) assert.deepEqual(rows, []);
+    s = next;
+  }
+  assert.ok(s.public.over);
+  assert.deepEqual(rows.map((r) => r.user_id).sort(), ['a', 'b']);
+  for (const r of rows) {
+    assert.equal(r.room_id, 'room');
+    assert.equal(r.game, 'yams');
+    assert.equal(r.players, 3);
+    assert.equal(r.placement === 1, r.won);
+    assert.ok(r.placement >= 1 && r.placement <= 3);
+  }
 });

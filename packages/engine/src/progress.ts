@@ -11,10 +11,12 @@ export type ProgressGame =
   | 'yams'
   | 'belote'
   | 'puissance4'
+  | 'bataille'
   | 'rami'
   | 'uno'
   | 'huit'
-  | 'tarot';
+  | 'tarot'
+  | 'perudo';
 export const PROGRESS_GAMES: ProgressGame[] = [
   'poker',
   'blackjack',
@@ -22,10 +24,12 @@ export const PROGRESS_GAMES: ProgressGame[] = [
   'yams',
   'belote',
   'puissance4',
+  'bataille',
   'rami',
   'uno',
   'huit',
   'tarot',
+  'perudo',
 ];
 
 /** Experience for one finished game: playing always pays, winning pays more. */

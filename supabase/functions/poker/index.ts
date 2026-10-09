@@ -32,6 +32,7 @@ import {
   playTimeout,
   pokerRematch,
   pokerRematchJoin,
+  pokerResults,
 } from './logic.ts';
 import { awardXp, unlockedEmojis } from '../_shared/xp.ts';
 import { inBackground, notify } from '../_shared/push.ts';
@@ -126,7 +127,13 @@ async function recordHand(room: RoomRow, saved: SaveParams) {
     );
     // The game is over: everyone who played it gets the end-of-game experience.
     if (game?.data?.length) {
-      for (const p of await loadPlayers(admin, room.id)) {
+      const seated = await loadPlayers(admin, room.id);
+      // The weekly ranking between friends counts this game.
+      const ranked = await admin
+        .from('online_results')
+        .upsert(pokerResults(room.id, seated, records.game!.winner_id), { ignoreDuplicates: true });
+      if (ranked.error) console.error('résultats non enregistrés', ranked.error);
+      for (const p of seated) {
         if (p.is_bot) continue;
         const won = p.user_id === records.game!.winner_id;
         awards.push(awardXp(admin, p.user_id, 'poker', XP_PLAY + (won ? XP_WIN : 0), { won }));

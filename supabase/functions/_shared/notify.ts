@@ -92,10 +92,12 @@ const GAME_NAMES: Record<string, { fr: string; en: string }> = {
   yams: { fr: 'Yams', en: 'Yahtzee' },
   belote: { fr: 'Belote', en: 'Belote' },
   puissance4: { fr: 'Puissance 4', en: 'Connect 4' },
+  bataille: { fr: 'Bataille navale', en: 'Battleship' },
   uno: { fr: 'Uno', en: 'Uno' },
   huit: { fr: '8 américain', en: 'Crazy Eights' },
   rami: { fr: 'Rami', en: 'Rummy' },
   tarot: { fr: 'Tarot', en: 'Tarot' },
+  perudo: { fr: 'Perudo', en: 'Liar’s Dice' },
 };
 
 export function gameName(game: string, lang: NoticeLang): string {

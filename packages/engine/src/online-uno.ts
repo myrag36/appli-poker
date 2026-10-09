@@ -130,6 +130,7 @@ export function unoOnline(variant: UnoVariant): OnlineGame<UnoOnlineState> {
         });
       return out;
     },
+    toPlay: (s) => (s.game.phase === 'playing' ? [s.game.current] : []),
     apply(s, seat, move, rng) {
       return { ...s, game: unoApply(s.game, seat, parseMove(move), rng) };
     },

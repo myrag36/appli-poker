@@ -5,12 +5,14 @@ import { blackjackOnline } from './online-blackjack.ts';
 import { beloteOnline } from './online-belote.ts';
 import { presidentOnline } from './online-president.ts';
 import { puissance4Online } from './online-puissance4.ts';
+import { batailleOnline } from './online-bataille.ts';
 import { yamsOnline } from './online-yams.ts';
 import { tarotOnline } from './online-tarot.ts';
 
 import { ramiOnline } from './online-rami.ts';
 
 import { huitOnlineGame, unoOnlineGame } from './online-uno.ts';
+import { perudoOnline } from './online-perudo.ts';
 
 export type OnlineGameId =
   | 'blackjack'
@@ -18,10 +20,12 @@ export type OnlineGameId =
   | 'yams'
   | 'belote'
   | 'puissance4'
+  | 'bataille'
   | 'rami'
   | 'tarot'
   | 'uno'
-  | 'huit';
+  | 'huit'
+  | 'perudo';
 
 /** A seat at an online table, in seat order. Robots are played by the server. */
 export interface OnlineSeat {
@@ -40,6 +44,11 @@ export interface OnlineGame<S = any> {
   start(seats: OnlineSeat[], options: Record<string, unknown>, rng: Rng): S;
   /** Seats that may move now; empty between rounds or at the end. */
   actors(state: S): number[];
+  /**
+   * Seats whose turn it really is, told on their phone; `actors` when missing. Uno lets everyone
+   * catch a forgotten announcement, but only the current player is waited for.
+   */
+  toPlay?(state: S): number[];
   /** Plays a move for a seat; throws an Error with a French message when it is not allowed. */
   apply(state: S, seat: number, move: unknown, rng: Rng): S;
   /** A sensible move for a seat: used for robots and for players who let their time run out. */
@@ -60,10 +69,12 @@ export const ONLINE_GAMES: Record<OnlineGameId, OnlineGame> = {
   yams: yamsOnline,
   belote: beloteOnline,
   puissance4: puissance4Online,
+  bataille: batailleOnline,
   rami: ramiOnline,
   tarot: tarotOnline,
   uno: unoOnlineGame,
   huit: huitOnlineGame,
+  perudo: perudoOnline,
 };
 
 export function isOnlineGame(id: unknown): id is OnlineGameId {

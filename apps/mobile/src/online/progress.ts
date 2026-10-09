@@ -6,6 +6,7 @@ import {
   type DayStats,
   type Equipped,
   type GameCounters,
+  type LeaderboardPlayer,
   type ProgressGame,
   type Reward,
   type RewardKind,
@@ -340,6 +341,20 @@ export async function loadFriends(): Promise<FriendRow[]> {
   const { data, error } = await supabase.rpc('friends_board');
   if (error) throw new Error(t('Pas de connexion au serveur'));
   return (data ?? []) as FriendRow[];
+}
+
+/** This week's ranking of online games between me and my friends, from the profile server. */
+export interface Leaderboard {
+  /** Mondays of this week and last week ("YYYY-MM-DD", Paris). */
+  week: string;
+  lastWeek: string;
+  /** When this week's ranking ends, in epoch milliseconds. */
+  endsAt: number;
+  players: LeaderboardPlayer[];
+}
+
+export async function loadLeaderboard(): Promise<Leaderboard> {
+  return await callProfile<Leaderboard>({ type: 'classement' });
 }
 
 export async function addFriend(code: string) {
