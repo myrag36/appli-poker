@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  PROGRESS_GAMES,
+  CHALLENGE_GAMES,
   challengeFor,
   challengeProgress,
   challengeStreakBonus,
@@ -22,7 +22,7 @@ test('the challenge is the same all day and changes every day', () => {
 
 test('every game comes up within a month, both to win and to play, plus general challenges', () => {
   const ids = new Set(days('2026-10-01', 60).map((d) => challengeFor(d).id));
-  for (const g of PROGRESS_GAMES) {
+  for (const g of CHALLENGE_GAMES) {
     assert.ok(ids.has(`wingame:${g}`), `wingame:${g}`);
     assert.ok(ids.has(`playgame:${g}`), `playgame:${g}`);
   }
@@ -57,7 +57,7 @@ test('discover: a game played for the first time today', () => {
   // Tarot played twice, both today: new.
   assert.equal(challengeProgress(disc, { played: { tarot: 2 } }, { tarot: { played: 2, won: 0 } }), 1);
   // Everything already tried before today: three different games instead.
-  const all = Object.fromEntries(PROGRESS_GAMES.map((g) => [g, { played: 5, won: 0 }]));
+  const all = Object.fromEntries(CHALLENGE_GAMES.map((g) => [g, { played: 5, won: 0 }]));
   assert.equal(challengeProgress(disc, { played: { uno: 1, yams: 1 } }, all), 0);
   assert.equal(challengeProgress(disc, { played: { uno: 1, yams: 1, rami: 1 } }, all), 1);
 });

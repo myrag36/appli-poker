@@ -47,6 +47,7 @@ const GAMES: { id: OnlineGameId; title: string; emoji: string }[] = [
   { id: 'yams', title: t('Yams'), emoji: '🎲' },
   { id: 'belote', title: t('Belote'), emoji: '♠️' },
   { id: 'puissance4', title: t('Puissance 4'), emoji: '🔴' },
+  { id: 'bataille', title: t('Bataille navale'), emoji: '⚓' },
   { id: 'rami', title: t('Rami'), emoji: '🀄' },
   { id: 'tarot', title: t('Tarot'), emoji: '🃏' },
   { id: 'uno', title: 'Uno', emoji: '🎨' },

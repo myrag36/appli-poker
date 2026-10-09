@@ -10,6 +10,8 @@ export * from './president.ts';
 export * from './yams.ts';
 export * from './belote.ts';
 export * from './puissance4.ts';
+export * from './bataille.ts';
+export * from './online-bataille.ts';
 export * from './online.ts';
 export * from './online-uno.ts';
 export * from './progress.ts';

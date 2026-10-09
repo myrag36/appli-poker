@@ -33,6 +33,7 @@ import { useMyProgress } from '../online/progress';
 import { loadAvatar } from '../online/supabase';
 import { PlayingCard } from '../components/PlayingCard';
 import { Token } from '../components/Token';
+import { BatailleArt } from './BatailleScreen';
 import { UnoCard } from '../components/UnoCard';
 import { TarotCard } from '../components/TarotCard';
 import { colors, gradients, shadow } from '../theme';
@@ -46,6 +47,7 @@ export type GameId =
   | 'yams'
   | 'belote'
   | 'puissance4'
+  | 'bataille'
   | 'rami'
   | 'uno'
   | 'huit'
@@ -111,6 +113,14 @@ const GAMES: Game[] = [
     ready: true,
   },
   {
+    id: 'bataille',
+    title: t('Bataille navale'),
+    tagline: t('Cache ta flotte, tire à l’aveugle et coule tous les navires adverses.'),
+    players: t('2 joueurs ou contre le robot'),
+    art: [],
+    ready: true,
+  },
+  {
     id: 'rami',
     title: 'Rami',
     tagline: t('Pose tes suites et tes brelans, ouvre à 51 et vide ta main le premier.'),
@@ -159,6 +169,7 @@ interface Props {
 }
 
 function Art({ game }: { game: Game }) {
+  if (game.id === 'bataille') return <BatailleArt />;
   if (game.id === 'puissance4') {
     return (
       <View style={styles.tokens}>

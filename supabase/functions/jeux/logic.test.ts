@@ -353,6 +353,44 @@ test('puissance4: a robot takes the empty seat, rounds pause, the match ends wit
   assert.equal(awards[0].userId, 'a');
 });
 
+test('bataille: a robot takes the empty seat, fleets stay hidden, the game ends with experience', () => {
+  const { bots, snapshot } = startGame(
+    room({ game: 'bataille', options: cleanOptions('bataille', {}) }),
+    [player('a', 0)],
+    'a',
+    newId,
+    rng,
+    NOW,
+  );
+  assert.equal(bots.length, 1);
+  // Both place their fleet at once: the robot first, on its short timeout.
+  assert.deepEqual(snapshot.public.actors, ['a', bots[0].user_id]);
+  assert.equal(snapshot.secret.deadline, NOW + BOT_MS);
+  let s = playGameTimeout(snapshot.secret, rng, snapshot.secret.deadline!);
+  assert.deepEqual(s.public.actors, ['a']);
+  assert.equal(s.secret.deadline, NOW + BOT_MS + TURN_MS);
+  type View = { game: { boards: ({ ships: unknown[] } | null)[] } };
+  // Nobody but the robot knows where its ships are.
+  assert.equal((s.privates.a as View).game.boards[1]!.ships.length, 0);
+  assert.equal((s.public.view as View).game.boards[1]!.ships.length, 0);
+  // A slow player gets a random fleet.
+  s = playGameTimeout(s.secret, rng, s.secret.deadline!);
+  assert.equal((s.privates.a as View).game.boards[0]!.ships.length, 5);
+  assert.equal((s.privates.a as View).game.boards[1]!.ships.length, 0);
+  assert.deepEqual(s.public.actors, ['a']);
+  assert.throws(() => playGameMove(s.secret, 'a', { type: 'shoot', x: 10, y: 0 }, rng, NOW), /Case inconnue/);
+  let before = s;
+  for (let i = 0; i < 400 && !s.public.over; i++) {
+    before = s;
+    s = playGameTimeout(s.secret, rng, s.secret.deadline!);
+  }
+  assert.ok(s.public.over);
+  assert.equal((s.public.view as View).game.boards[1]!.ships.length, 5);
+  const awards = progressAwards(before.secret, s);
+  assert.equal(awards.length, 1);
+  assert.equal(awards[0].userId, 'a');
+});
+
 test('revanche: once the game is over, a new table with the asker, the robots and old seats', () => {
   const seated = [
     { ...player('a', 0), avatar: '🦊', avatar_color: '#f00' },

@@ -34,8 +34,8 @@ export function rollChest(kind: ChestKind, rnd: () => number): { coins: number; 
 }
 
 /** Rare moments spotted during a game, worth a badge. */
-export type Feat = 'yams' | 'capot' | 'blackjack' | 'president' | 'carre' | 'puissance4';
-export const FEATS: Feat[] = ['yams', 'capot', 'blackjack', 'president', 'carre', 'puissance4'];
+export type Feat = 'yams' | 'capot' | 'blackjack' | 'president' | 'carre' | 'puissance4' | 'bataille';
+export const FEATS: Feat[] = ['yams', 'capot', 'blackjack', 'president', 'carre', 'puissance4', 'bataille'];
 
 /** Everything achievements are measured on. */
 export interface AchievementStats {
@@ -119,6 +119,7 @@ const DEFS: Def[] = [
   feat('president', '🎩', 'Président', 'Finis premier d’une manche de Président', 40),
   feat('carre', '🍀', 'Carré gagnant', 'Gagne un coup de poker avec un carré ou mieux', 100),
   feat('puissance4', '🔴', 'Aligné', 'Gagne une partie de Puissance 4', 40),
+  feat('bataille', '⚓', 'Amiral', 'Gagne une partie de bataille navale', 60),
 ];
 
 /** Every achievement, in display order. */
