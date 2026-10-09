@@ -107,6 +107,8 @@ export function bnCheckFleet(raw: unknown): BnShip[] {
       typeof s.horizontal !== 'boolean'
     )
       throw new Error('Flotte invalide');
+    // Before listing its cells: a huge size would build a huge array (or throw a RangeError).
+    if (!(BN_FLEET as readonly number[]).includes(s.size)) throw new Error('Flotte invalide');
     const ship = { x: s.x, y: s.y, size: s.size, horizontal: s.horizontal };
     if (!bnCanPlace(ships, ship))
       throw new Error('Les bateaux doivent tenir sur la grille sans se chevaucher');

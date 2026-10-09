@@ -67,6 +67,15 @@ test('a fleet is checked: five ships of the right sizes, on the grid, without ov
   assert.throws(() => bnCheckFleet([...ROWS.slice(0, 4), { x: 0, y: 9, size: 2 }]), /Flotte invalide/);
 });
 
+test('a fleet with a huge ship size is refused at once, without listing its cells', () => {
+  // 2^32 used to crash with a RangeError, and 1e8 kept the server busy for about a minute.
+  for (const size of [2 ** 32, 1e8, 0, -1, Number.NaN]) {
+    const t = Date.now();
+    assert.throws(() => bnCheckFleet(ROWS.map((s) => ({ ...s, size }))), /Flotte invalide/);
+    assert.ok(Date.now() - t < 100, `taille ${size} : trop long`);
+  }
+});
+
 test('random fleets are always valid and never touch', () => {
   const rng = seeded(3);
   for (let i = 0; i < 200; i++) {

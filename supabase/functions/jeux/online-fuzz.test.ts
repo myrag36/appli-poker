@@ -21,6 +21,16 @@ import {
   unoIsWild,
   unoLegalCards,
 } from '../_shared/engine/uno.ts';
+import { perudoBidOptions, perudoCanCalza, perudoTotalDice } from '../_shared/engine/perudo.ts';
+import {
+  BN_FLEET,
+  BN_SIZE,
+  type BnShip,
+  bnCanPlace,
+  bnRandomFleet,
+  bnShotAt,
+  bnSunkShips,
+} from '../_shared/engine/bataille.ts';
 import {
   type GameRoomRow,
   type GameSnapshot,
@@ -96,7 +106,46 @@ const OFFERED: Record<OnlineGameId, (view: any, seat: number, rng: Rng) => unkno
   },
   uno: unoOffered,
   huit: unoOffered,
+  perudo(v, seat, rng) {
+    if (v.phase !== 'bidding' || v.current !== seat) return [];
+    const total = perudoTotalDice(v);
+    const out: unknown[] = perudoBidOptions(v).map(({ face, min }) => ({
+      type: 'bid',
+      quantity: min + rng(total - min + 1),
+      face,
+    }));
+    if (v.bid) out.push({ type: 'dudo' });
+    if (perudoCanCalza(v, seat)) out.push({ type: 'calza' });
+    return out;
+  },
+  bataille(v, seat, rng) {
+    const g = v.game;
+    if (g.phase === 'placement')
+      return v.placed[seat] ? [] : [{ type: 'place', ships: rng(2) ? bnRandomFleet(rng) : handFleet(rng) }];
+    if (g.current !== seat) return [];
+    // The cells of the other grid not fired at yet, as the screen shows them.
+    const target = g.boards[1 - seat];
+    const out: unknown[] = [];
+    for (let y = 0; y < BN_SIZE; y++)
+      for (let x = 0; x < BN_SIZE; x++) if (!bnShotAt(target, x, y)) out.push({ type: 'shoot', x, y });
+    return out;
+  },
 };
+
+/** A fleet laid out by hand on the placement screen: ships may touch, in any order. */
+function handFleet(rng: Rng): BnShip[] {
+  const ships: BnShip[] = [];
+  for (const size of shuffled([...BN_FLEET], rng)) {
+    for (;;) {
+      const ship = { x: rng(BN_SIZE), y: rng(BN_SIZE), size, horizontal: rng(2) === 0 };
+      if (bnCanPlace(ships, ship)) {
+        ships.push(ship);
+        break;
+      }
+    }
+  }
+  return ships;
+}
 
 function unoOffered(v: any, seat: number, rng: Rng): unknown[] {
   const out: unknown[] = [];
@@ -123,6 +172,46 @@ const HANDS: Partial<Record<OnlineGameId, (state: any) => string[][]>> = {
   huit: (s) => s.game.players.map((p: { hand: string[] }) => p.hand),
 };
 
+/**
+ * Games with hidden information other than cards: checks what a seat receives (null: the
+ * public view) against the whole state, while the game is played.
+ */
+const HIDDEN: Partial<Record<OnlineGameId, (state: any, view: any, seat: number | null) => void>> = {
+  perudo(s, v, seat) {
+    // The others' dice stay under their cups until a Dudo or a Calza shows them all.
+    if (s.phase !== 'bidding') return;
+    v.players.forEach((p: { count: number; dice: number[] }, i: number) => {
+      const real = s.players[i];
+      assert.equal(p.count, real.count);
+      if (i === seat) assert.deepEqual(p.dice, real.dice);
+      else
+        assert.ok(
+          p.dice.length === real.count && p.dice.every((d) => d === 0),
+          `perudo : la place ${seat} voit les dés de la place ${i}`,
+        );
+    });
+  },
+  bataille(s, v, seat) {
+    // Of the other fleet, only the shots and the sunk ships until the end.
+    const g = s.game;
+    assert.deepEqual(v.placed, [!!g.boards[0], !!g.boards[1]]);
+    for (const p of [0, 1]) {
+      const real = g.boards[p];
+      const seen = v.game.boards[p];
+      if (!real) assert.equal(seen, null);
+      else if (p === seat) assert.deepEqual(seen, real);
+      else {
+        assert.deepEqual(seen.shots, real.shots);
+        assert.deepEqual(
+          seen.ships,
+          bnSunkShips(real),
+          `bataille : la place ${seat} voit les bateaux de ${p}`,
+        );
+      }
+    }
+  },
+};
+
 const OPTIONS: Record<OnlineGameId, Record<string, unknown>> = {
   blackjack: { stack: 500 },
   president: { rounds: 2 },
@@ -133,6 +222,8 @@ const OPTIONS: Record<OnlineGameId, Record<string, unknown>> = {
   tarot: { deals: 4 },
   uno: { target: 0 },
   huit: { target: 0 },
+  perudo: {},
+  bataille: {},
 };
 
 /** Tables to try: how many people, and how many robots the host added. */
@@ -181,6 +272,16 @@ const TABLES: Record<OnlineGameId, [number, number][]> = {
     [1, 0],
     [2, 0],
     [6, 0],
+  ],
+  perudo: [
+    [1, 0],
+    [2, 0],
+    [3, 2],
+    [6, 0],
+  ],
+  bataille: [
+    [1, 0],
+    [2, 0],
   ],
 };
 
@@ -257,6 +358,11 @@ function playTable(game: OnlineGameId, people: number, robots: number, seed: num
               `${game} : ${h.id} voit la carte ${c} d’un autre`,
             );
       }
+    }
+    const hidden = HIDDEN[game];
+    if (hidden && !pub.over) {
+      hidden(s.secret.state, pub.view, null);
+      for (const h of humans) hidden(s.secret.state, s.privates[h.id], h.seat);
     }
     assert.equal(JSON.stringify(pub).includes('"deck":["'), false, `${game} : la pioche est envoyée`);
     assert.equal(JSON.stringify(pub).includes('"shoe"'), false, `${game} : le sabot est envoyé`);
