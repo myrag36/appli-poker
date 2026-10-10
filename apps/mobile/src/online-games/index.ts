@@ -4,6 +4,7 @@ import { BlackjackOnlineBoard, BlackjackOnlineOptions } from '../screens/Blackja
 import { PresidentOnlineBoard, PresidentOnlineOptions } from '../screens/PresidentScreen';
 import { Puissance4OnlineBoard, Puissance4OnlineOptions } from '../screens/Puissance4Screen';
 import { BatailleOnlineBoard } from '../screens/BatailleScreen';
+import { EchecsOnlineBoard } from '../screens/EchecsScreen';
 import { RamiOnlineBoard, RamiOnlineOptions } from '../screens/RamiScreen';
 import { YamsOnlineBoard } from '../screens/YamsScreen';
 import { TarotOnlineBoard, TarotOnlineOptions } from '../screens/TarotScreen';
@@ -58,6 +59,13 @@ export const ONLINE_UI: Record<OnlineGameId, OnlineGameUi> = {
     emoji: '⚓',
     players: t('2 joueurs, un robot prend la place libre'),
     Board: BatailleOnlineBoard,
+    defaultOptions: {},
+  },
+  echecs: {
+    title: t('Échecs'),
+    emoji: '♟️',
+    players: t('2 joueurs, un robot prend la place libre'),
+    Board: EchecsOnlineBoard,
     defaultOptions: {},
   },
   rami: {

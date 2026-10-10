@@ -22,6 +22,7 @@ import { YamsScreen } from './src/screens/YamsScreen';
 import { BeloteScreen } from './src/screens/BeloteScreen';
 import { Puissance4Screen } from './src/screens/Puissance4Screen';
 import { BatailleScreen } from './src/screens/BatailleScreen';
+import { EchecsScreen } from './src/screens/EchecsScreen';
 import { RamiScreen } from './src/screens/RamiScreen';
 import { HuitScreen, UnoScreen } from './src/screens/UnoScreen';
 import { TarotScreen } from './src/screens/TarotScreen';
@@ -177,6 +178,9 @@ export default function App() {
         )}
         {screen.name === 'game' && screen.game === 'bataille' && (
           <BatailleScreen onBack={games} onOnline={online('bataille')} />
+        )}
+        {screen.name === 'game' && screen.game === 'echecs' && (
+          <EchecsScreen onBack={games} onOnline={online('echecs')} />
         )}
         {screen.name === 'game' && screen.game === 'rami' && (
           <RamiScreen onBack={games} onOnline={online('rami')} />

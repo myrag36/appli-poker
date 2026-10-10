@@ -34,6 +34,7 @@ import { loadAvatar } from '../online/supabase';
 import { PlayingCard } from '../components/PlayingCard';
 import { Token } from '../components/Token';
 import { BatailleArt } from './BatailleScreen';
+import { EchecsArt } from './EchecsScreen';
 import { UnoCard } from '../components/UnoCard';
 import { TarotCard } from '../components/TarotCard';
 import { colors, gradients, shadow } from '../theme';
@@ -48,6 +49,7 @@ export type GameId =
   | 'belote'
   | 'puissance4'
   | 'bataille'
+  | 'echecs'
   | 'rami'
   | 'uno'
   | 'huit'
@@ -122,6 +124,14 @@ const GAMES: Game[] = [
     ready: true,
   },
   {
+    id: 'echecs',
+    title: t('Échecs'),
+    tagline: t('Le roi des jeux de stratégie : roque, promotion, et mate le roi adverse.'),
+    players: t('2 joueurs ou contre le robot'),
+    art: [],
+    ready: true,
+  },
+  {
     id: 'rami',
     title: 'Rami',
     tagline: t('Pose tes suites et tes brelans, ouvre à 51 et vide ta main le premier.'),
@@ -179,6 +189,7 @@ interface Props {
 
 function Art({ game }: { game: Game }) {
   if (game.id === 'bataille') return <BatailleArt />;
+  if (game.id === 'echecs') return <EchecsArt />;
   if (game.id === 'puissance4') {
     return (
       <View style={styles.tokens}>
@@ -472,7 +483,7 @@ function DesktopGames({
             <View style={desk.brand}>
               <Text style={desk.logo}>La Tablée</Text>
               <Text style={desk.tagline}>
-                {t('12 jeux de cartes, de dés et de plateau à partager entre amis')}
+                {t('13 jeux de cartes, de dés et de plateau à partager entre amis')}
               </Text>
             </View>
             <View style={desk.chips}>

@@ -6,8 +6,8 @@ export default {
   Pièces: 'Coins',
   Coffres: 'Chests',
   'Bienvenue à La Tablée !': 'Welcome to La Tablée!',
-  'Poker, belote, tarot, Uno, Yams… 12 jeux à partager entre amis, en ligne ou sur un seul téléphone.':
-    'Poker, Belote, Tarot, Uno, Yams… 12 games to share with friends, online or on a single phone.',
+  'Poker, belote, tarot, Uno, Yams… 13 jeux à partager entre amis, en ligne ou sur un seul téléphone.':
+    'Poker, Belote, Tarot, Uno, Yams… 13 games to share with friends, online or on a single phone.',
   'Choisis ton jeu': 'Pick your game',
   'Sur l’accueil, glisse les cartes pour voir les jeux, puis touche « Jouer ». Les règles sont expliquées dans chaque jeu.':
     'On the home screen, swipe the cards to see the games, then tap “Play”. Each game explains its rules.',
