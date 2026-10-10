@@ -52,6 +52,7 @@ const GAME_NAMES: Record<ProgressGame, string> = {
   belote: '♠️ Belote',
   puissance4: t('🔴 Puissance 4'),
   bataille: t('⚓ Bataille navale'),
+  echecs: t('♟️ Échecs'),
   rami: '🃏 Rami',
   uno: '🌈 Uno',
   huit: t('🎱 8 américain'),

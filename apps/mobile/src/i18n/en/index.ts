@@ -10,6 +10,7 @@ import divers from './divers';
 import tutoriel from './tutoriel';
 import puissance4 from './puissance4';
 import bataille from './bataille';
+import echecs from './echecs';
 import ramiEnLigne from './ramiEnLigne';
 import defi from './defi';
 import tarotEnLigne from './tarotEnLigne';
@@ -39,6 +40,7 @@ export const EN: Record<string, string> = {
   ...tutoriel,
   ...puissance4,
   ...bataille,
+  ...echecs,
   ...ramiEnLigne,
   ...defi,
   ...tarotEnLigne,

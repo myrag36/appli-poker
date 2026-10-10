@@ -11,6 +11,7 @@ export type DecorId =
   | 'belote'
   | 'puissance4'
   | 'bataille'
+  | 'echecs'
   | 'rami'
   | 'uno'
   | 'huit'
@@ -484,6 +485,50 @@ function Bataille({ w, h }: Size) {
   );
 }
 
+function Echecs({ w, h }: Size) {
+  // A dark wooden table under a lamp, with a chessboard that fades away towards the bottom.
+  const cell = Math.ceil(w / 8);
+  const rows = Math.ceil((h * 0.6) / cell);
+  return (
+    <>
+      <LinearGradient colors={['#4a3322', '#26180e', '#0e0905']} style={StyleSheet.absoluteFill} />
+      {Array.from({ length: rows * 8 }, (_, i) => {
+        const c = i % 8;
+        const r = Math.floor(i / 8);
+        if ((c + r) % 2) return null;
+        return (
+          <View
+            key={i}
+            style={{
+              position: 'absolute',
+              left: c * cell,
+              top: r * cell,
+              width: cell,
+              height: cell,
+              backgroundColor: `rgba(240,220,180,${Math.max(0, 0.15 - r * 0.022)})`,
+            }}
+          />
+        );
+      })}
+      <Glow x={w / 2} y={h * 0.2} size={w * 0.5} color="rgba(255,225,170,0.10)" />
+      {['♜', '♛', '♞'].map((s, i) => (
+        <Text
+          key={s}
+          style={{
+            position: 'absolute',
+            left: w * (0.08 + i * 0.34),
+            top: h * (0.03 + (i % 2) * 0.06),
+            fontSize: 30,
+            color: 'rgba(255,240,210,0.22)',
+          }}
+        >
+          {s}
+        </Text>
+      ))}
+    </>
+  );
+}
+
 /** A tiny face-up card for the decors: rank and suit only. */
 function MiniCard({
   x,
@@ -736,6 +781,7 @@ const DECORS: Record<DecorId, (size: Size) => ReactNode> = {
   belote: Belote,
   puissance4: Puissance4,
   bataille: Bataille,
+  echecs: Echecs,
   rami: Rami,
   uno: Uno,
   huit: Huit,

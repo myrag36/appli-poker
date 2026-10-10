@@ -34,8 +34,25 @@ export function rollChest(kind: ChestKind, rnd: () => number): { coins: number; 
 }
 
 /** Rare moments spotted during a game, worth a badge. */
-export type Feat = 'yams' | 'capot' | 'blackjack' | 'president' | 'carre' | 'puissance4' | 'bataille';
-export const FEATS: Feat[] = ['yams', 'capot', 'blackjack', 'president', 'carre', 'puissance4', 'bataille'];
+export type Feat =
+  | 'yams'
+  | 'capot'
+  | 'blackjack'
+  | 'president'
+  | 'carre'
+  | 'puissance4'
+  | 'bataille'
+  | 'echecs';
+export const FEATS: Feat[] = [
+  'yams',
+  'capot',
+  'blackjack',
+  'president',
+  'carre',
+  'puissance4',
+  'bataille',
+  'echecs',
+];
 
 /** Everything achievements are measured on. */
 export interface AchievementStats {
@@ -127,6 +144,7 @@ const DEFS: Def[] = [
   def('weekly-champion', '🏆', 'Champion du vendredi', 'Remporte le tournoi du vendredi', 1, 150, (s) =>
     s.feats.includes('tournoi-vendredi') ? 1 : 0,
   ),
+  feat('echecs', '♚', 'Échec et mat', 'Gagne une partie d’échecs par échec et mat', 60),
 ];
 
 /** Every achievement, in display order. */

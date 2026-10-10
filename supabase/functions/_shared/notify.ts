@@ -93,6 +93,7 @@ const GAME_NAMES: Record<string, { fr: string; en: string }> = {
   belote: { fr: 'Belote', en: 'Belote' },
   puissance4: { fr: 'Puissance 4', en: 'Connect 4' },
   bataille: { fr: 'Bataille navale', en: 'Battleship' },
+  echecs: { fr: 'Échecs', en: 'Chess' },
   uno: { fr: 'Uno', en: 'Uno' },
   huit: { fr: '8 américain', en: 'Crazy Eights' },
   rami: { fr: 'Rami', en: 'Rummy' },
