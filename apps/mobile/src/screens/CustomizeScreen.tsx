@@ -609,8 +609,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 6,
     borderRadius: 14,
-    // Nearly opaque: the room's decor must not show through the names.
-    backgroundColor: `${colors.background}f0`,
+    backgroundColor: colors.glass,
     borderWidth: 2,
     gap: 2,
     overflow: 'hidden',

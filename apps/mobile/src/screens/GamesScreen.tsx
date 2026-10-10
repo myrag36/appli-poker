@@ -719,15 +719,21 @@ function SeasonPill({
 }
 
 const styles = StyleSheet.create({
+  // Four buttons do not fit one phone row: two by two, the same width.
   social: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'center',
     gap: 8,
     marginTop: 12,
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
+    width: '100%',
+    maxWidth: 420,
   },
   socialButton: {
+    flexGrow: 1,
+    flexBasis: '40%',
+    alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 18,
