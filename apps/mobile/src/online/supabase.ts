@@ -97,7 +97,8 @@ type ProfileRequest =
   | { type: 'pushKey' }
   | { type: 'pushSubscribe'; subscription: unknown; lang: string }
   | { type: 'pushUnsubscribe'; endpoint: string }
-  | { type: 'invite'; friendId: string; game: string; code: string };
+  | { type: 'invite'; friendId: string; game: string; code: string }
+  | { type: 'message'; friendId: string; body: string };
 
 /** Calls the profile server (games on one phone, rewards worn, shop and quests). */
 export function callProfile<T>(body: ProfileRequest): Promise<T> {

@@ -30,6 +30,7 @@ import { AvatarBadge } from '../components/AvatarPicker';
 import { achievementsReady } from '../components/Achievements';
 import { DailyChallenge } from '../components/DailyChallenge';
 import { useMyProgress } from '../online/progress';
+import { useUnreadCount } from '../online/messagerie';
 import { loadAvatar } from '../online/supabase';
 import { PlayingCard } from '../components/PlayingCard';
 import { Token } from '../components/Token';
@@ -37,7 +38,7 @@ import { BatailleArt } from './BatailleScreen';
 import { UnoCard } from '../components/UnoCard';
 import { TarotCard } from '../components/TarotCard';
 import { colors, gradients, shadow } from '../theme';
-import { LANGS, lang, setLang, t } from '../i18n';
+import { LANGS, lang, setLang, t, tn } from '../i18n';
 import { PAGE_MAX_WIDTH, useDesktop } from '../layout';
 
 export type GameId =
@@ -308,6 +309,7 @@ export function GamesScreen({
           style={({ pressed }) => [styles.socialButton, pressed && styles.pressed]}
         >
           <Text style={styles.socialText}>{t('👥 Amis')}</Text>
+          <UnreadBadge />
         </Pressable>
         <Pressable
           accessibilityRole="button"
@@ -492,6 +494,7 @@ function DesktopGames({
               )}
               <Pressable accessibilityRole="button" onPress={onFriends} style={hoverable()}>
                 <Text style={desk.actionText}>{t('👥 Amis')}</Text>
+                <UnreadBadge />
               </Pressable>
               <Pressable accessibilityRole="button" onPress={onTournaments} style={hoverable()}>
                 <Text style={desk.actionText}>{t('🏆 Tournois')}</Text>
@@ -654,6 +657,20 @@ function CoinsChip({ onPress }: { onPress: () => void }) {
   );
 }
 
+/** Messages from friends not read yet, on the friends button. */
+function UnreadBadge() {
+  const unread = useUnreadCount();
+  if (unread <= 0) return null;
+  return (
+    <View
+      style={styles.inlineBadge}
+      accessibilityLabel={tn(unread, '{n} message non lu', '{n} messages non lus')}
+    >
+      <Text style={styles.badgeText}>{unread > 99 ? '99+' : unread}</Text>
+    </View>
+  );
+}
+
 /** The flag of the app's language; switches to the next language (the app reloads). */
 function LangChip() {
   if (Platform.OS !== 'web') return null;
@@ -706,6 +723,9 @@ function SeasonPill({
 const styles = StyleSheet.create({
   social: { flexDirection: 'row', gap: 8, marginTop: 12 },
   socialButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 18,
@@ -742,6 +762,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   badgeText: { color: '#fff', fontSize: 12, fontWeight: '900' },
+  inlineBadge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 5,
+    backgroundColor: '#e63946',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   lang: {
     width: 42,
     height: 42,
@@ -851,6 +880,9 @@ const desk = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 24,
     overflow: 'hidden',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     justifyContent: 'center',
     backgroundColor: colors.glass,
     borderWidth: 1,

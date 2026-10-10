@@ -416,7 +416,12 @@ async function sendMessage(userId: string, body: Record<string, unknown>) {
     .order('created_at', { ascending: false })
     .limit(MESSAGE_HOURLY);
   if (recentError) throw recentError;
-  if (!canSendMessage((recent ?? []).map((r) => r.created_at as string), now)) {
+  if (
+    !canSendMessage(
+      (recent ?? []).map((r) => r.created_at as string),
+      now,
+    )
+  ) {
     throw new GameError('Doucement ! Attends un peu avant d’écrire encore');
   }
   const { data: previous } = await admin
