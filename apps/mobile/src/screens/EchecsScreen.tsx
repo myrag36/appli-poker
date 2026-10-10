@@ -105,14 +105,21 @@ const VALUES: Record<string, number> = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 
 const isWhite = (piece: string) => piece !== '.' && piece === piece.toUpperCase();
 
-/** A chess piece drawn from the font's glyphs: the solid shape filled, the outline drawn over it. */
-export function ChessPiece({ piece, size }: { piece: string; size: number }) {
+/**
+ * A chess piece drawn from the font's glyphs: the solid shape filled, the outline drawn over it.
+ * `onDark`: a black piece on a dark panel gets a light halo so it stays readable.
+ */
+export function ChessPiece({ piece, size, onDark }: { piece: string; size: number; onDark?: boolean }) {
   const white = isWhite(piece);
   const kind = piece.toLowerCase();
   const font = { fontSize: Math.round(size * 0.86), lineHeight: size, width: size, height: size };
   return (
     <View style={{ width: size, height: size }} pointerEvents="none">
-      <Text style={[styles.glyph, font, white ? styles.whiteFill : styles.blackFill]}>{FILLED[kind]}</Text>
+      <Text
+        style={[styles.glyph, font, white ? styles.whiteFill : onDark ? styles.blackHalo : styles.blackFill]}
+      >
+        {FILLED[kind]}
+      </Text>
       <Text style={[styles.glyph, font, white ? styles.whiteLine : styles.blackLine]}>{OUTLINED[kind]}</Text>
     </View>
   );
@@ -326,7 +333,7 @@ function Setup({
   const playerRow = (i: 0 | 1) => (
     <View key={i}>
       <View style={styles.row}>
-        {!vsBot && <ChessPiece piece={i === 0 ? 'K' : 'k'} size={30} />}
+        {!vsBot && <ChessPiece piece={i === 0 ? 'K' : 'k'} size={30} onDark />}
         {vsBot && i === 1 ? (
           <>
             <AvatarBadge avatar={ROBOT_AVATAR} size={40} />
@@ -374,7 +381,7 @@ function Setup({
       <View style={styles.titlePieces}>
         {['N', 'k', 'Q'].map((p, i) => (
           <View key={p} style={{ transform: [{ translateY: i === 1 ? -6 : 0 }] }}>
-            <ChessPiece piece={p} size={44} />
+            <ChessPiece piece={p} size={44} onDark />
           </View>
         ))}
       </View>
@@ -777,7 +784,7 @@ function Captures({ game, player, size }: { game: ChessState; player: ChessPlaye
     <View style={styles.captures}>
       {pieces.map((p, i) => (
         <View key={i} style={{ marginRight: -size * 0.38 }}>
-          <ChessPiece piece={p} size={size} />
+          <ChessPiece piece={p} size={size} onDark />
         </View>
       ))}
       {lead > 0 && <Text style={[styles.lead, { marginLeft: size * 0.5 }]}>+{lead}</Text>}
@@ -802,7 +809,7 @@ function PlayerBar({
       <View>
         <AvatarBadge avatar={side.avatar} size={32} />
         <View style={styles.barKing}>
-          <ChessPiece piece={player === 0 ? 'K' : 'k'} size={18} />
+          <ChessPiece piece={player === 0 ? 'K' : 'k'} size={18} onDark />
         </View>
       </View>
       <View style={styles.barText}>
@@ -895,7 +902,7 @@ function SideCard({
       <View>
         <AvatarBadge avatar={side.avatar} size={46} />
         <View style={styles.sideKing}>
-          <ChessPiece piece={player === 0 ? 'K' : 'k'} size={24} />
+          <ChessPiece piece={player === 0 ? 'K' : 'k'} size={24} onDark />
         </View>
       </View>
       <View style={styles.barText}>
@@ -1038,6 +1045,7 @@ function ResultCard({
 function moveSound(before: ChessState, after: ChessState) {
   if (after.captured.length > before.captured.length) sounds.chips();
   else sounds.drop();
+  if (after.check && !after.result) setTimeout(() => sounds.reaction(), 120);
 }
 
 // ---------------------------------------------------------------------------
@@ -1393,6 +1401,7 @@ const styles = StyleSheet.create({
   whiteFill: { color: '#fffaf0', textShadowColor: 'rgba(0,0,0,0.35)', textShadowRadius: 2 },
   whiteLine: { color: '#231a12' },
   blackFill: { color: '#1d1916', textShadowColor: 'rgba(0,0,0,0.3)', textShadowRadius: 2 },
+  blackHalo: { color: '#1d1916', textShadowColor: 'rgba(255,244,220,0.85)', textShadowRadius: 4 },
   blackLine: { color: '#000000' },
 
   // Setup
