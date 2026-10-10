@@ -532,7 +532,7 @@ export function Cyberpunk({ w, h, k }: DecorProps) {
   ).map(([x, tw, top], i) => ({ x: w * x, w: tw * k, top: h * top, seed: i + 3 }));
 
   // The tower the hologram stands on.
-  const holo = land ? 4 : 2;
+  const holo = land ? 4 : 1;
   const rainA = Array.from({ length: land ? 140 : 70 }, () => ({
     x: rand() * w,
     y: rand() * h,
@@ -575,7 +575,7 @@ export function Cyberpunk({ w, h, k }: DecorProps) {
       <HoloAce
         x={near[holo].x + near[holo].w / 2}
         roof={near[holo].top - 4 * k}
-        k={k * (land ? 1.05 : 0.8)}
+        k={k * (land ? 1.05 : 0.75)}
         still={still}
       />
 
