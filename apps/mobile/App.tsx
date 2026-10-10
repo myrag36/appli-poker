@@ -45,7 +45,14 @@ import { t } from './src/i18n';
 type Screen =
   | { name: 'games' }
   | { name: 'game'; game: Exclude<GameId, 'poker'> }
-  | { name: 'game-online'; game: OnlineGameId; tournament?: TournamentTable; joinCode?: string }
+  | {
+      name: 'game-online';
+      game: OnlineGameId;
+      tournament?: TournamentTable;
+      joinCode?: string;
+      /** A match of the Friday tournament. */
+      weekly?: boolean;
+    }
   | { name: 'home' }
   | { name: 'local-setup' }
   | { name: 'local-game'; settings: GameSettings }
@@ -55,7 +62,7 @@ type Screen =
   | { name: 'profile' }
   | { name: 'shop'; from: 'games' | 'profile' }
   | { name: 'friends'; friend?: string }
-  | { name: 'tournaments'; id?: string };
+  | { name: 'tournaments'; id?: string; weekly?: boolean };
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>({ name: 'games' });
@@ -75,9 +82,11 @@ export default function App() {
     const game = params.get('jeu');
     const code = params.get('table');
     const friend = params.get('ami');
-    if (game && code) {
+    const weekly = params.get('tournoi') === 'vendredi';
+    if ((game && code) || weekly) {
       window.history.replaceState(null, '', window.location.pathname);
-      joinFromLink(game, code);
+      if (weekly) openWeekly(game, code);
+      else joinFromLink(game!, code!);
     } else if (friend) {
       window.history.replaceState(null, '', window.location.pathname);
       openChat(friend);
@@ -89,10 +98,18 @@ export default function App() {
     const onMessage = (e: MessageEvent) => {
       if (e.data?.type === 'open-table') joinFromLink(String(e.data.game), String(e.data.code));
       if (e.data?.type === 'open-chat') openChat(String(e.data.friend));
+      if (e.data?.type === 'open-weekly') openWeekly(e.data.game ?? null, e.data.code ?? null);
     };
     navigator.serviceWorker.addEventListener('message', onMessage);
     return () => navigator.serviceWorker.removeEventListener('message', onMessage);
   }, []);
+
+  /** The Friday tournament from a notification: my match's table, or its page. */
+  function openWeekly(game: string | null, code: string | null) {
+    if (game && code && isOnlineGame(game)) {
+      setScreen({ name: 'game-online', game, joinCode: code.trim().toUpperCase().slice(0, 8), weekly: true });
+    } else setScreen({ name: 'tournaments', weekly: true });
+  }
 
   /** Goes to a table from an invitation or a notification, sitting down at once when possible. */
   async function joinFromLink(game: string, rawCode: string) {
@@ -173,6 +190,10 @@ export default function App() {
             initialName={savedName ?? lastRoom?.name ?? ''}
             onBack={games}
             onPlay={(game, tournament) => setScreen({ name: 'game-online', game, tournament })}
+            initialWeekly={screen.weekly}
+            onPlayWeekly={(game, code) =>
+              setScreen({ name: 'game-online', game, joinCode: code, weekly: true })
+            }
           />
         )}
         {screen.name === 'shop' && (
@@ -213,16 +234,19 @@ export default function App() {
         )}
         {screen.name === 'game-online' && (
           <OnlineGameScreen
-            key={screen.game}
+            key={`${screen.game}-${screen.joinCode ?? ''}`}
             game={screen.game}
             initialName={savedName ?? lastRoom?.name ?? ''}
             tournament={screen.tournament}
             joinCode={screen.joinCode}
+            weekly={screen.weekly}
             onBack={() =>
               setScreen(
-                screen.tournament
-                  ? { name: 'tournaments', id: screen.tournament.id }
-                  : { name: 'game', game: screen.game },
+                screen.weekly
+                  ? { name: 'tournaments', weekly: true }
+                  : screen.tournament
+                    ? { name: 'tournaments', id: screen.tournament.id }
+                    : { name: 'game', game: screen.game },
               )
             }
           />

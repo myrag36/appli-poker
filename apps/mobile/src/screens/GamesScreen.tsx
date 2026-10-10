@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { lastWeeklyFriday, nextWeeklyFriday, weeklyStartsAt } from '@appli-poker/engine';
 import { GameDecor } from '../components/GameDecor';
 import { ThemeChooser } from '../components/ThemeChooser';
 import { InstallBanner } from '../components/InstallBanner';
@@ -316,7 +317,7 @@ export function GamesScreen({
           onPress={onTournaments}
           style={({ pressed }) => [styles.socialButton, pressed && styles.pressed]}
         >
-          <Text style={styles.socialText}>{t('🏆 Tournois')}</Text>
+          <Text style={styles.socialText}>{tournamentsLabel()}</Text>
         </Pressable>
         <SeasonPill onPress={onShop} />
       </View>
@@ -419,6 +420,21 @@ export function GamesScreen({
   );
 }
 
+/** A short line for the tournaments button: live, tonight, or nothing. */
+function weeklyTeaser(now: number, startsAt: number): string | null {
+  if (now >= startsAt && now < startsAt + 2 * 3_600_000) return t('🔴 Tournoi en direct');
+  if (startsAt - now > 0 && startsAt - now < 12 * 3_600_000) return t('🏆 Tournoi ce soir');
+  return null;
+}
+
+/** The tournaments button: says when the Friday tournament is tonight or being played. */
+function tournamentsLabel(now = Date.now()): string {
+  const last = weeklyStartsAt(lastWeeklyFriday(now));
+  return (
+    weeklyTeaser(now, last) ?? weeklyTeaser(now, weeklyStartsAt(nextWeeklyFriday(now))) ?? t('🏆 Tournois')
+  );
+}
+
 /** Props of the desktop home: the games screen's own, plus the tutorial it owns. */
 interface DesktopProps extends Props {
   tutorial: boolean;
@@ -497,7 +513,7 @@ function DesktopGames({
                 <UnreadBadge />
               </Pressable>
               <Pressable accessibilityRole="button" onPress={onTournaments} style={hoverable()}>
-                <Text style={desk.actionText}>{t('🏆 Tournois')}</Text>
+                <Text style={desk.actionText}>{tournamentsLabel()}</Text>
               </Pressable>
               <SeasonPill onPress={onShop} style={hoverable()} />
             </View>

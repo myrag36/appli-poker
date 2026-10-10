@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import { FunctionsHttpError } from '@supabase/supabase-js';
 import { AppState, Platform } from 'react-native';
-import type { Action, Avatar, OnlineGameId, Variant } from '@appli-poker/engine';
+import type { Action, Avatar, OnlineGameId, Variant, WeeklyBracket } from '@appli-poker/engine';
 import { SUPABASE_KEY, SUPABASE_URL } from './config';
 import { t } from '../i18n';
 
@@ -73,7 +73,9 @@ type GamesRequest =
   | { type: 'join'; game: OnlineGameId; name: string; code: string; avatar: Avatar }
   | { type: 'addBot' | 'start' | 'tick' | 'rematch'; roomId: string }
   | { type: 'remove'; roomId: string; userId: string }
-  | { type: 'move'; roomId: string; move: unknown };
+  | { type: 'move'; roomId: string; move: unknown }
+  | { type: 'weekly' | 'weeklyUnregister' }
+  | { type: 'weeklyRegister'; name: string; avatar: Avatar };
 
 /** Calls the server of the other games (Blackjack, Président, Yams, Belote). */
 export function callGames<T>(body: GamesRequest): Promise<T> {
@@ -247,6 +249,49 @@ export interface TournamentPlayer {
   avatar_color: string | null;
   points: number;
   wins: number;
+}
+
+/** A person (or robot) shown by the Friday tournament. */
+export interface WeeklyPerson {
+  id: string;
+  name: string;
+  avatar: string | null;
+  avatar_color: string | null;
+  bot?: boolean;
+}
+
+/** One Friday tournament, as the server shows it. */
+export interface WeeklyInfo {
+  id: string;
+  friday: string;
+  /** Epoch milliseconds. */
+  startsAt: number;
+  game: string;
+  status: 'open' | 'running' | 'finished' | 'cancelled';
+  bracket: WeeklyBracket | null;
+  registered: number;
+  /** I signed up. */
+  me: boolean;
+  entrants: WeeklyPerson[];
+  winner: WeeklyPerson | null;
+}
+
+/** The Friday tournament: the next one, the one being played (or just played), past champions. */
+export interface WeeklyState {
+  /** The server's clock when it answered, to count down without trusting the phone's clock. */
+  now: number;
+  upcoming: WeeklyInfo;
+  current: WeeklyInfo | null;
+  past: { friday: string; game: string; players: number; winner: WeeklyPerson }[];
+  hall: {
+    user_id: string;
+    name: string;
+    avatar: string | null;
+    avatar_color: string | null;
+    bot: boolean;
+    wins: number;
+    last: string;
+  }[];
 }
 
 export interface SavedTournament {

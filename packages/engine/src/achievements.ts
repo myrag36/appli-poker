@@ -123,6 +123,10 @@ const DEFS: Def[] = [
   feat('carre', '🍀', 'Carré gagnant', 'Gagne un coup de poker avec un carré ou mieux', 100),
   feat('puissance4', '🔴', 'Aligné', 'Gagne une partie de Puissance 4', 40),
   feat('bataille', '⚓', 'Amiral', 'Gagne une partie de bataille navale', 60),
+  // Given by the server to the champion of the Friday tournament (a phone cannot report it).
+  def('weekly-champion', '🏆', 'Champion du vendredi', 'Remporte le tournoi du vendredi', 1, 150, (s) =>
+    s.feats.includes('tournoi-vendredi') ? 1 : 0,
+  ),
 ];
 
 /** Every achievement, in display order. */

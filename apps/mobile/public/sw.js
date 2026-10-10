@@ -218,11 +218,13 @@ async function openFromNotification(href) {
   const game = url.searchParams.get('jeu');
   const code = url.searchParams.get('table');
   const friend = url.searchParams.get('ami');
+  const weekly = url.searchParams.get('tournoi') === 'vendredi';
   const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
   const open = windows.find((c) => c.url.startsWith(SHELL_URL));
   if (open) {
     await open.focus().catch(() => {});
-    if (game && code) open.postMessage({ type: 'open-table', game, code });
+    if (weekly) open.postMessage({ type: 'open-weekly', game, code });
+    else if (game && code) open.postMessage({ type: 'open-table', game, code });
     else if (friend) open.postMessage({ type: 'open-chat', friend });
     return;
   }

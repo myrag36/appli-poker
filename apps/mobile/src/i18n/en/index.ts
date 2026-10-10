@@ -25,6 +25,7 @@ import perudo from './perudo';
 import ambiances from './ambiances';
 import finitions from './finitions';
 import messagerie from './messagerie';
+import tournoiVendredi from './tournoiVendredi';
 
 export const EN: Record<string, string> = {
   ...accueil,
@@ -53,4 +54,5 @@ export const EN: Record<string, string> = {
   ...ambiances,
   ...finitions,
   ...messagerie,
+  ...tournoiVendredi,
 };
