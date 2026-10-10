@@ -123,6 +123,7 @@ const DEFS: Def[] = [
   feat('carre', '🍀', 'Carré gagnant', 'Gagne un coup de poker avec un carré ou mieux', 100),
   feat('puissance4', '🔴', 'Aligné', 'Gagne une partie de Puissance 4', 40),
   feat('bataille', '⚓', 'Amiral', 'Gagne une partie de bataille navale', 60),
+  def('dames-10', '⚪', 'Maître des dames', 'Gagne 10 parties de dames', 10, 100, (s) => wonIn(s, 'dames')),
 ];
 
 /** Every achievement, in display order. */

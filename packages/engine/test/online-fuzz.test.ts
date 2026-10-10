@@ -31,6 +31,7 @@ import {
   bnShotAt,
   bnSunkShips,
 } from '../src/bataille.ts';
+import { damesLegalMoves } from '../src/dames.ts';
 
 function seeded(seed: number): Rng {
   let a = seed;
@@ -156,6 +157,17 @@ const CANDIDATES: Record<OnlineGameId, (state: any, seat: number, rng: Rng) => u
     out.push({ type: 'shoot', x: BN_SIZE, y: 0 }, { type: 'place', ships: bnRandomFleet(rng) });
     return out;
   },
+  dames(s) {
+    const legal = damesLegalMoves(s.game).map((m) => ({ type: 'move', from: m.from, path: m.path }));
+    const out: unknown[] = [...legal];
+    // Stopping a capture halfway, or moving a square too far.
+    for (const m of legal.slice(0, 2)) {
+      if (m.path.length > 1) out.push({ ...m, path: m.path.slice(0, -1) });
+      out.push({ ...m, path: [...m.path, m.path[m.path.length - 1]] });
+    }
+    out.push({ type: 'move', from: 0, path: [5] }, { type: 'move', from: 49, path: [44] });
+    return out;
+  },
 };
 
 /** A fleet laid out by hand on the placement screen: ships may touch, in any order. */
@@ -208,6 +220,11 @@ const LEGAL: Partial<Record<OnlineGameId, (state: any, seat: number, move: any) 
     const inside = m.x >= 0 && m.y >= 0 && m.x < BN_SIZE && m.y < BN_SIZE;
     return g.phase === 'tir' && seat === g.current && inside && !bnShotAt(g.boards[1 - seat], m.x, m.y);
   },
+  dames: (s, seat, m) =>
+    seat === s.game.current &&
+    damesLegalMoves(s.game).some(
+      (x) => x.from === m.from && x.path.length === m.path.length && x.path.every((v, i) => v === m.path[i]),
+    ),
 };
 
 function unoCandidates(s: any, seat: number, rng: Rng): unknown[] {
@@ -429,6 +446,17 @@ function checkWinners(game: OnlineGameId, state: any, winners: number[], count: 
       assert.equal(state.game.fired[0] - state.game.fired[1], w === 0 ? 1 : 0);
       break;
     }
+    case 'dames': {
+      // A draw is shared; otherwise the loser has nothing left to play.
+      const g = state.game;
+      if (g.draw) assert.deepEqual([...winners].sort(), [0, 1]);
+      else {
+        assert.deepEqual(winners, [g.winner]);
+        const loser = { ...g, winner: null, current: 1 - g.winner };
+        assert.equal(damesLegalMoves(loser).length, 0);
+      }
+      break;
+    }
   }
 }
 
@@ -444,6 +472,7 @@ const SIZES: Record<OnlineGameId, number[]> = {
   huit: [2, 3, 6],
   perudo: [2, 3, 4, 6],
   bataille: [2],
+  dames: [2],
 };
 
 /** The shortest game each game offers, so many seeds stay quick. */
@@ -459,6 +488,7 @@ const OPTIONS: Record<OnlineGameId, Record<string, unknown>> = {
   huit: { target: 100 },
   perudo: { calza: true },
   bataille: {},
+  dames: {},
 };
 
 const SEEDS = Number(process.env.FUZZ_SEEDS ?? 12);

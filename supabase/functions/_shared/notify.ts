@@ -98,6 +98,7 @@ const GAME_NAMES: Record<string, { fr: string; en: string }> = {
   rami: { fr: 'Rami', en: 'Rummy' },
   tarot: { fr: 'Tarot', en: 'Tarot' },
   perudo: { fr: 'Perudo', en: 'Liar’s Dice' },
+  dames: { fr: 'Dames', en: 'Draughts' },
 };
 
 export function gameName(game: string, lang: NoticeLang): string {

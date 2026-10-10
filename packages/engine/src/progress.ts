@@ -16,7 +16,8 @@ export type ProgressGame =
   | 'uno'
   | 'huit'
   | 'tarot'
-  | 'perudo';
+  | 'perudo'
+  | 'dames';
 export const PROGRESS_GAMES: ProgressGame[] = [
   'poker',
   'blackjack',
@@ -30,6 +31,7 @@ export const PROGRESS_GAMES: ProgressGame[] = [
   'huit',
   'tarot',
   'perudo',
+  'dames',
 ];
 
 /** Experience for one finished game: playing always pays, winning pays more. */
