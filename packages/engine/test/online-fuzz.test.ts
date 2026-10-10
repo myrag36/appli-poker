@@ -362,6 +362,14 @@ function checkWinners(game: OnlineGameId, state: any, winners: number[], count: 
         (p: { id: string }) => bjRanking(state).find((r) => r.id === p.id)!.chips,
       );
       assert.deepEqual([...winners].sort(), best(chips, true));
+      // The game stops after the rounds chosen, or earlier once every person is out of chips.
+      assert.ok(state.round <= state.rounds, `blackjack : manche ${state.round} sur ${state.rounds}`);
+      const humans = state.players.filter((p: { bot: boolean }) => !p.bot);
+      assert.ok(
+        state.round === state.rounds ||
+          (humans.length ? humans : state.players).every((p: { stack: number }) => p.stack === 0),
+        'blackjack : la partie finit trop tôt',
+      );
       break;
     }
     case 'president': {
@@ -448,7 +456,7 @@ const SIZES: Record<OnlineGameId, number[]> = {
 
 /** The shortest game each game offers, so many seeds stay quick. */
 const OPTIONS: Record<OnlineGameId, Record<string, unknown>> = {
-  blackjack: { stack: 500 },
+  blackjack: { stack: 500, rounds: 5 },
   president: { rounds: 3 },
   yams: {},
   belote: { target: 501 },

@@ -213,7 +213,7 @@ const HIDDEN: Partial<Record<OnlineGameId, (state: any, view: any, seat: number 
 };
 
 const OPTIONS: Record<OnlineGameId, Record<string, unknown>> = {
-  blackjack: { stack: 500 },
+  blackjack: { stack: 500, rounds: 5 },
   president: { rounds: 2 },
   yams: {},
   belote: { target: 501 },

@@ -87,5 +87,12 @@ export {
   P4_ONLINE_ROUND_CHOICES,
 } from './online-puissance4.ts';
 
+export {
+  type BjOnlineView,
+  BJ_ONLINE_DEFAULT_ROUNDS,
+  BJ_ONLINE_ROUND_CHOICES,
+  BJ_ONLINE_STACKS,
+} from './online-blackjack.ts';
+
 /** Robot names for the seats the server fills itself. */
 export const ONLINE_BOT_NAMES = ['Robby', 'Bip', 'Zorg', 'Tina', 'Max', 'Nova', 'Pixel'];

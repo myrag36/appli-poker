@@ -21,10 +21,34 @@ import {
 export const BJ_ONLINE_STACKS = [500, 1000, 2000];
 export const BJ_ONLINE_DEFAULT_STACK = 1000;
 
-/** The engine's state, plus the starting chips (for the final ranking). */
+/** Number of rounds an online game lasts, and the choices offered when creating a table. */
+export const BJ_ONLINE_ROUND_CHOICES = [5, 10, 20];
+export const BJ_ONLINE_DEFAULT_ROUNDS = 10;
+
+/** The engine's state, plus the starting chips (for the final ranking) and the number of rounds. */
 export interface BjOnlineState extends BjState {
   startStack: number;
+  /** The game ends once this round is settled (absent on tables started before rounds existed). */
+  rounds?: number;
 }
+
+/** What every seat sees: the felt, the starting chips and the number of rounds (null: no limit). */
+export interface BjOnlineView extends BjTableView {
+  rounds: number | null;
+}
+
+/** Over when every person is out of chips, or once the last round is settled. */
+function isOver(state: BjOnlineState): boolean {
+  if (bjIsOver(state)) return true;
+  return state.phase === 'settled' && state.rounds !== undefined && state.round >= state.rounds;
+}
+
+/** Keeps the online fields on a new engine state. */
+const keep = (state: BjOnlineState, next: BjState): BjOnlineState => ({
+  ...next,
+  startStack: state.startStack,
+  ...(state.rounds !== undefined ? { rounds: state.rounds } : {}),
+});
 
 const PLAY_MOVES = ['hit', 'stand', 'double', 'split'];
 
@@ -54,19 +78,24 @@ export const blackjackOnline: OnlineGame<BjOnlineState> = {
   minPlayers: 1,
   maxPlayers: BJ_MAX_SEATS,
   options(raw) {
-    const stack = (raw as { stack?: unknown } | null)?.stack ?? BJ_ONLINE_DEFAULT_STACK;
+    const o = raw as { stack?: unknown; rounds?: unknown } | null;
+    const stack = o?.stack ?? BJ_ONLINE_DEFAULT_STACK;
     if (typeof stack !== 'number' || !BJ_ONLINE_STACKS.includes(stack)) {
       throw new Error('Jetons de départ : 500, 1000 ou 2000');
     }
-    return { stack };
+    const rounds = o?.rounds ?? BJ_ONLINE_DEFAULT_ROUNDS;
+    if (typeof rounds !== 'number' || !BJ_ONLINE_ROUND_CHOICES.includes(rounds)) {
+      throw new Error('Nombre de manches : 5, 10 ou 20');
+    }
+    return { stack, rounds };
   },
   start(seats: OnlineSeat[], options, rng: Rng) {
-    const stack = blackjackOnline.options(options).stack as number;
+    const { stack, rounds } = blackjackOnline.options(options) as { stack: number; rounds: number };
     const state = bjNewGame(
       { players: seats.map((s) => ({ id: s.id, name: s.name, bot: s.bot })), stack },
       rng,
     );
-    return { ...state, startStack: stack };
+    return { ...state, startStack: stack, rounds };
   },
   actors,
   apply(state, seat, move, rng) {
@@ -74,18 +103,18 @@ export const blackjackOnline: OnlineGame<BjOnlineState> = {
     if (!player) throw new Error('Place inconnue');
     const m = move as { type?: unknown; amount?: unknown } | null;
     if (!m || typeof m !== 'object' || typeof m.type !== 'string') throw new Error('Coup inconnu.');
-    if (bjIsOver(state)) throw new Error('La partie est finie.');
+    if (isOver(state)) throw new Error('La partie est finie.');
     if (m.type === 'bet') {
       if (state.phase !== 'betting') throw new Error("Ce n'est pas le moment de miser.");
       if (!actors(state).includes(seat)) throw new Error('Tu as déjà misé.');
       if (typeof m.amount !== 'number') throw new Error('Mise invalide.');
-      return { ...bjPlaceBet(state, player.id, m.amount, rng), startStack: state.startStack };
+      return keep(state, bjPlaceBet(state, player.id, m.amount, rng));
     }
     if (!PLAY_MOVES.includes(m.type)) throw new Error('Coup inconnu.');
     if (state.phase !== 'playing') throw new Error("Ce n'est pas le moment de jouer.");
     if (!actors(state).includes(seat)) throw new Error('Ce n’est pas ton tour.');
     const type = m.type as 'hit' | 'stand' | 'double' | 'split';
-    return { ...bjApply(state, { type }, rng), startStack: state.startStack };
+    return keep(state, bjApply(state, { type }, rng));
   },
   auto(state, seat) {
     const player = state.players[seat];
@@ -95,13 +124,16 @@ export const blackjackOnline: OnlineGame<BjOnlineState> = {
     // A person who let their time run out stands; a robot follows basic strategy.
     return player.bot ? bjBotMove(state) : { type: 'stand' };
   },
-  betweenRounds: (state) => state.phase === 'settled' && !bjIsOver(state),
-  nextRound: (state) => ({ ...bjNextRound(state), startStack: state.startStack }),
-  over: (state) => bjIsOver(state),
+  betweenRounds: (state) => state.phase === 'settled' && !isOver(state),
+  nextRound(state) {
+    if (isOver(state)) throw new Error('La partie est finie.');
+    return keep(state, bjNextRound(state));
+  },
+  over: isOver,
   winners: (state) =>
     bjRanking(state)
       .filter((r) => r.place === 1)
       .map((r) => state.players.findIndex((p) => p.id === r.id)),
   // Nothing at the table is private to one player: everyone sees the same view.
-  view: (state): BjTableView => bjTableView(state, state.startStack),
+  view: (state): BjOnlineView => ({ ...bjTableView(state, state.startStack), rounds: state.rounds ?? null }),
 };
