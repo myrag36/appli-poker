@@ -188,5 +188,8 @@ test('items earned by playing are granted by the server once their condition is 
 test('earned items do not count toward the shopping achievements', () => {
   const earned = ['felt:defi', 'chip:defi', 'chip:requin'];
   assert.throws(() => reachedAchievement('shop-3', { owned: earned }), /pas encore/);
-  assert.equal(reachedAchievement('shop-3', { owned: [...earned, 'frame:sakura', 'frame:lagoon', 'emote:🐔'] }).id, 'shop-3');
+  assert.equal(
+    reachedAchievement('shop-3', { owned: [...earned, 'frame:sakura', 'frame:lagoon', 'emote:🐔'] }).id,
+    'shop-3',
+  );
 });

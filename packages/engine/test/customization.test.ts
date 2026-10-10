@@ -80,7 +80,10 @@ test('achievements and daily challenges make items due, once', () => {
   due = pendingUnlocks(unlockStats({ ...row, challenges_done: 12 }), []).map((r) => `${r.kind}:${r.id}`);
   assert.deepEqual(due.sort(), ['cardBack:medaille', 'chip:defi', 'felt:defi']);
   // Already in the collection: not due again.
-  assert.deepEqual(pendingUnlocks(unlockStats({ ...row, challenges_done: 3 }), [ownedKey('felt', 'defi')]), []);
+  assert.deepEqual(
+    pendingUnlocks(unlockStats({ ...row, challenges_done: 3 }), [ownedKey('felt', 'defi')]),
+    [],
+  );
 
   // 10 poker wins: the shark chips; 5 different games: the compass back.
   const games = {

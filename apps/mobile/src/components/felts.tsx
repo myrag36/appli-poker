@@ -32,9 +32,19 @@ interface FeltLook {
 }
 
 const LOOKS: Record<string, FeltLook> = {
-  bordeaux: { fill: ['#a3203a', '#741228', '#460816'], pattern: 'pinstripes', ink: 'rgba(0,0,0,0.12)', mark: '♥' },
+  bordeaux: {
+    fill: ['#a3203a', '#741228', '#460816'],
+    pattern: 'pinstripes',
+    ink: 'rgba(0,0,0,0.12)',
+    mark: '♥',
+  },
   nuit: { fill: ['#24457f', '#16305f', '#0a1a3a'], pattern: 'stars', ink: '#cfe0ff', mark: '♠' },
-  vichy: { fill: ['#2f8a56', '#1f6b40', '#12482a'], pattern: 'vichy', ink: 'rgba(255,255,255,0.11)', mark: '♣' },
+  vichy: {
+    fill: ['#2f8a56', '#1f6b40', '#12482a'],
+    pattern: 'vichy',
+    ink: 'rgba(255,255,255,0.11)',
+    mark: '♣',
+  },
   velours: {
     fill: ['#6a3399', '#47206e', '#260d42'],
     pattern: 'lattice',
@@ -58,8 +68,18 @@ const LOOKS: Record<string, FeltLook> = {
     ink: 'rgba(255, 210, 90, 0.16)',
     mark: '🏆',
   },
-  sable: { fill: ['#dcbc80', '#bf9252', '#8f6531'], pattern: 'dunes', ink: 'rgba(110, 70, 20, 0.28)', mark: '☀' },
-  argyle: { fill: ['#1f6a8a', '#155069', '#0b3346'], pattern: 'argyle', ink: 'rgba(255,255,255,0.12)', mark: '♦' },
+  sable: {
+    fill: ['#dcbc80', '#bf9252', '#8f6531'],
+    pattern: 'dunes',
+    ink: 'rgba(110, 70, 20, 0.28)',
+    mark: '☀',
+  },
+  argyle: {
+    fill: ['#1f6a8a', '#155069', '#0b3346'],
+    pattern: 'argyle',
+    ink: 'rgba(255,255,255,0.12)',
+    mark: '♦',
+  },
   etoiles: { fill: ['#231a5c', '#130e3a', '#060418'], pattern: 'stars', ink: '#ffffff', mark: '🌙' },
   brocart: {
     fill: ['#8a6418', '#5a3e0a', '#2e1f03'],
@@ -115,7 +135,14 @@ function Pattern({ look, w, h }: { look: FeltLook; w: number; h: number }) {
       return <Vichy w={w} h={h} ink={ink} step={Math.max(10, Math.round(Math.min(w, h) / 14))} />;
     case 'pinstripes': {
       const down = stripes(Math.max(8, Math.round(w / 40)), w, ink, 0.12);
-      return <LinearGradient {...down} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={StyleSheet.absoluteFill} />;
+      return (
+        <LinearGradient
+          {...down}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 0 }}
+          style={StyleSheet.absoluteFill}
+        />
+      );
     }
     case 'argyle': {
       // Gingham turned a quarter of a right angle gives diamonds.
@@ -228,7 +255,8 @@ export function FeltFill({ id }: { id?: string }) {
   if (!look) return <LinearGradient colors={gradients.felt} style={StyleSheet.absoluteFill} />;
   const onLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
-    if (!size || Math.abs(size.w - width) > 1 || Math.abs(size.h - height) > 1) setSize({ w: width, h: height });
+    if (!size || Math.abs(size.w - width) > 1 || Math.abs(size.h - height) > 1)
+      setSize({ w: width, h: height });
   };
   return (
     <View style={[StyleSheet.absoluteFill, styles.clip]} pointerEvents="none" onLayout={onLayout}>
@@ -260,6 +288,13 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: '#5a3417',
   },
-  previewShade: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, boxShadow: 'inset 0 0 14px rgba(0,0,0,0.55)' },
+  previewShade: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    boxShadow: 'inset 0 0 14px rgba(0,0,0,0.55)',
+  },
   previewMark: { opacity: 0.18, color: '#ffffff' },
 });

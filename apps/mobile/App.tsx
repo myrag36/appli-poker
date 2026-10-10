@@ -33,6 +33,7 @@ import { OnlineGameScreen, type TournamentTable } from './src/screens/OnlineGame
 import { StatsScreen } from './src/screens/StatsScreen';
 import { ProfileScreen } from './src/screens/ProfileScreen';
 import { ShopScreen } from './src/screens/ShopScreen';
+import { CustomizeScreen } from './src/screens/CustomizeScreen';
 import { FriendsScreen } from './src/screens/FriendsScreen';
 import { TournamentScreen } from './src/screens/TournamentScreen';
 import { ProgressToast } from './src/components/ProgressToast';
@@ -53,7 +54,8 @@ type Screen =
   | { name: 'online-room'; roomId: string; userId: string }
   | { name: 'stats' }
   | { name: 'profile' }
-  | { name: 'shop'; from: 'games' | 'profile' }
+  | { name: 'shop'; from: 'games' | 'profile' | 'customize' }
+  | { name: 'customize'; from: 'games' | 'profile' | 'shop' }
   | { name: 'friends' }
   | { name: 'tournaments'; id?: string };
 
@@ -141,12 +143,17 @@ export default function App() {
             onResume={() => lastRoom && openRoom(lastRoom.roomId)}
             onProfile={() => setScreen({ name: 'profile' })}
             onShop={() => setScreen({ name: 'shop', from: 'games' })}
+            onCustomize={() => setScreen({ name: 'customize', from: 'games' })}
             onFriends={() => setScreen({ name: 'friends' })}
             onTournaments={() => setScreen({ name: 'tournaments' })}
           />
         )}
         {screen.name === 'profile' && (
-          <ProfileScreen onBack={games} onShop={() => setScreen({ name: 'shop', from: 'profile' })} />
+          <ProfileScreen
+            onBack={games}
+            onShop={() => setScreen({ name: 'shop', from: 'profile' })}
+            onCustomize={() => setScreen({ name: 'customize', from: 'profile' })}
+          />
         )}
         {screen.name === 'friends' && <FriendsScreen onBack={games} onJoin={joinFromLink} />}
         {screen.name === 'tournaments' && (
@@ -158,7 +165,28 @@ export default function App() {
           />
         )}
         {screen.name === 'shop' && (
-          <ShopScreen onBack={screen.from === 'profile' ? () => setScreen({ name: 'profile' }) : games} />
+          <ShopScreen
+            onBack={
+              screen.from === 'profile'
+                ? () => setScreen({ name: 'profile' })
+                : screen.from === 'customize'
+                  ? () => setScreen({ name: 'customize', from: 'games' })
+                  : games
+            }
+            onCustomize={() => setScreen({ name: 'customize', from: 'shop' })}
+          />
+        )}
+        {screen.name === 'customize' && (
+          <CustomizeScreen
+            onBack={
+              screen.from === 'profile'
+                ? () => setScreen({ name: 'profile' })
+                : screen.from === 'shop'
+                  ? () => setScreen({ name: 'shop', from: 'games' })
+                  : games
+            }
+            onShop={() => setScreen({ name: 'shop', from: 'customize' })}
+          />
         )}
         {screen.name === 'game' && screen.game === 'blackjack' && (
           <BlackjackScreen onBack={games} onOnline={online('blackjack')} />

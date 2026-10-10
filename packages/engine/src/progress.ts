@@ -107,7 +107,7 @@ export const REWARD_KIND_NAMES: Record<RewardKind, string> = {
   banner: 'Bannières',
   emote: 'Emotes',
   chip: 'Jetons',
-  felt: 'Tapis',
+  felt: 'Tapis de jeu',
 };
 
 /** One item of a kind, for "Tu débloques : Tapis : Velours". */
@@ -119,7 +119,7 @@ export const REWARD_KIND_ONE: Record<RewardKind, string> = {
   banner: 'Bannière',
   emote: 'Emote',
   chip: 'Jetons',
-  felt: 'Tapis',
+  felt: 'Tapis de jeu',
 };
 
 /** An item's rarity: its own, or guessed from what it costs to get. */
@@ -155,7 +155,13 @@ const lv = (kind: RewardKind, id: string, level: number, name: string, rarity: R
   rarity,
 });
 /** An item earned by playing: an achievement, or daily challenges. */
-const earn = (kind: RewardKind, id: string, unlock: UnlockCondition, name: string, rarity: Rarity): Reward => ({
+const earn = (
+  kind: RewardKind,
+  id: string,
+  unlock: UnlockCondition,
+  name: string,
+  rarity: Rarity,
+): Reward => ({
   id,
   kind,
   level: 1,

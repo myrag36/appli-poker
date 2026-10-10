@@ -22,7 +22,10 @@ export interface UnlockStats extends AchievementStats {
 }
 
 /** How far a player is toward an unlock condition. */
-export function conditionProgress(cond: UnlockCondition, stats: UnlockStats): { done: number; target: number } {
+export function conditionProgress(
+  cond: UnlockCondition,
+  stats: UnlockStats,
+): { done: number; target: number } {
   if ('challenges' in cond) {
     return { done: Math.min(cond.challenges, stats.challengesDone), target: cond.challenges };
   }
@@ -79,7 +82,10 @@ export function unlockText(reward: Reward): { text: string; vars: Record<string,
     return { text: 'Succès « {name} »', vars: { name: a?.name ?? reward.unlock.achievement } };
   }
   if (reward.season !== undefined) {
-    return { text: 'Saison « {name} », {n} pièces', vars: { name: SEASONS[reward.season - 1].name, n: reward.price ?? 0 } };
+    return {
+      text: 'Saison « {name} », {n} pièces',
+      vars: { name: SEASONS[reward.season - 1].name, n: reward.price ?? 0 },
+    };
   }
   if (reward.price !== undefined) return { text: '{n} pièces', vars: { n: reward.price } };
   return { text: 'Niveau {n}', vars: { n: reward.level } };

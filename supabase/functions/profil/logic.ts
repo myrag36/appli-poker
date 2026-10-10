@@ -48,7 +48,6 @@ import {
 } from '../_shared/engine/index.ts';
 import { GameError } from '../poker/logic.ts';
 
-
 /** Puts on a reward the player has unlocked or bought, keeping the rest of what they wear. */
 export function equip(
   xp: number,

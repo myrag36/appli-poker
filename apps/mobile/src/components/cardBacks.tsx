@@ -660,10 +660,24 @@ function CompassRose({ w, h }: { w: number; h: number }) {
       {[0.2, 0.4, 0.6, 0.8].map((k) => (
         <Fragment key={k}>
           <View
-            style={{ position: 'absolute', left: 0, right: 0, top: h * k, height: line, backgroundColor: ink }}
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              top: h * k,
+              height: line,
+              backgroundColor: ink,
+            }}
           />
           <View
-            style={{ position: 'absolute', top: 0, bottom: 0, left: w * k, width: line, backgroundColor: ink }}
+            style={{
+              position: 'absolute',
+              top: 0,
+              bottom: 0,
+              left: w * k,
+              width: line,
+              backgroundColor: ink,
+            }}
           />
         </Fragment>
       ))}

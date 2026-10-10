@@ -153,7 +153,8 @@ function apply(row: Row | null) {
   if (mine) {
     const before = mine.owned;
     const earned = REWARDS.filter(
-      (r) => r.unlock && next.owned.includes(ownedKey(r.kind, r.id)) && !before.includes(ownedKey(r.kind, r.id)),
+      (r) =>
+        r.unlock && next.owned.includes(ownedKey(r.kind, r.id)) && !before.includes(ownedKey(r.kind, r.id)),
     );
     if (earned.length > 0) unlockEvent = { key: Date.now(), rewards: earned };
   }

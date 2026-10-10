@@ -49,7 +49,9 @@ function json(body: unknown, status = 200) {
 async function loadProgress(userId: string) {
   const { data, error } = await admin
     .from('player_progress')
-    .select('xp, equipped, owned, stats_day, day_stats, games, best_streak, quests_done, feats, challenges_done')
+    .select(
+      'xp, equipped, owned, stats_day, day_stats, games, best_streak, quests_done, feats, challenges_done',
+    )
     .eq('user_id', userId)
     .maybeSingle();
   if (error) throw error;

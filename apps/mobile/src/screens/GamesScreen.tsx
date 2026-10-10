@@ -173,6 +173,7 @@ interface Props {
   onResume: () => void;
   onProfile: () => void;
   onShop: () => void;
+  onCustomize: () => void;
   onFriends: () => void;
   onTournaments: () => void;
 }
@@ -251,6 +252,7 @@ export function GamesScreen({
   onResume,
   onProfile,
   onShop,
+  onCustomize,
   onFriends,
   onTournaments,
 }: Props) {
@@ -285,6 +287,7 @@ export function GamesScreen({
         onResume={onResume}
         onProfile={onProfile}
         onShop={onShop}
+        onCustomize={onCustomize}
         onFriends={onFriends}
         onTournaments={onTournaments}
         tutorial={tutorial}
@@ -315,6 +318,14 @@ export function GamesScreen({
           style={({ pressed }) => [styles.socialButton, pressed && styles.pressed]}
         >
           <Text style={styles.socialText}>{t('🏆 Tournois')}</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('Personnaliser')}
+          onPress={onCustomize}
+          style={({ pressed }) => [styles.socialButton, pressed && styles.pressed]}
+        >
+          <Text style={styles.socialText}>{t('🎨 Style')}</Text>
         </Pressable>
         <SeasonPill onPress={onShop} />
       </View>
@@ -444,6 +455,7 @@ function DesktopGames({
   onResume,
   onProfile,
   onShop,
+  onCustomize,
   onFriends,
   onTournaments,
   tutorial,
@@ -495,6 +507,9 @@ function DesktopGames({
               </Pressable>
               <Pressable accessibilityRole="button" onPress={onTournaments} style={hoverable()}>
                 <Text style={desk.actionText}>{t('🏆 Tournois')}</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" onPress={onCustomize} style={hoverable()}>
+                <Text style={desk.actionText}>{t('🎨 Personnaliser')}</Text>
               </Pressable>
               <SeasonPill onPress={onShop} style={hoverable()} />
             </View>

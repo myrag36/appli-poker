@@ -298,7 +298,12 @@ export function ChipFace({ style, index, size }: { style: string; index: number;
         }}
       >
         {glyph && (
-          <Text style={[styles.glyph, { color: look.glyphColor ?? edge, fontSize: size * 0.3, lineHeight: size * 0.36 }]}>
+          <Text
+            style={[
+              styles.glyph,
+              { color: look.glyphColor ?? edge, fontSize: size * 0.3, lineHeight: size * 0.36 },
+            ]}
+          >
             {look.glyph}
           </Text>
         )}
