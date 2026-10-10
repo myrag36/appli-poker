@@ -19,7 +19,6 @@ import {
   chestContents,
   cleanFeat,
   cleanFriendCode,
-  podiumChest,
   equip,
   finishedQuest,
   finishedChallenge,
@@ -220,15 +219,14 @@ async function removeFriend(userId: string, body: Record<string, unknown>) {
   return { ok: true };
 }
 
+/** Last week's podium chest of the friends' ranking, taken once (`claim_podium` checks it). */
 async function podium(userId: string) {
-  const { data, error } = await admin.rpc('last_week_board', { p_user: userId });
-  if (error) throw error;
-  const kind = podiumChest(userId, data ?? []);
-  if (!kind) throw new GameError('Pas de podium pour toi la semaine dernière');
-  return await rpc('claim_podium', { p_user: userId, p_kind: kind });
+  const { chest } = await classement(userId);
+  if (!chest) throw new GameError('Pas de podium pour toi la semaine dernière');
+  return await rpc('claim_podium', { p_user: userId, p_kind: chest });
 }
 
-/** This week's ranking of online games between me and my friends, and last week's podium. */
+/** This week's ranking between me and my friends, last week's podium and my chest for it. */
 async function classement(userId: string) {
   const { data: friends, error } = await admin.from('friendships').select('friend_id').eq('user_id', userId);
   if (error) throw error;
@@ -236,7 +234,10 @@ async function classement(userId: string) {
   const monday = weekStart(parisDay());
   const [profiles, progress, results] = await Promise.all([
     admin.from('profiles').select('user_id, name, avatar, avatar_color').in('user_id', ids),
-    admin.from('player_progress').select('user_id, xp, equipped, owned').in('user_id', ids),
+    admin
+      .from('player_progress')
+      .select('user_id, xp, equipped, owned, week_start, week_xp, last_week_start, last_week_xp')
+      .in('user_id', ids),
     admin
       .from('online_results')
       .select('user_id, game, won, week')

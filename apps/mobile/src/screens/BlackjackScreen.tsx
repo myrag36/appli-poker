@@ -7,7 +7,9 @@ import {
   type BjHand,
   type BjResult,
   type BjState,
-  type BjTableView,
+  type BjOnlineView,
+  BJ_ONLINE_DEFAULT_ROUNDS,
+  BJ_ONLINE_ROUND_CHOICES,
   type Card,
   BJ_MAX_SEATS,
   bjActor,
@@ -1447,9 +1449,10 @@ const rank = StyleSheet.create({
 // ---------------------------------------------------------------------------------------------
 // Online
 
-/** Starting chips, chosen when the table is created. */
+/** Starting chips and number of rounds, chosen when the table is created. */
 export function BlackjackOnlineOptions({ value, onChange }: OnlineOptionsProps) {
   const stack = typeof value.stack === 'number' ? value.stack : 1000;
+  const rounds = typeof value.rounds === 'number' ? value.rounds : BJ_ONLINE_DEFAULT_ROUNDS;
   return (
     <View>
       <Text style={setup.section}>{t('Jetons de départ')}</Text>
@@ -1463,6 +1466,20 @@ export function BlackjackOnlineOptions({ value, onChange }: OnlineOptionsProps) 
             style={[setup.choice, v === stack && setup.choiceOn]}
           >
             <Text style={[setup.choiceText, v === stack && setup.choiceTextOn]}>{v}</Text>
+          </Pressable>
+        ))}
+      </View>
+      <Text style={setup.section}>{t('Nombre de manches')}</Text>
+      <View style={setup.row}>
+        {BJ_ONLINE_ROUND_CHOICES.map((n) => (
+          <Pressable
+            key={n}
+            accessibilityRole="button"
+            accessibilityState={{ selected: n === rounds }}
+            onPress={() => onChange({ ...value, rounds: n })}
+            style={[setup.choice, n === rounds && setup.choiceOn]}
+          >
+            <Text style={[setup.choiceText, n === rounds && setup.choiceTextOn]}>{n}</Text>
           </Pressable>
         ))}
       </View>
@@ -1484,9 +1501,10 @@ export function BlackjackOnlineBoard({
   error,
   onMove,
   onLeave,
-}: OnlineBoardProps<BjTableView>) {
+}: OnlineBoardProps<BjOnlineView>) {
   // The engine's helpers only need what is on the felt: the shoe stays on the server.
-  const game: BjState = { ...view, shoe: [] };
+  const { rounds, ...felt } = view;
+  const game: BjState = { ...felt, shoe: [] };
   const avatars = Object.fromEntries(seats.map((s) => [s.id, s.avatar]));
   const me = mySeat >= 0 ? (game.players[mySeat] ?? null) : null;
   const myTurn = !!me && actors.includes(me.id);
@@ -1621,7 +1639,11 @@ export function BlackjackOnlineBoard({
         </View>
         {over ? (
           <>
-            <Text style={ui.overText}>{t('Plus aucun joueur n’a de jetons : la banque gagne !')}</Text>
+            <Text style={ui.overText}>
+              {rounds !== null && game.round >= rounds
+                ? t('Dernière manche jouée : le plus gros tapis gagne !')
+                : t('Plus aucun joueur n’a de jetons : la banque gagne !')}
+            </Text>
             <Button compact label={t('Voir le classement')} onPress={() => setRanking(true)} />
           </>
         ) : betweenRounds ? (
@@ -1658,7 +1680,11 @@ export function BlackjackOnlineBoard({
       top={
         <>
           <TopBar onBack={onLeave} backLabel={t('← Quitter')}>
-            <Text style={ui.round}>{t('Manche {n}', { n: game.round })}</Text>
+            <Text style={ui.round}>
+              {rounds !== null
+                ? t('Manche {n}/{total}', { n: game.round, total: rounds })
+                : t('Manche {n}', { n: game.round })}
+            </Text>
             <View style={ui.shoe}>
               <Text style={ui.shoeText}>🂠 {view.shoeCount}</Text>
             </View>

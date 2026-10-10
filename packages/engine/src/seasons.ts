@@ -48,16 +48,3 @@ export function weekStart(day: string = parisDay()): string {
   date.setUTCDate(date.getUTCDate() - back);
   return date.toISOString().slice(0, 10);
 }
-
-/**
- * Last week's podium among friends: the chest for my place, or null. Nobody wins alone,
- * and a week without experience wins nothing.
- */
-export function podiumChest(me: string, board: { user_id: string; xp: number }[]): 'grand' | 'normal' | null {
-  const played = board.filter((r) => r.xp > 0).sort((a, b) => b.xp - a.xp);
-  if (played.length < 2) return null;
-  const mine = played.find((r) => r.user_id === me);
-  if (!mine) return null;
-  const place = played.filter((r) => r.xp > mine.xp).length + 1;
-  return place === 1 ? 'grand' : place <= 3 ? 'normal' : null;
-}

@@ -10,7 +10,6 @@ import {
   findAchievement,
   forSale,
   monthOf,
-  podiumChest,
   rollChest,
   COINS_WIN,
   DEFAULT_EQUIPPED,
@@ -36,6 +35,7 @@ import {
   type LeaderboardLine,
   type LeaderboardPlayer,
   type OnlineResult,
+  leaderboardChest,
   leaderboardGames,
   leaderboardPodium,
   previousWeek,
@@ -162,8 +162,6 @@ export function cleanFriendCode(raw: unknown): string {
   return code;
 }
 
-export { podiumChest };
-
 /** A person in my weekly ranking, as read from the profiles and progress tables. */
 export interface LeaderboardPerson {
   user_id: string;
@@ -173,11 +171,31 @@ export interface LeaderboardPerson {
   xp?: number | null;
   equipped?: unknown;
   owned?: unknown;
+  /** Experience of the week counted by the database (see `count_week`), and of the week before. */
+  week_start?: string | null;
+  week_xp?: number | null;
+  last_week_start?: string | null;
+  last_week_xp?: number | null;
 }
 
 /**
- * This week's ranking between me and my friends (online games only), and last week's
- * podium. `players` lets the phone rank again for one game without asking the server.
+ * Experience a player earned this week and last week. The database only moves the weeks on
+ * when experience is earned, so a week that does not match is a week without experience.
+ */
+export function weekXpOf(p: LeaderboardPerson, monday: string): { week: number; lastWeek: number } {
+  const before = previousWeek(monday);
+  const xp = Math.max(0, p.week_xp ?? 0);
+  return {
+    week: p.week_start === monday ? xp : 0,
+    lastWeek:
+      p.week_start === before ? xp : p.last_week_start === before ? Math.max(0, p.last_week_xp ?? 0) : 0,
+  };
+}
+
+/**
+ * This week's ranking between me and my friends (online games, experience breaking ties),
+ * last week's podium and my chest for it. `players` lets the phone rank again for one game
+ * without asking the server.
  */
 export function weeklyLeaderboard(
   meId: string,
@@ -187,24 +205,30 @@ export function weeklyLeaderboard(
   now: number,
 ) {
   const tallies = tallyResults(results, monday);
-  const players: LeaderboardPlayer[] = people.map((p) => ({
-    user_id: p.user_id,
-    name: p.name || 'Joueur',
-    avatar: p.avatar ?? null,
-    avatar_color: p.avatar_color ?? null,
-    xp: p.xp ?? 0,
-    equipped: p.equipped ?? {},
-    owned: p.owned ?? [],
-    me: p.user_id === meId,
-    week: tallies.get(p.user_id)?.week ?? {},
-    lastWeek: tallies.get(p.user_id)?.lastWeek ?? {},
-  }));
+  const players: LeaderboardPlayer[] = people.map((p) => {
+    const xp = weekXpOf(p, monday);
+    return {
+      user_id: p.user_id,
+      name: p.name || 'Joueur',
+      avatar: p.avatar ?? null,
+      avatar_color: p.avatar_color ?? null,
+      xp: p.xp ?? 0,
+      equipped: p.equipped ?? {},
+      owned: p.owned ?? [],
+      me: p.user_id === meId,
+      week: tallies.get(p.user_id)?.week ?? {},
+      lastWeek: tallies.get(p.user_id)?.lastWeek ?? {},
+      weekXp: xp.week,
+      lastWeekXp: xp.lastWeek,
+    };
+  });
   const short = (l: LeaderboardLine) => ({
     user_id: l.player.user_id,
     place: l.place,
     played: l.played,
     won: l.won,
     points: l.points,
+    xp: l.xp,
     best: l.best,
   });
   return {
@@ -215,5 +239,7 @@ export function weeklyLeaderboard(
     players,
     ranking: rankLeaderboard(players, 'week').map(short),
     podium: leaderboardPodium(players).map(short),
+    /** My chest for last week's podium (taken or not: the progress row says). */
+    chest: leaderboardChest(players),
   };
 }

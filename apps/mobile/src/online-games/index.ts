@@ -20,7 +20,7 @@ export const ONLINE_UI: Record<OnlineGameId, OnlineGameUi> = {
     players: '1 à 7 joueurs contre la banque',
     Board: BlackjackOnlineBoard,
     Options: BlackjackOnlineOptions,
-    defaultOptions: { stack: 1000 },
+    defaultOptions: { stack: 1000, rounds: 10 },
   },
   president: {
     title: 'Président',
