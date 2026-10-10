@@ -83,6 +83,40 @@ export function Glow({
   );
 }
 
+/**
+ * A large, very soft light (nebula, city glow, lamp halo) fading smoothly to nothing at its
+ * edge: a radial gradient, which stays smooth where a huge blurred shadow shows rings and seams.
+ */
+export function Haze({
+  x,
+  y,
+  width,
+  height = width,
+  color,
+}: {
+  x: number;
+  y: number;
+  width: number;
+  height?: number;
+  color: string;
+}) {
+  const image = `radial-gradient(closest-side, ${color}, transparent)`;
+  return (
+    <View
+      style={{
+        position: 'absolute',
+        left: x - width / 2,
+        top: y - height / 2,
+        width,
+        height,
+        ...((Platform.OS === 'web'
+          ? { backgroundImage: image }
+          : { experimental_backgroundImage: image }) as object),
+      }}
+    />
+  );
+}
+
 /** A plain disc centered on (x, y). */
 export function Dot({
   x,

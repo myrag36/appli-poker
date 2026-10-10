@@ -2,6 +2,8 @@ import type { ReactNode } from 'react';
 import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { type Theme, THEMES, themeId } from '../theme';
+import { Space } from './decors/classic-space';
+import { Lounge } from './decors/classic-lounge';
 import { Curtain } from './decors/classic-vegas';
 import { Suits } from './decors/classic-casino';
 import { Synthwave } from './decors/classic-neon';
@@ -64,137 +66,6 @@ function Glow({ x, y, size, color }: { x: number; y: number; size: number; color
         boxShadow: `0 0 ${size}px ${size * 0.8}px ${color}`,
       }}
     />
-  );
-}
-
-function Lounge({ w, h, k }: { w: number; h: number; k: number }) {
-  const wainscot = h * 0.58;
-  const plank = 26 * k;
-  const stripes = Math.ceil(w / (18 * k));
-  return (
-    <>
-      {Array.from({ length: stripes }, (_, i) => (
-        <View
-          key={`w${i}`}
-          style={{
-            position: 'absolute',
-            top: 0,
-            height: wainscot,
-            left: i * 18 * k,
-            width: 1,
-            backgroundColor: 'rgba(233, 168, 91, 0.06)',
-          }}
-        />
-      ))}
-      {Array.from({ length: Math.ceil((h - wainscot) / plank) }, (_, i) => (
-        <LinearGradient
-          key={`p${i}`}
-          colors={i % 2 ? ['#3d2614', '#2e1c0f'] : ['#4a2f19', '#36220f']}
-          style={{ position: 'absolute', left: 0, right: 0, top: wainscot + i * plank, height: plank - 1 }}
-        />
-      ))}
-      <View
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          top: wainscot - 4 * k,
-          height: 5 * k,
-          backgroundColor: '#b5835a',
-        }}
-      />
-      {[0.18, 0.82].map((x) => (
-        <View key={x}>
-          <Glow x={w * x} y={h * 0.2} size={70 * k} color="rgba(255, 196, 120, 0.16)" />
-          <View
-            style={{
-              position: 'absolute',
-              left: w * x - 22 * k,
-              top: h * 0.2 - 30 * k,
-              width: 44 * k,
-              height: 26 * k,
-              borderTopLeftRadius: 10 * k,
-              borderTopRightRadius: 10 * k,
-              backgroundColor: '#e9a85b',
-              opacity: 0.85,
-              boxShadow: `0 ${10 * k}px ${30 * k}px rgba(255, 196, 120, 0.5)`,
-            }}
-          />
-        </View>
-      ))}
-    </>
-  );
-}
-
-function Space({ w, h, k }: { w: number; h: number; k: number }) {
-  const rand = random(42);
-  const planet = w * 0.42;
-  return (
-    <>
-      <Glow x={w * 0.15} y={h * 0.75} size={w * 0.35} color="rgba(123, 44, 191, 0.18)" />
-      <Glow x={w * 0.85} y={h * 0.55} size={w * 0.25} color="rgba(76, 201, 240, 0.10)" />
-      {Array.from({ length: 140 }, (_, i) => {
-        const size = (0.8 + rand() * 2.2) * k;
-        return (
-          <View
-            key={i}
-            style={{
-              position: 'absolute',
-              left: rand() * w,
-              top: rand() * h,
-              width: size,
-              height: size,
-              borderRadius: size,
-              backgroundColor: `rgba(255,255,255,${0.25 + rand() * 0.7})`,
-            }}
-          />
-        );
-      })}
-      <View
-        style={{
-          position: 'absolute',
-          left: w * 0.62,
-          top: h * 0.04,
-          width: planet,
-          height: planet,
-          borderRadius: planet / 2,
-          overflow: 'hidden',
-          boxShadow: `0 0 ${40 * k}px rgba(199, 125, 255, 0.4)`,
-        }}
-      >
-        <LinearGradient
-          colors={['#e0aaff', '#9d4edd', '#3c096c']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-      </View>
-      <View
-        style={{
-          position: 'absolute',
-          left: w * 0.62 - planet * 0.35,
-          top: h * 0.04 + planet * 0.38,
-          width: planet * 1.7,
-          height: planet * 0.26,
-          borderRadius: planet,
-          borderWidth: 3 * k,
-          borderColor: 'rgba(224, 170, 255, 0.55)',
-          transform: [{ rotate: '-18deg' }],
-        }}
-      />
-      <View
-        style={{
-          position: 'absolute',
-          left: w * 0.12,
-          top: h * 0.12,
-          width: w * 0.08,
-          height: w * 0.08,
-          borderRadius: w,
-          backgroundColor: '#cdb4db',
-          opacity: 0.8,
-        }}
-      />
-    </>
   );
 }
 

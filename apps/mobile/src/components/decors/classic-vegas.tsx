@@ -222,6 +222,62 @@ function Skyline({ w, h, k, base, still }: SceneProps & { base: number; still?: 
           );
         }),
       )}
+      {/* Observation wheel, turning slowly, its cabins lit */}
+      {(() => {
+        const R = Math.min(h * 0.1, w * 0.07);
+        const cx = w * 0.71;
+        const cy = base - R - 14 * k;
+        return (
+          <>
+            <Line x1={cx} y1={cy} x2={cx - R * 0.55} y2={base} color="#2a1018" width={Math.max(1, 3 * k)} />
+            <Line x1={cx} y1={cy} x2={cx + R * 0.55} y2={base} color="#2a1018" width={Math.max(1, 3 * k)} />
+            <Loop
+              motion="spin"
+              duration={70000}
+              still={still}
+              style={{ position: 'absolute', left: cx - R, top: cy - R, width: R * 2, height: R * 2 }}
+            >
+              <View
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  width: R * 2,
+                  height: R * 2,
+                  borderRadius: R,
+                  borderWidth: Math.max(1, 1.5 * k),
+                  borderColor: 'rgba(255, 120, 190, 0.75)',
+                  boxShadow: `0 0 ${8 * k}px rgba(255, 79, 163, 0.5)`,
+                }}
+              />
+              {Array.from({ length: 8 }, (_, i) => (
+                <View
+                  key={`sp${i}`}
+                  style={{
+                    position: 'absolute',
+                    left: 0,
+                    top: R - 0.5,
+                    width: R * 2,
+                    height: 1,
+                    backgroundColor: 'rgba(255, 170, 210, 0.35)',
+                    transform: [{ rotate: `${i * 22.5}deg` }],
+                  }}
+                />
+              ))}
+              {Array.from({ length: 16 }, (_, i) => (
+                <Dot
+                  key={`cb${i}`}
+                  x={R + R * Math.cos((i * Math.PI) / 8)}
+                  y={R + R * Math.sin((i * Math.PI) / 8)}
+                  size={4 * k}
+                  color={i % 2 ? '#ffd166' : '#7ee0ff'}
+                />
+              ))}
+            </Loop>
+            <Dot x={cx} y={cy} size={6 * k} color="#ff9ccc" />
+          </>
+        );
+      })()}
       {/* Pyramid */}
       <Tri x={pyramid.x} y={base} width={pyramid.bw} height={pyramid.bh} color="#0d0508" />
       <Line
@@ -301,7 +357,7 @@ function Skyline({ w, h, k, base, still }: SceneProps & { base: number; still?: 
       {[
         { label: 'CASINO', at: 0.47, color: '#ff4fa3', d: 5200 },
         { label: 'HOTEL', at: 0.64, color: '#4cc9f0', d: 7400 },
-        { label: '★ 777 ★', at: 0.09, color: '#ffd166', d: 6100 },
+        { label: '★ 777 ★', at: 0.36, color: '#ffd166', d: 6100 },
       ].map((sg) => {
         const b = buildings.find((bb) => bb.x + bb.bw > w * sg.at) ?? buildings[0];
         const sw = Math.max(b.bw + 10 * k, 64 * k);
@@ -379,6 +435,22 @@ export function Curtain({ w, h, k }: SceneProps) {
         colors={['#3a1a0c', '#1e0c05', '#0a0302']}
         style={{ position: 'absolute', left: 0, right: 0, top: stage, bottom: 0 }}
       />
+      {/* The city reflected on the polished stage, and its planks */}
+      <LinearGradient
+        colors={['rgba(255, 120, 160, 0.16)', 'rgba(255, 120, 160, 0)']}
+        style={{ position: 'absolute', left: 0, right: 0, top: stage, height: (h - stage) * 0.8 }}
+      />
+      {[0.3, 0.62].map((t) => (
+        <Line
+          key={t}
+          x1={0}
+          y1={stage + (h - stage) * t}
+          x2={w}
+          y2={stage + (h - stage) * t}
+          color="rgba(0,0,0,0.35)"
+          width={Math.max(1, k)}
+        />
+      ))}
       <Line x1={0} y1={stage} x2={w} y2={stage} color={GOLD} width={Math.max(1, 2 * k)} />
       {Array.from({ length: Math.ceil(w / (60 * k)) }, (_, i) => (
         <View key={`fl${i}`}>
