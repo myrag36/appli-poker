@@ -829,6 +829,7 @@ function MoveList({ moves, horizontal }: { moves: string[]; horizontal?: boolean
     return (
       <ScrollView
         ref={scroll}
+        testID="coups"
         horizontal
         showsHorizontalScrollIndicator={false}
         style={styles.strip}
@@ -856,6 +857,7 @@ function MoveList({ moves, horizontal }: { moves: string[]; horizontal?: boolean
   return (
     <ScrollView
       ref={scroll}
+      testID="coups"
       style={styles.moveList}
       contentContainerStyle={styles.moveListContent}
       onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })}
