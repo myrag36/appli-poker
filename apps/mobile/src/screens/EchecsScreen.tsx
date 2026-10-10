@@ -995,6 +995,9 @@ const DRAW_TEXT: Record<Exclude<ChessResult['reason'], 'mat' | 'abandon'>, strin
   materiel: t('Plus assez de pièces pour mater.'),
 };
 
+/** French punctuation (« ! », « : ») never wraps alone onto the next line. */
+const nbsp = (s: string) => s.replace(/ ([!?:;])/g, '\u00a0$1');
+
 /** The end of the game, shown over the final position. */
 function ResultCard({
   result,
@@ -1030,8 +1033,8 @@ function ResultCard({
       <Appear>
         <View style={styles.resultCard}>
           <Text style={styles.resultIcon}>{icon}</Text>
-          <Text style={styles.resultTitle}>{title}</Text>
-          {text ? <Text style={styles.resultText}>{text}</Text> : null}
+          <Text style={styles.resultTitle}>{nbsp(title)}</Text>
+          {text ? <Text style={styles.resultText}>{nbsp(text)}</Text> : null}
           <Text style={styles.resultMoves}>
             {tn(Math.ceil(moves / 2), '{n} coup joué', '{n} coups joués')}
           </Text>
