@@ -165,7 +165,10 @@ export function stripes(step: number, size: number, color: string, share = 0.5) 
     colors.push('transparent', 'transparent', color, color);
     locations.push(a, b, b, c);
   }
-  return { colors: colors as unknown as readonly [string, string, ...string[]], locations };
+  return {
+    colors: colors as unknown as readonly [string, string, ...string[]],
+    locations: locations as unknown as readonly [number, number, ...number[]],
+  };
 }
 
 /**
@@ -190,6 +193,7 @@ export type Motion =
   | 'pulse'
   | 'flicker'
   | 'chase'
+  | 'blink'
   | 'sway'
   | 'spin'
   | 'fall'
@@ -239,6 +243,19 @@ function stopsOf(motion: Motion, amp: number): { stops: Stop[]; ease: boolean } 
           { at: 0.46, o: 1 },
           { at: 0.5, o: 0.18 },
           { at: 0.96, o: 0.18 },
+          { at: 1, o: 1 },
+        ],
+      };
+    case 'blink':
+      return {
+        ease: false,
+        stops: [
+          { at: 0, o: 1 },
+          { at: 0.86, o: 1 },
+          { at: 0.875, o: 0.25 },
+          { at: 0.89, o: 1 },
+          { at: 0.92, o: 0.35 },
+          { at: 0.94, o: 1 },
           { at: 1, o: 1 },
         ],
       };
