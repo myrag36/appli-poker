@@ -1,6 +1,7 @@
-// Weekly ranking between friends, made of the online games we finished: shown in a tab of
-// the friends screen. The server sends each player's games by game, so picking one game
-// ranks again on the phone without waiting.
+// Weekly ranking between friends, made of the online games we finished (the experience of the
+// week breaks ties): shown in a tab of the friends screen, with last week's podium and its
+// chest. The server sends each player's games by game, so picking one game ranks again on the
+// phone without waiting.
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -23,7 +24,8 @@ import {
 } from '@appli-poker/engine';
 import { AvatarBadge } from '../components/AvatarPicker';
 import { TitleBadge } from '../components/TitleBadge';
-import { type Leaderboard, loadLeaderboard } from '../online/progress';
+import { type Leaderboard, claimPodium, loadLeaderboard, useMyProgress } from '../online/progress';
+import { sounds } from '../feedback';
 import { ONLINE_UI } from '../online-games';
 import { t, tn } from '../i18n';
 import { colors, gradients } from '../theme';
@@ -61,6 +63,10 @@ export function ClassementPanel({ desktop }: { desktop: boolean }) {
   const [board, setBoard] = useState<Leaderboard | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [game, setGame] = useState<string | null>(null);
+  const [claiming, setClaiming] = useState(false);
+  const [claimed, setClaimed] = useState<string | null>(null);
+  const [claimError, setClaimError] = useState<string | null>(null);
+  const progress = useMyProgress();
   const now = useNow();
 
   async function reload() {
@@ -82,6 +88,26 @@ export function ClassementPanel({ desktop }: { desktop: boolean }) {
     if (board && now >= board.endsAt) reload();
   }, [now >= endsAt]);
 
+  // Last week's podium chest, until it is taken (once a week: the server checks it too).
+  const chest = board?.chest ?? null;
+  const chestReady =
+    !!board && chest !== null && progress?.podiumClaimed !== board.week && claimed !== board.week;
+
+  async function claim() {
+    if (!board || claiming) return;
+    setClaiming(true);
+    setClaimError(null);
+    try {
+      await claimPodium();
+      setClaimed(board.week);
+      sounds.win();
+    } catch (e) {
+      setClaimError(t((e as Error).message));
+    } finally {
+      setClaiming(false);
+    }
+  }
+
   const players = board?.players ?? [];
   const lines = rankLeaderboard(players, 'week', game);
   const podium = leaderboardPodium(players, game);
@@ -99,6 +125,9 @@ export function ClassementPanel({ desktop }: { desktop: boolean }) {
             play: LEADERBOARD_PLAY_POINTS,
           })}
         </Text>
+        <Text style={styles.headerText}>
+          {t('En cas d’égalité, l’XP de la semaine départage. Le podium gagne un coffre.')}
+        </Text>
       </View>
       <View
         style={styles.countdown}
@@ -109,6 +138,37 @@ export function ClassementPanel({ desktop }: { desktop: boolean }) {
       </View>
     </LinearGradient>
   );
+
+  const reward =
+    chestReady || claimed || claimError ? (
+      <View style={styles.rewardWrap}>
+        {chestReady && (
+          <Pressable
+            accessibilityRole="button"
+            onPress={claim}
+            disabled={claiming}
+            style={[styles.reward, claiming && { opacity: 0.6 }]}
+          >
+            <LinearGradient colors={['#6b4b00', '#3a2800']} style={styles.rewardInner}>
+              <Text style={styles.rewardIcon}>{chest === 'grand' ? '🏆' : '🎖️'}</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.rewardTitle}>{t('Tu étais sur le podium la semaine dernière !')}</Text>
+                <Text style={styles.rewardText}>
+                  {chest === 'grand'
+                    ? t('Touche pour prendre ton grand coffre.')
+                    : t('Touche pour prendre ton coffre.')}
+                </Text>
+              </View>
+              {claiming && <ActivityIndicator color={colors.gold} />}
+            </LinearGradient>
+          </Pressable>
+        )}
+        {claimed && !chestReady && (
+          <Text style={styles.rewardDone}>{t('Ton coffre t’attend dans la boutique !')}</Text>
+        )}
+        {claimError && <Text style={styles.error}>{claimError}</Text>}
+      </View>
+    ) : null;
 
   const chips = [null, ...leaderboardGames()].map((g) => {
     const on = g === game;
@@ -177,6 +237,7 @@ export function ClassementPanel({ desktop }: { desktop: boolean }) {
   const lastWeek = board && (
     <View style={styles.podiumCard}>
       <Text style={styles.section}>{t('Podium de la semaine dernière')}</Text>
+      <Text style={styles.podiumHint}>{t('🎁 Grand coffre pour le 1ᵉʳ, coffre pour le 2ᵉ et le 3ᵉ')}</Text>
       {podium.length === 0 ? (
         <Text style={styles.empty}>{t('Pas de podium la semaine dernière.')}</Text>
       ) : (
@@ -198,6 +259,7 @@ export function ClassementPanel({ desktop }: { desktop: boolean }) {
         <Stat value={String(mine.points)} label={t('Points')} />
         <Stat value={String(mine.won)} label={tn(mine.won, 'Victoire', 'Victoires')} />
         <Stat value={String(mine.played)} label={tn(mine.played, 'Partie', 'Parties')} />
+        <Stat value={String(mine.xp)} label={t('XP')} />
       </View>
       {mine.best && (
         <Text style={styles.summaryBest}>
@@ -214,6 +276,7 @@ export function ClassementPanel({ desktop }: { desktop: boolean }) {
     return (
       <View>
         {header}
+        {reward}
         <View style={styles.columns}>
           <View style={styles.left}>
             {filter}
@@ -230,6 +293,7 @@ export function ClassementPanel({ desktop }: { desktop: boolean }) {
   return (
     <View>
       {header}
+      {reward}
       {filter}
       {summary}
       {list}
@@ -285,6 +349,7 @@ function Line({ line, index, showBest }: { line: LeaderboardLine; index: number;
             ? t('Pas encore joué')
             : `${tn(line.won, '{n} victoire', '{n} victoires')} · ${tn(line.played, '{n} partie', '{n} parties')}`}
         </Text>
+        {showBest && line.xp > 0 && <Text style={styles.rowXp}>{t('{n} XP', { n: line.xp })}</Text>}
       </View>
     </View>
   );
@@ -380,6 +445,15 @@ const styles = StyleSheet.create({
   rowScore: { alignItems: 'flex-end' },
   rowPoints: { color: colors.gold, fontSize: 17, fontWeight: '900' },
   rowWins: { color: colors.muted, fontSize: 11.5 },
+  rowXp: { color: '#cfc5ff', fontSize: 11, fontWeight: '700' },
+  rewardWrap: { marginTop: 12 },
+  reward: { borderRadius: 14, overflow: 'hidden', borderWidth: 1.5, borderColor: colors.gold },
+  rewardInner: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
+  rewardIcon: { fontSize: 36 },
+  rewardTitle: { color: colors.gold, fontSize: 15, fontWeight: '900' },
+  rewardText: { color: '#f3e3b5', fontSize: 13 },
+  rewardDone: { color: colors.gold, textAlign: 'center', fontWeight: '800' },
+  podiumHint: { color: colors.muted, fontSize: 12, marginTop: 2 },
   empty: { color: colors.muted, textAlign: 'center', marginTop: 10, lineHeight: 20 },
   errorBox: { alignItems: 'center', marginTop: 20, gap: 10 },
   error: { color: '#ff8a80', textAlign: 'center' },

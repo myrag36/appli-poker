@@ -18,40 +18,24 @@ import {
   cleanOwned,
   defaultAvatar,
   levelFromXp,
-  podiumChest,
-  weekStart,
 } from '@appli-poker/engine';
 import { AvatarBadge } from '../components/AvatarPicker';
 import { TitleBadge } from '../components/TitleBadge';
 import { TopBar } from '../components/TopBar';
 import { ClassementPanel } from './ClassementPanel';
-import {
-  type FriendRow,
-  addFriend,
-  claimPodium,
-  loadFriends,
-  removeFriend,
-  syncMe,
-  useMyProgress,
-} from '../online/progress';
+import { type FriendRow, addFriend, loadFriends, removeFriend, syncMe } from '../online/progress';
 import { type TableInvite, dismissInvite, loadInvites } from '../online/invites';
 import { ONLINE_UI } from '../online-games';
 import type { OnlineGameId } from '@appli-poker/engine';
 import { sounds } from '../feedback';
-import { t, tn } from '../i18n';
+import { t } from '../i18n';
 import { useDesktop } from '../layout';
 import { colors, gradients } from '../theme';
 
-const MEDALS = ['🥇', '🥈', '🥉'];
-
-/** Days left before the weekly ranking starts over (Monday, Paris time). */
-function daysToMonday(): number {
-  const monday = new Date(`${weekStart()}T00:00:00Z`);
-  const next = monday.getTime() + 7 * 86_400_000;
-  return Math.max(1, Math.ceil((next - Date.now()) / 86_400_000));
-}
-
-/** My friend code, my friends, and the ranking of the week between us. */
+/**
+ * My friend code, invitations and friends; the weekly ranking between us (and its podium
+ * chest) is in the second tab.
+ */
 export function FriendsScreen({
   onBack,
   onJoin,
@@ -63,10 +47,9 @@ export function FriendsScreen({
   /** Goes to a friend's table from an invitation. */
   onJoin?: (game: string, code: string) => void;
 }) {
-  const progress = useMyProgress();
   const { width: screenW } = useWindowDimensions();
   const desktop = useDesktop();
-  // On a computer: my code and invitations on the left, the ranking of the week on the right.
+  // On a computer: my code and invitations on the left, my friends on the right.
   const width = desktop ? Math.min(screenW - 64, DESK_WIDTH) : Math.min(screenW, 520);
   const [code, setCode] = useState<string | null>(null);
   const [rows, setRows] = useState<FriendRow[] | null>(null);
@@ -120,17 +103,6 @@ export function FriendsScreen({
     }
   }
 
-  async function podium() {
-    setError(null);
-    try {
-      await claimPodium();
-      sounds.win();
-      setMessage(t('Ton coffre t’attend dans la boutique !'));
-    } catch (e) {
-      setError(t((e as Error).message));
-    }
-  }
-
   function share() {
     if (!code) return;
     Share.share({ message: t('Ajoute-moi dans La Tablée avec mon code ami : {code}', { code }) }).catch(
@@ -138,15 +110,8 @@ export function FriendsScreen({
     );
   }
 
-  const me = rows?.find((r) => r.me);
-  const chest = me
-    ? podiumChest(
-        me.user_id,
-        (rows ?? []).map((r) => ({ user_id: r.user_id, xp: r.last_week_xp })),
-      )
-    : null;
-  const podiumReady = chest !== null && progress?.podiumClaimed !== weekStart();
-  const friends = (rows ?? []).filter((r) => !r.me);
+  // Friends by name: who is ahead this week is the ranking tab's business.
+  const friends = (rows ?? []).filter((r) => !r.me).sort((a, b) => a.name.localeCompare(b.name));
 
   const mine = (
     <>
@@ -239,41 +204,31 @@ export function FriendsScreen({
           ))}
         </View>
       )}
-
-      {podiumReady && (
-        <Pressable accessibilityRole="button" onPress={podium} style={styles.podium}>
-          <LinearGradient colors={['#6b4b00', '#3a2800']} style={styles.podiumInner}>
-            <Text style={styles.podiumIcon}>{chest === 'grand' ? '🏆' : '🎖️'}</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.podiumTitle}>{t('Tu étais sur le podium la semaine dernière !')}</Text>
-              <Text style={styles.podiumText}>
-                {chest === 'grand'
-                  ? t('Touche pour prendre ton grand coffre.')
-                  : t('Touche pour prendre ton coffre.')}
-              </Text>
-            </View>
-          </LinearGradient>
-        </Pressable>
-      )}
     </>
   );
 
   const ranking = (
     <>
       <View style={[styles.sectionRow, desktop && styles.sectionRowDesktop]}>
-        <Text style={styles.section}>{t('Classement de la semaine')}</Text>
-        <Text style={styles.reset}>{tn(daysToMonday(), 'Fin dans {n} jour', 'Fin dans {n} jours')}</Text>
+        <Text style={styles.section}>
+          {rows === null ? t('Mes amis') : t('Mes amis ({n})', { n: friends.length })}
+        </Text>
       </View>
-      <Text style={styles.hint}>
-        {t('L’XP gagnée depuis lundi. Le podium gagne un coffre (le premier un grand coffre).')}
-      </Text>
+      <Pressable accessibilityRole="button" onPress={() => setTab('classement')} style={styles.toRanking}>
+        <Text style={styles.toRankingIcon}>🏆</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.toRankingTitle}>{t('Classement de la semaine')}</Text>
+          <Text style={styles.toRankingText}>{t('Vos parties en ligne, et un coffre pour le podium.')}</Text>
+        </View>
+        <Text style={styles.toRankingArrow}>›</Text>
+      </Pressable>
 
       {rows === null ? (
         <ActivityIndicator color={colors.gold} style={{ marginTop: 20 }} />
       ) : (
         <View style={styles.board}>
-          {rows.map((r, i) => (
-            <Row key={r.user_id} row={r} place={i} onLongPress={() => !r.me && setRemoving(r.user_id)} />
+          {friends.map((r, i) => (
+            <Row key={r.user_id} row={r} index={i + 1} onLongPress={() => setRemoving(r.user_id)} />
           ))}
           {friends.length === 0 && (
             <Text style={styles.empty}>
@@ -356,37 +311,31 @@ export function FriendsScreen({
 const DESK_WIDTH = 1040;
 const DESK_LEFT = 400;
 
-function Row({ row, place, onLongPress }: { row: FriendRow; place: number; onLongPress: () => void }) {
+/** A friend: avatar, name, title, level and days in a row; a long press offers to remove them. */
+function Row({ row, index, onLongPress }: { row: FriendRow; index: number; onLongPress: () => void }) {
   const level = levelFromXp(row.xp);
   const equipped = cleanEquipped(row.equipped, level, cleanOwned(row.owned));
   const avatar = cleanAvatar(
     { emoji: row.avatar, color: row.avatar_color },
-    defaultAvatar(place),
+    defaultAvatar(index),
     ALL_AVATAR_EMOJIS,
   );
   return (
     <Pressable
       onLongPress={onLongPress}
-      accessibilityLabel={t('{place}e, {name}, {xp} XP cette semaine', {
-        place: place + 1,
-        name: row.name,
-        xp: row.week_xp,
-      })}
-      style={[styles.row, row.me && styles.rowMe]}
+      accessibilityLabel={t('{name}, niveau {level}', { name: row.name, level })}
+      style={styles.row}
     >
-      <Text style={styles.place}>{MEDALS[place] ?? `${place + 1}`}</Text>
       <AvatarBadge avatar={{ ...avatar, frame: equipped.frame, level }} size={44} />
       <View style={styles.rowBody}>
         <Text style={styles.rowName} numberOfLines={1}>
           {row.name}
-          {row.me ? t(' (moi)') : ''}
           {row.streak > 0 ? <Text style={styles.rowStreak}> 🔥{row.streak}</Text> : null}
         </Text>
         <TitleBadge id={equipped.title} small />
       </View>
       <View style={styles.rowScore}>
-        <Text style={styles.rowXp}>{row.week_xp} XP</Text>
-        <Text style={styles.rowWins}>{tn(row.week_wins, '{n} victoire', '{n} victoires')}</Text>
+        <Text style={styles.rowLevel}>{t('Niv. {n}', { n: level })}</Text>
       </View>
     </Pressable>
   );
@@ -459,11 +408,21 @@ const styles = StyleSheet.create({
   disabled: { opacity: 0.5 },
   message: { color: colors.gold, textAlign: 'center', marginTop: 10, fontWeight: '800' },
   error: { color: '#ff8a80', textAlign: 'center', marginTop: 10 },
-  podium: { marginTop: 14, borderRadius: 14, overflow: 'hidden', borderWidth: 1.5, borderColor: colors.gold },
-  podiumInner: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
-  podiumIcon: { fontSize: 36 },
-  podiumTitle: { color: colors.gold, fontSize: 15, fontWeight: '900' },
-  podiumText: { color: '#f3e3b5', fontSize: 13 },
+  toRanking: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginTop: 10,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: 'rgba(142,125,190,0.18)',
+    borderWidth: 1,
+    borderColor: '#8e7dbe',
+  },
+  toRankingIcon: { fontSize: 28 },
+  toRankingTitle: { color: colors.text, fontSize: 15, fontWeight: '900' },
+  toRankingText: { color: '#cfc5ff', fontSize: 12.5, marginTop: 2 },
+  toRankingArrow: { color: '#cfc5ff', fontSize: 26, fontWeight: '700' },
   sectionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -471,8 +430,6 @@ const styles = StyleSheet.create({
     marginTop: 22,
   },
   section: { color: colors.text, fontSize: 19, fontWeight: '800' },
-  reset: { color: colors.muted, fontSize: 12, fontWeight: '700' },
-  hint: { color: colors.muted, fontSize: 12, marginTop: 4 },
   board: { marginTop: 10, gap: 8 },
   row: {
     flexDirection: 'row',
@@ -484,14 +441,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.glassBorder,
   },
-  rowMe: { borderColor: colors.gold, backgroundColor: 'rgba(255,193,7,0.1)' },
-  place: { color: colors.text, fontSize: 18, fontWeight: '900', width: 28, textAlign: 'center' },
   rowBody: { flex: 1, gap: 3 },
   rowName: { color: colors.text, fontSize: 15, fontWeight: '800' },
   rowStreak: { color: '#ffb36b', fontSize: 13 },
   rowScore: { alignItems: 'flex-end' },
-  rowXp: { color: colors.gold, fontSize: 16, fontWeight: '900' },
-  rowWins: { color: colors.muted, fontSize: 12 },
+  rowLevel: { color: colors.gold, fontSize: 14, fontWeight: '900' },
   empty: { color: colors.muted, textAlign: 'center', marginTop: 10, lineHeight: 20 },
   confirm: {
     marginTop: 12,

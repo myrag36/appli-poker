@@ -335,7 +335,7 @@ export interface FriendRow {
   me: boolean;
 }
 
-/** Me and my friends with this week's experience, best first. */
+/** Me and my friends (with the database's weekly experience, for older screens). */
 export async function loadFriends(): Promise<FriendRow[]> {
   await ensureSignedIn();
   const { data, error } = await supabase.rpc('friends_board');
@@ -351,6 +351,8 @@ export interface Leaderboard {
   /** When this week's ranking ends, in epoch milliseconds. */
   endsAt: number;
   players: LeaderboardPlayer[];
+  /** My chest for last week's podium, taken or not (`MyProgress.podiumClaimed` says). */
+  chest?: 'grand' | 'normal' | null;
 }
 
 export async function loadLeaderboard(): Promise<Leaderboard> {
