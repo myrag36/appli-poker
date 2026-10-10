@@ -242,7 +242,7 @@ export const REWARDS: Reward[] = [
   earn('chip', 'defi', { challenges: 5 }, 'Jetons du défi', 'rare'),
   earn('chip', 'requin', { achievement: 'poker-10' }, 'Requin', 'epique'),
 
-  lv('felt', 'ambiance', 1, 'Celui de l’ambiance', 'commun'),
+  lv('felt', 'ambiance', 1, 'Ambiance', 'commun'),
   lv('felt', 'bordeaux', 3, 'Bordeaux', 'commun'),
   lv('felt', 'nuit', 12, 'Bleu nuit', 'rare'),
   lv('felt', 'vichy', 20, 'Vichy', 'rare'),

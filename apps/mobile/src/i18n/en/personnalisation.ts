@@ -65,7 +65,6 @@ export default {
   Cristal: 'Crystal',
 
   // Felts
-  'Celui de l’ambiance': 'The theme’s own',
   Bordeaux: 'Burgundy',
   'Bleu nuit': 'Midnight blue',
   Vichy: 'Gingham',
