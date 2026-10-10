@@ -270,7 +270,9 @@ export function Space({ w, h, k }: SceneProps) {
     s: (0.5 + rand() * 1.1) * k,
     o: 0.2 + rand() * 0.5,
   }));
-  const planet = Math.min(w * (narrow ? 0.34 : 0.17), 260 * k);
+  // On a phone the header fills the top: the big planet rises from the bottom right instead.
+  const phone = narrow && k >= 0.95;
+  const planet = Math.min(w * (narrow ? 0.34 : 0.13), 260 * k);
   return (
     <>
       {/* Nebulae: soft clouds of colour, mostly towards the corners */}
@@ -420,7 +422,12 @@ export function Space({ w, h, k }: SceneProps) {
           />
         ))}
       </View>
-      <RingedPlanet x={w * (narrow ? 0.74 : 0.84)} y={h * 0.12 + planet * 0.2} d={planet} k={k} />
+      <RingedPlanet
+        x={w * (phone ? 0.8 : narrow ? 0.74 : 0.54)}
+        y={phone ? h - planet * 0.35 : narrow ? h * 0.12 + planet * 0.2 : h * 0.1}
+        d={planet}
+        k={k}
+      />
       <Moon x={w * (narrow ? 0.12 : 0.06)} y={h * (narrow ? 0.05 : 0.16)} d={Math.min(w * 0.08, 64 * k)} />
       {/* Asteroids drifting in the lower right corner */}
       {Array.from({ length: 6 }, (_, i) => {
@@ -431,7 +438,7 @@ export function Space({ w, h, k }: SceneProps) {
             style={{
               position: 'absolute',
               left: w * (0.72 + rand() * 0.26),
-              top: h * (0.72 + rand() * 0.2),
+              top: phone ? h * (0.62 + rand() * 0.12) : h * (0.72 + rand() * 0.2),
               width: size,
               height: size * 0.8,
               borderTopLeftRadius: size * 0.5,
@@ -447,8 +454,8 @@ export function Space({ w, h, k }: SceneProps) {
         );
       })}
       <Satellite
-        x={w * (narrow ? 0.8 : 0.1)}
-        y={h * (narrow ? 0.93 : 0.3)}
+        x={w * (phone ? 0.84 : narrow ? 0.8 : 0.1)}
+        y={phone ? 34 * k : h * (narrow ? 0.93 : 0.3)}
         s={k * (narrow ? 0.8 : 1)}
         still={still}
       />

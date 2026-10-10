@@ -539,10 +539,12 @@ export function Saloon({ w, h, k }: SceneProps) {
   const plank = 46 * k;
   const rand = random(11);
   const floor = h * 0.86;
-  const ww = narrow ? w * 0.36 : Math.min(w * 0.15, 240 * k);
-  const wh = ww * 0.82;
-  const winX = narrow ? w * 0.6 : w * 0.8;
-  const winY = narrow ? h * 0.03 : h * 0.14;
+  // On a phone the buttons fill the top of the screen: the window is a low strip above them.
+  const phone = narrow && k >= 0.95;
+  const ww = phone ? w * 0.3 : narrow ? w * 0.36 : Math.min(w * 0.15, 240 * k);
+  const wh = ww * (phone ? 0.46 : 0.82);
+  const winX = phone ? w * 0.66 : narrow ? w * 0.6 : w - ww - w * 0.01;
+  const winY = phone ? 14 * k : narrow ? h * 0.03 : h * 0.3;
   const s = narrow ? k * 0.8 : k;
   return (
     <>
@@ -625,12 +627,12 @@ export function Saloon({ w, h, k }: SceneProps) {
       <View
         style={{
           position: 'absolute',
-          left: winX - ww * 0.2,
-          top: winY + wh * 0.4,
-          width: ww * 1.1,
-          height: h * 0.9,
-          transform: [{ skewX: '18deg' }],
-          opacity: 0.9,
+          // Slanted down and to the left; the box is moved so its top edge sits under the window.
+          left: winX + (h * 0.85 * 0.32) / 2,
+          top: winY + wh * 0.5,
+          width: ww,
+          height: h * 0.85,
+          transform: [{ skewX: '-18deg' }],
         }}
       >
         <LinearGradient
@@ -705,39 +707,41 @@ export function Saloon({ w, h, k }: SceneProps) {
         </View>
       </Pivot>
       {/* Lamps */}
-      {(narrow ? [0.12, 0.88] : [0.3, 0.7]).map((x) => (
+      {(narrow ? [0.08, 0.26] : [0.3, 0.7]).map((x) => (
         <OilLamp key={x} x={w * x} drop={(narrow ? 22 : 40) * k} s={s} still={still} />
       ))}
 
-      {/* Wanted poster and horseshoe */}
-      <View
-        style={{
-          position: 'absolute',
-          left: w * (narrow ? 0.05 : 0.04),
-          top: h * (narrow ? 0.85 : 0.2),
-          width: 74 * k,
-          height: 92 * k,
-          backgroundColor: '#f1dca7',
-          alignItems: 'center',
-          paddingTop: 6 * k,
-          transform: [{ rotate: '-7deg' }],
-          boxShadow: `0 ${4 * k}px ${10 * k}px rgba(0,0,0,0.5)`,
-        }}
-      >
-        <Text style={{ fontSize: 13 * k, fontWeight: '900', color: '#3d2810', letterSpacing: 1 }}>
-          WANTED
-        </Text>
-        <Text style={{ fontSize: 34 * k, marginTop: 2 * k }}>🤠</Text>
-        <Text style={{ fontSize: 9 * k, fontWeight: '800', color: '#3d2810' }}>$ 1000</Text>
-        <Dot x={37 * k} y={2 * k} size={4 * k} color="#555" />
-      </View>
-      {!narrow && <Horseshoe x={w * 0.13} y={h * 0.14} s={k} />}
+      {/* Wanted poster (not on a phone, where it would sit under the profile) and horseshoe */}
+      {!phone && (
+        <View
+          style={{
+            position: 'absolute',
+            left: w * (narrow ? 0.05 : 0.012),
+            top: h * (narrow ? 0.1 : 0.32),
+            width: 74 * k,
+            height: 92 * k,
+            backgroundColor: '#f1dca7',
+            alignItems: 'center',
+            paddingTop: 6 * k,
+            transform: [{ rotate: '-7deg' }],
+            boxShadow: `0 ${4 * k}px ${10 * k}px rgba(0,0,0,0.5)`,
+          }}
+        >
+          <Text style={{ fontSize: 13 * k, fontWeight: '900', color: '#3d2810', letterSpacing: 1 }}>
+            WANTED
+          </Text>
+          <Text style={{ fontSize: 34 * k, marginTop: 2 * k }}>🤠</Text>
+          <Text style={{ fontSize: 9 * k, fontWeight: '800', color: '#3d2810' }}>$ 1000</Text>
+          <Dot x={37 * k} y={2 * k} size={4 * k} color="#555" />
+        </View>
+      )}
+      {!narrow && <Horseshoe x={w * 0.035} y={h * 0.24} s={k} />}
 
       {/* Back bar on the right (computer) */}
       {!narrow && (
         <BackBar
           x={w - Math.min(w * 0.13, 210 * k)}
-          y={h * 0.66}
+          y={h * 0.8}
           width={Math.min(w * 0.13, 210 * k) - 8 * k}
           s={k}
           seed={8}

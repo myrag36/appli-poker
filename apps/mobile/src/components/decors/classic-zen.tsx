@@ -439,6 +439,7 @@ function Branch({
   len,
   k,
   seed,
+  angle = 0.35,
 }: {
   x: number;
   y: number;
@@ -446,6 +447,8 @@ function Branch({
   len: number;
   k: number;
   seed: number;
+  /** Direction of the main limb, in radians below the horizontal. */
+  angle?: number;
 }) {
   const rand = random(seed);
   const lines: { x1: number; y1: number; x2: number; y2: number; w: number }[] = [];
@@ -462,7 +465,7 @@ function Branch({
     grow(x2, y2, angle + (rand() - 0.3) * 0.6, l * 0.72, wdt * 0.65, depth - 1);
     grow(x2, y2, angle + 0.5 + rand() * 0.5, l * 0.55, wdt * 0.55, depth - 1);
   };
-  grow(x, y, 0.35, len * 0.42, 9 * k, 3);
+  grow(x, y, angle, len * 0.42, 9 * k, 3);
   return (
     <>
       {lines.map((l, i) => (
@@ -504,7 +507,11 @@ export function Sakura({ w, h, k }: SceneProps) {
   const still = tiny(w);
   const narrow = w < 560;
   const rand = random(3);
+  // On a phone the title sits at the top in the middle: the sun goes lower and to the side.
+  const phone = narrow && k >= 0.95;
   const sun = Math.min(w * (narrow ? 0.5 : 0.24), h * 0.4);
+  const sunX = w * (phone ? 0.74 : 0.62);
+  const sunY = h * (phone ? 0.3 : 0.2);
   const ground = h * 0.78;
   const mountain = (left: number, width: number, height: number, color: string, top = ground) => (
     <Tri x={left + width / 2} y={top} width={width} height={height} color={color} />
@@ -519,12 +526,12 @@ export function Sakura({ w, h, k }: SceneProps) {
   return (
     <>
       {/* Sunrise */}
-      <Haze x={w * 0.62} y={h * 0.2} width={sun * 3.2} height={sun * 2.4} color="rgba(255, 120, 120, 0.22)" />
+      <Haze x={sunX} y={sunY} width={sun * 3.2} height={sun * 2.4} color="rgba(255, 120, 120, 0.22)" />
       <View
         style={{
           position: 'absolute',
-          left: w * 0.62 - sun / 2,
-          top: h * 0.2 - sun / 2,
+          left: sunX - sun / 2,
+          top: sunY - sun / 2,
           width: sun,
           height: sun,
           borderRadius: sun / 2,
@@ -536,17 +543,17 @@ export function Sakura({ w, h, k }: SceneProps) {
       </View>
       {/* Thin clouds across the sun */}
       {[
-        [0.42, 0.22, 0.34],
-        [0.55, 0.27, 0.28],
-        [0.7, 0.17, 0.22],
+        [-0.42, 0.1, 0.75],
+        [-0.25, 0.3, 0.6],
+        [0.02, -0.18, 0.42],
       ].map(([cx, cy, cw], i) => (
         <View
           key={i}
           style={{
             position: 'absolute',
-            left: w * cx,
-            top: h * cy,
-            width: w * cw,
+            left: sunX + sun * cx,
+            top: sunY + sun * cy,
+            width: sun * cw,
             height: 4 * k,
             borderRadius: 2 * k,
             backgroundColor: 'rgba(255, 220, 230, 0.28)',
@@ -639,19 +646,21 @@ export function Sakura({ w, h, k }: SceneProps) {
         x={-10 * k}
         y={-6 * k}
         dir={1}
-        len={Math.min(w * (narrow ? 0.6 : 0.3), 420 * k)}
+        len={Math.min(w * (phone ? 0.42 : narrow ? 0.6 : 0.24), 340 * k)}
         k={k}
         seed={4}
+        angle={narrow ? 0.35 : 1}
       />
       <Branch
         x={w + 10 * k}
-        y={narrow ? 40 * k : -6 * k}
+        y={narrow && !phone ? 40 * k : -6 * k}
         dir={-1}
-        len={Math.min(w * (narrow ? 0.45 : 0.26), 380 * k)}
+        len={Math.min(w * (phone ? 0.3 : narrow ? 0.45 : 0.22), 320 * k)}
         k={k}
         seed={9}
+        angle={narrow ? 0.35 : 1}
       />
-      {(narrow ? [0.5] : [0.38, 0.5, 0.62]).map((x, i) => (
+      {(narrow ? [0.5] : [0.42, 0.53, 0.64]).map((x, i) => (
         <PaperLantern key={x} x={w * x} y={0} s={k * (narrow ? 0.8 : 1.25)} delay={i * 1500} still={still} />
       ))}
       {/* Petals drifting down */}

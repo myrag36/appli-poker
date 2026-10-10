@@ -386,9 +386,9 @@ export function Lounge({ w, h, k }: SceneProps) {
         style={{
           position: 'absolute',
           left: 0,
-          top: h * 0.12,
+          top: h * (narrow ? 0.12 : 0.27),
           width: shelfW,
-          height: h * 0.36,
+          height: h * (narrow ? 0.36 : 0.33),
           overflow: 'hidden',
           borderTopRightRadius: 6 * k,
           borderBottomRightRadius: 6 * k,
@@ -404,7 +404,7 @@ export function Lounge({ w, h, k }: SceneProps) {
           style={StyleSheet.absoluteFill}
         />
       </View>
-      {[0.25, 0.37, 0.48].map((t, i) => (
+      {(narrow ? [0.25, 0.37, 0.48] : [0.38, 0.48, 0.58]).map((t, i) => (
         <Shelf key={t} x={0} y={h * t} width={shelfW - 2 * k} s={s} seed={i + 4} />
       ))}
 
@@ -413,8 +413,8 @@ export function Lounge({ w, h, k }: SceneProps) {
         <View
           style={{
             position: 'absolute',
-            right: w * 0.035,
-            top: h * 0.16,
+            right: w * 0.075,
+            top: h * 0.3,
             width: 92 * k,
             height: 128 * k,
             backgroundColor: '#e8d5b0',
@@ -436,7 +436,7 @@ export function Lounge({ w, h, k }: SceneProps) {
         </View>
       )}
       <Microphone x={w - (narrow ? 22 : 150) * k} y={rail + (narrow ? 60 : 80) * k} s={s} />
-      <Bass x={w - (narrow ? 50 : 70) * k} y={rail - 40 * s} s={s} />
+      <Bass x={w - (narrow ? 50 : 36) * k} y={rail - 40 * s} s={s} />
 
       {/* Neon "Jazz" sign on the wall */}
       <Loop
@@ -445,8 +445,8 @@ export function Lounge({ w, h, k }: SceneProps) {
         still={still || narrow}
         style={{
           position: 'absolute',
-          right: narrow ? w * 0.06 : w * 0.035 + 110 * k,
-          top: narrow ? h * 0.935 : h * 0.2,
+          right: narrow ? w * 0.06 : w * 0.08,
+          top: narrow ? h * 0.935 : h * 0.3 + 140 * k,
         }}
       >
         <Text

@@ -6,10 +6,19 @@ import { BlindsInfo } from './BlindsInfo';
 import { ChipStack, DealerButton } from './Chip';
 import { Appear, FloatUp, FlyTo } from './Motion';
 import { PlayingCard } from './PlayingCard';
+import { stripes } from './decors/classic-kit';
 import { colors, gradients, seatColors, shadow, theme } from '../theme';
 import { t } from '../i18n';
 import { tMessage } from '../online/messages';
 import { play } from '../sound';
+
+const RAIL_SHEEN = ['rgba(255, 240, 220, 0.16)', 'rgba(255, 240, 220, 0)', 'rgba(0, 0, 0, 0.18)'] as const;
+
+/** Faint horizontal threads across the felt, one every 3 points. */
+function weave(height: number) {
+  const { colors: c, locations } = stripes(3, height, 'rgba(0, 0, 0, 0.06)', 0.5);
+  return { colors: c, locations };
+}
 
 const STREET_NAMES: Record<string, string> = {
   preflop: t('Avant le flop'),
@@ -106,8 +115,14 @@ export function Table({
     <View style={[styles.wrap, { width: w, height: h }]}>
       <View style={[styles.rail, wide && styles.railWide, { borderRadius: w / 2 }]}>
         <LinearGradient colors={gradients.wood} style={StyleSheet.absoluteFill} />
+        {/* Varnish: a sheen on the upper half of the rail and a thin inlay line. */}
+        <LinearGradient colors={RAIL_SHEEN} locations={[0, 0.45, 1]} style={StyleSheet.absoluteFill} />
+        <View style={[styles.railInlay, { borderRadius: w / 2 }]} />
         <View style={[styles.felt, { borderRadius: w / 2 }]}>
           <LinearGradient colors={gradients.felt} style={StyleSheet.absoluteFill} />
+          {/* Fine weave of the cloth, then a darker edge all around. */}
+          <LinearGradient {...weave(h)} style={StyleSheet.absoluteFill} />
+          <View style={[styles.feltVignette, { borderRadius: w / 2 }]} />
           <View style={[styles.feltGlow, { borderRadius: w / 2 }]} />
           <View style={[styles.feltLine, wide && styles.feltLineWide, { borderRadius: w / 2 }]} />
           {theme.feltMark && (
@@ -353,6 +368,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     boxShadow: 'inset 0 6px 18px rgba(0,0,0,0.55)',
+  },
+  railInlay: {
+    position: 'absolute',
+    top: 4,
+    bottom: 4,
+    left: 4,
+    right: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 230, 190, 0.16)',
+  },
+  feltVignette: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    boxShadow: 'inset 0 0 50px 6px rgba(0, 0, 0, 0.4)',
   },
   feltGlow: {
     width: '60%',
