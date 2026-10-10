@@ -431,6 +431,35 @@ test('bataille: a robot takes the empty seat, fleets stay hidden, the game ends 
   assert.equal(awards[0].userId, 'a');
 });
 
+test('echecs: a robot takes black, moves are checked, the game ends with experience', () => {
+  const { bots, snapshot } = startGame(
+    room({ game: 'echecs', options: cleanOptions('echecs', {}) }),
+    [player('a', 0)],
+    'a',
+    newId,
+    rng,
+    NOW,
+  );
+  assert.equal(bots.length, 1);
+  assert.deepEqual(snapshot.public.actors, ['a']);
+  assert.throws(
+    () => playGameMove(snapshot.secret, 'a', { type: 'move', from: 'e2', to: 'e5' }, rng, NOW),
+    /permis/,
+  );
+  let s = playGameMove(snapshot.secret, 'a', { type: 'move', from: 'e2', to: 'e4' }, rng, NOW);
+  assert.deepEqual(s.public.actors, [bots[0].user_id]);
+  assert.equal(s.secret.deadline, NOW + BOT_MS);
+  let before = s;
+  for (let i = 0; i < 2000 && !s.public.over; i++) {
+    before = s;
+    s = playGameTimeout(s.secret, rng, s.secret.deadline!);
+  }
+  assert.ok(s.public.over);
+  const awards = progressAwards(before.secret, s);
+  assert.equal(awards.length, 1);
+  assert.equal(awards[0].userId, 'a');
+});
+
 test('revanche: once the game is over, a new table with the asker, the robots and old seats', () => {
   const seated = [
     { ...player('a', 0), avatar: '🦊', avatar_color: '#f00' },

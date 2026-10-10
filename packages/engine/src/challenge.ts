@@ -46,6 +46,7 @@ const NAMES: Record<ProgressGame, { label: string; emoji: string }> = {
   belote: { label: 'de belote', emoji: '♥️' },
   puissance4: { label: 'de Puissance 4', emoji: '🔴' },
   bataille: { label: 'de bataille navale', emoji: '🚢' },
+  echecs: { label: 'd’échecs', emoji: '♟️' },
   rami: { label: 'de rami', emoji: '🎴' },
   uno: { label: 'de Uno', emoji: '🌈' },
   huit: { label: 'de 8 américain', emoji: '🎱' },

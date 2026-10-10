@@ -6,6 +6,7 @@ import { beloteOnline } from './online-belote.ts';
 import { presidentOnline } from './online-president.ts';
 import { puissance4Online } from './online-puissance4.ts';
 import { batailleOnline } from './online-bataille.ts';
+import { echecsOnline } from './online-echecs.ts';
 import { yamsOnline } from './online-yams.ts';
 import { tarotOnline } from './online-tarot.ts';
 
@@ -21,6 +22,7 @@ export type OnlineGameId =
   | 'belote'
   | 'puissance4'
   | 'bataille'
+  | 'echecs'
   | 'rami'
   | 'tarot'
   | 'uno'
@@ -70,6 +72,7 @@ export const ONLINE_GAMES: Record<OnlineGameId, OnlineGame> = {
   belote: beloteOnline,
   puissance4: puissance4Online,
   bataille: batailleOnline,
+  echecs: echecsOnline,
   rami: ramiOnline,
   tarot: tarotOnline,
   uno: unoOnlineGame,
