@@ -11,7 +11,8 @@ export default {
   '✓ Inscrit·e': '✓ Signed up',
   'Me désinscrire': 'Withdraw',
   'Écris ton prénom pour t’inscrire.': 'Type your name to sign up.',
-  'En direct : {game}': 'Live: {game}',
+  'En direct': 'Live',
+  'Prochain tournoi : {game}, {day} à 21 h': 'Next tournament: {game}, {day} at 9 pm',
   'Jouer mon match contre {name}': 'Play my match against {name}',
   'Jouer mon match': 'Play my match',
   '⏳ Tu es qualifié·e : ton prochain adversaire termine son match.':

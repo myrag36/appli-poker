@@ -152,6 +152,13 @@ function myMatch(info: WeeklyInfo | null, userId: string | null) {
   return { match, out, champion };
 }
 
+/** The first round still being played. */
+function liveRound(bracket: WeeklyInfo['bracket']): number {
+  if (!bracket) return 0;
+  const r = bracket.rounds.findIndex((round) => round.some((m) => !m.winner));
+  return r < 0 ? bracket.rounds.length - 1 : r;
+}
+
 function opponentOf(m: WeeklyMatch, userId: string): WeeklyEntrant | null {
   return m.a?.id === userId ? m.b : m.a;
 }
@@ -204,15 +211,13 @@ export function WeeklyCard({ weekly, name, avatar, onOpen, onPlay }: CardProps) 
   const live = current?.status === 'running';
   const left = next.startsAt - now;
   const trimmed = name?.trim();
+  const shownGame = live ? current!.game : next.game;
 
   const status = live ? (
     <View style={styles.liveBox}>
       <View style={styles.liveRow}>
         <Text style={styles.liveDot}>●</Text>
-        <Text style={styles.liveText}>
-          {t('En direct : {game}', { game: weeklyGameTitle(current!.game) })} ·{' '}
-          {tn(current!.registered, '{n} joueur', '{n} joueurs')}
-        </Text>
+        <Text style={styles.liveText}>{tn(current!.registered, '{n} joueur', '{n} joueurs')}</Text>
       </View>
       {mine?.match?.code && mine.match.roomId && opponentOf(mine.match, userId!) ? (
         <Button
@@ -248,68 +253,94 @@ export function WeeklyCard({ weekly, name, avatar, onOpen, onPlay }: CardProps) 
       <LinearGradient colors={gradients.glass} style={StyleSheet.absoluteFill} />
       <View style={[styles.heroTop, desktop && styles.heroTopDesktop]}>
         <View style={styles.heroIdentity}>
-          <GameToken game={next.game} size={desktop ? 58 : 48} />
+          <GameToken game={shownGame} size={desktop ? 58 : 48} />
           <View style={styles.flex}>
             <Text style={styles.kicker}>{t('🏆 Tournoi du vendredi')}</Text>
             <Text style={styles.heroGame} numberOfLines={1}>
-              {weeklyGameTitle(next.game)}
+              {weeklyGameTitle(shownGame)}
             </Text>
             <Text style={styles.heroWhen}>
-              {t('{day} à 21 h · élimination directe', { day: fridayLabel(next.friday) })}
+              {t('{day} à 21 h · élimination directe', {
+                day: fridayLabel(live ? current!.friday : next.friday),
+              })}
             </Text>
           </View>
         </View>
-        <View style={[styles.countdown, desktop && styles.countdownDesktop]}>
-          <Text style={styles.countdownLabel}>{t('Début dans')}</Text>
-          <Text style={styles.countdownValue} accessibilityLiveRegion="polite">
-            {timeLeft(left)}
-          </Text>
-        </View>
+        {live ? (
+          <View style={[styles.countdown, styles.countdownLive, desktop && styles.countdownDesktop]}>
+            <Text style={styles.countdownLabel}>
+              <Text style={styles.liveDot}>● </Text>
+              {t('En direct')}
+            </Text>
+            <Text style={styles.countdownRound} numberOfLines={1}>
+              {t(weeklyRoundName(liveRound(current!.bracket), current!.bracket?.rounds.length ?? 1))}
+            </Text>
+          </View>
+        ) : (
+          <View style={[styles.countdown, desktop && styles.countdownDesktop]}>
+            <Text style={styles.countdownLabel}>{t('Début dans')}</Text>
+            <Text style={styles.countdownValue} accessibilityLiveRegion="polite">
+              {timeLeft(left)}
+            </Text>
+          </View>
+        )}
       </View>
 
-      <View style={[styles.signupRow, desktop && styles.signupRowDesktop]}>
-        <View style={styles.entrants}>
-          <View style={styles.faces}>
-            {next.entrants.slice(0, 5).map((e, i) => (
-              <View key={e.id} style={[styles.face, i > 0 && styles.faceOverlap]}>
-                <AvatarBadge avatar={avatarOf(e, i)} size={28} />
-              </View>
-            ))}
-          </View>
-          <Text style={styles.entrantsText}>
-            {next.registered === 0
-              ? t('Personne d’inscrit pour l’instant')
-              : tn(next.registered, '{n} inscrit', '{n} inscrits')}
-          </Text>
-        </View>
-        <View style={[styles.signupButton, desktop && styles.signupButtonDesktop]}>
-          {next.me ? (
-            <View style={styles.registered}>
-              <Text style={styles.registeredText}>{t('✓ Inscrit·e')}</Text>
-              <Pressable
-                accessibilityRole="button"
-                onPress={unregister}
-                disabled={busy}
-                hitSlop={8}
-                style={({ pressed }) => pressed && styles.pressed}
-              >
-                <Text style={styles.unregister}>{t('Me désinscrire')}</Text>
-              </Pressable>
+      {live ? (
+        status
+      ) : (
+        <View style={[styles.signupRow, desktop && styles.signupRowDesktop]}>
+          <View style={styles.entrants}>
+            <View style={styles.faces}>
+              {next.entrants.slice(0, 5).map((e, i) => (
+                <View key={e.id} style={[styles.face, i > 0 && styles.faceOverlap]}>
+                  <AvatarBadge avatar={avatarOf(e, i)} size={28} />
+                </View>
+              ))}
             </View>
-          ) : (
-            <Button
-              label={t('Je m’inscris')}
-              disabled={busy || (name !== undefined && !trimmed)}
-              onPress={() => register(trimmed || undefined, avatar)}
-            />
-          )}
+            <Text style={styles.entrantsText}>
+              {next.registered === 0
+                ? t('Personne d’inscrit pour l’instant')
+                : tn(next.registered, '{n} inscrit', '{n} inscrits')}
+            </Text>
+          </View>
+          <View style={[styles.signupButton, desktop && styles.signupButtonDesktop]}>
+            {next.me ? (
+              <View style={styles.registered}>
+                <Text style={styles.registeredText}>{t('✓ Inscrit·e')}</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={unregister}
+                  disabled={busy}
+                  hitSlop={8}
+                  style={({ pressed }) => pressed && styles.pressed}
+                >
+                  <Text style={styles.unregister}>{t('Me désinscrire')}</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <Button
+                label={t('Je m’inscris')}
+                disabled={busy || (name !== undefined && !trimmed)}
+                onPress={() => register(trimmed || undefined, avatar)}
+              />
+            )}
+          </View>
         </View>
-      </View>
-      {name !== undefined && !trimmed && !next.me && (
+      )}
+      {!live && name !== undefined && !trimmed && !next.me && (
         <Text style={styles.hint}>{t('Écris ton prénom pour t’inscrire.')}</Text>
       )}
 
-      {status}
+      {!live && status}
+      {live && (
+        <Text style={styles.nextLine}>
+          {t('Prochain tournoi : {game}, {day} à 21 h', {
+            game: weeklyGameTitle(next.game),
+            day: fridayLabel(next.friday),
+          })}
+        </Text>
+      )}
 
       <View style={styles.rewardRow}>
         <Text style={styles.rewardText}>
@@ -656,6 +687,9 @@ const styles = StyleSheet.create({
     borderColor: colors.goldBorder,
   },
   countdownDesktop: { minWidth: 190 },
+  countdownLive: { borderColor: 'rgba(255,90,95,0.6)' },
+  countdownRound: { color: colors.text, fontSize: 20, fontWeight: '900', marginTop: 2 },
+  nextLine: { color: colors.muted, fontSize: 13, marginTop: 12 },
   countdownLabel: { color: colors.muted, fontSize: 12, fontWeight: '700' },
   countdownValue: { color: colors.gold, fontSize: 26, fontWeight: '900', fontVariant: ['tabular-nums'] },
   signupRow: { marginTop: 14, gap: 10 },
@@ -699,7 +733,7 @@ const styles = StyleSheet.create({
   openLink: { marginTop: 12, alignSelf: 'flex-end' },
   openText: { color: colors.gold, fontSize: 15, fontWeight: '800' },
   bracketCard: { paddingHorizontal: 0, paddingVertical: 8 },
-  bracketScroll: { paddingHorizontal: 12, paddingBottom: 6 },
+  bracketScroll: { paddingHorizontal: 12, paddingBottom: 6, flexGrow: 1, justifyContent: 'center' },
   roundName: {
     position: 'absolute',
     top: 0,
