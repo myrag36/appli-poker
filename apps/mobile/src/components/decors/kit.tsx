@@ -368,7 +368,7 @@ export function Drift({
         motion={up ? 'rise' : 'fall'}
         duration={duration}
         distance={height}
-        style={{ position: 'absolute', left: 0, top: up ? 0 : -height, width, height: height * 2 }}
+        style={{ position: 'absolute', left: 0, top: 0, width, height: height * 2 }}
       >
         <View style={{ width, height }}>{children}</View>
         <View style={{ width, height }}>{children}</View>
@@ -409,7 +409,7 @@ export function Cross({
         motion="slide"
         duration={duration}
         distance={width}
-        style={{ position: 'absolute', left: -width, top: 0, width: width * 2, height, flexDirection: 'row' }}
+        style={{ position: 'absolute', left: 0, top: 0, width: width * 2, height, flexDirection: 'row' }}
       >
         <View style={{ width, height }}>{children}</View>
         <View style={{ width, height }}>{children}</View>
