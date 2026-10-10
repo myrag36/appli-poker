@@ -57,6 +57,7 @@ const GAME_NAMES: Record<ProgressGame, string> = {
   huit: t('🎱 8 américain'),
   tarot: '🌙 Tarot',
   perudo: '🗣️ Perudo',
+  dames: t('⚪ Dames'),
 };
 
 /** One reward of a kind ("Bordures" gives "Bordure"), in the app's language. */

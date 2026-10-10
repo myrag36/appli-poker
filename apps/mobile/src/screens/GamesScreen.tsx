@@ -34,6 +34,7 @@ import { loadAvatar } from '../online/supabase';
 import { PlayingCard } from '../components/PlayingCard';
 import { Token } from '../components/Token';
 import { BatailleArt } from './BatailleScreen';
+import { DamesArt } from './DamesScreen';
 import { UnoCard } from '../components/UnoCard';
 import { TarotCard } from '../components/TarotCard';
 import { colors, gradients, shadow } from '../theme';
@@ -52,7 +53,8 @@ export type GameId =
   | 'uno'
   | 'huit'
   | 'tarot'
-  | 'perudo';
+  | 'perudo'
+  | 'dames';
 
 interface Game {
   id: GameId;
@@ -161,6 +163,14 @@ const GAMES: Game[] = [
     art: ['⚀', '⚃', '⚃', '⚀', '⚃'],
     ready: true,
   },
+  {
+    id: 'dames',
+    title: t('Dames'),
+    tagline: t('Pions, rafles et dames volantes : prends toutes les pièces adverses.'),
+    players: t('2 joueurs ou contre le robot'),
+    art: [],
+    ready: true,
+  },
 ];
 
 const GAP = 14;
@@ -179,6 +189,7 @@ interface Props {
 
 function Art({ game }: { game: Game }) {
   if (game.id === 'bataille') return <BatailleArt />;
+  if (game.id === 'dames') return <DamesArt />;
   if (game.id === 'puissance4') {
     return (
       <View style={styles.tokens}>
@@ -472,7 +483,7 @@ function DesktopGames({
             <View style={desk.brand}>
               <Text style={desk.logo}>La Tablée</Text>
               <Text style={desk.tagline}>
-                {t('12 jeux de cartes, de dés et de plateau à partager entre amis')}
+                {t('14 jeux de cartes, de dés et de plateau à partager entre amis')}
               </Text>
             </View>
             <View style={desk.chips}>

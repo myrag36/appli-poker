@@ -8,6 +8,7 @@ import { RamiOnlineBoard, RamiOnlineOptions } from '../screens/RamiScreen';
 import { YamsOnlineBoard } from '../screens/YamsScreen';
 import { TarotOnlineBoard, TarotOnlineOptions } from '../screens/TarotScreen';
 import { PerudoOnlineBoard, PerudoOnlineOptions } from '../screens/PerudoScreen';
+import { DamesOnlineBoard } from '../screens/DamesScreen';
 import { HuitOnlineBoard, HuitOnlineOptions, UnoOnlineBoard, UnoOnlineOptions } from '../screens/UnoScreen';
 import { t } from '../i18n';
 import type { OnlineGameUi } from './types';
@@ -99,5 +100,12 @@ export const ONLINE_UI: Record<OnlineGameId, OnlineGameUi> = {
     Board: PerudoOnlineBoard,
     Options: PerudoOnlineOptions,
     defaultOptions: { calza: true },
+  },
+  dames: {
+    title: t('Dames'),
+    emoji: '⚪',
+    players: t('2 joueurs, un robot prend la place libre'),
+    Board: DamesOnlineBoard,
+    defaultOptions: {},
   },
 };
