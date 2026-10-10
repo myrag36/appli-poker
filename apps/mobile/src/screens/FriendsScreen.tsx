@@ -329,8 +329,20 @@ export function FriendsScreen({
             onPress={() => setTab(id)}
             style={[styles.tab, tab === id && styles.tabOn]}
           >
-            <Text style={[styles.tabText, tab === id && styles.tabTextOn]} numberOfLines={1}>
-              {id === 'amis' ? t('👥 Mes amis') : id === 'messages' ? t('💬 Messages') : t('🏆 Classement')}
+            <Text
+              style={[styles.tabText, !desktop && styles.tabTextPhone, tab === id && styles.tabTextOn]}
+              numberOfLines={1}
+            >
+              {id === 'amis'
+                ? desktop
+                  ? t('👥 Mes amis')
+                  : t('👥 Amis')
+                : id === 'messages'
+                  ? // On a phone the unread badge needs the room of the emoji.
+                    desktop || unread === 0
+                    ? t('💬 Messages')
+                    : t('Messages')
+                  : t('🏆 Classement')}
             </Text>
             {id === 'messages' && unread > 0 && (
               <View style={styles.tabBadge}>
@@ -461,7 +473,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 6,
     paddingVertical: 9,
-    paddingHorizontal: 8,
+    paddingHorizontal: 4,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
@@ -480,6 +492,7 @@ const styles = StyleSheet.create({
   rowOnline: { color: '#3ddc84', fontSize: 12, fontWeight: '700' },
   tabOn: { backgroundColor: colors.gold },
   tabText: { color: colors.muted, fontSize: 14, fontWeight: '800' },
+  tabTextPhone: { fontSize: 13 },
   tabTextOn: { color: colors.onGold, fontWeight: '900' },
   codeCard: {
     marginTop: 8,

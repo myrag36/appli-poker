@@ -1,6 +1,7 @@
 // Messages between friends, who is online, and invitations sent from a conversation.
 export default {
   '💬 Messages': '💬 Messages',
+  Messages: 'Messages',
   ' · en ligne': ' · online',
   'En ligne{p}': 'Online{p}',
   '● En ligne': '● Online',

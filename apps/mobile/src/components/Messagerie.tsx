@@ -299,7 +299,7 @@ export function MessagesPanel({ friends, desktop, initialFriend, onJoin, onAddFr
       </View>
     );
   }
-  return conversation ?? list;
+  return <View style={styles.phonePane}>{conversation ?? list}</View>;
 }
 
 interface ConversationProps {
@@ -311,6 +311,17 @@ interface ConversationProps {
   onBack?: () => void;
   onJoin?: (game: string, code: string) => void;
   onRead: () => void;
+}
+
+/** A short message made only of emojis: shown big, without a bubble. */
+function emojiOnly(body: string): boolean {
+  if (
+    body.length > 24 ||
+    !/^(?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|\u200d|\ufe0f|\s)+$/u.test(body)
+  ) {
+    return false;
+  }
+  return (body.match(/\p{Extended_Pictographic}/gu) ?? []).length <= 3;
 }
 
 /** A pending message I just sent, before the server answers. */
@@ -476,7 +487,10 @@ function ConversationView({
         <Pressable
           accessibilityRole="button"
           accessibilityState={{ expanded: picking }}
-          onPress={() => setPicking((p) => !p)}
+          onPress={() => {
+            setError(null);
+            setPicking((p) => !p);
+          }}
           style={({ pressed }) => [styles.inviteButton, pressed && styles.pressed]}
         >
           <LinearGradient colors={gradients.gold} style={styles.inviteInner}>
@@ -579,14 +593,17 @@ function ConversationView({
                   <View
                     style={[
                       styles.bubble,
-                      mine ? styles.bubbleMine : styles.bubbleOther,
+                      emojiOnly(m.body) ? styles.bubbleBare : mine ? styles.bubbleMine : styles.bubbleOther,
                       m.pending && styles.pending,
                     ]}
                   >
-                    <Text style={[styles.body, mine && styles.bodyMine]} selectable>
+                    <Text
+                      style={[styles.body, mine && styles.bodyMine, emojiOnly(m.body) && styles.bodyBig]}
+                      selectable
+                    >
                       {m.body}
                     </Text>
-                    <Text style={[styles.time, mine && styles.timeMine]}>
+                    <Text style={[styles.time, mine && !emojiOnly(m.body) && styles.timeMine]}>
                       {m.pending ? '…' : clock(m.created_at)}
                     </Text>
                   </View>
@@ -654,10 +671,21 @@ const styles = StyleSheet.create({
   dot: {
     position: 'absolute',
     right: -1,
-    bottom: -1,
+    top: -1,
     backgroundColor: '#3ddc84',
     borderWidth: 2,
     borderColor: '#0b1f17',
+  },
+  phonePane: {
+    flex: 1,
+    minHeight: 0,
+    marginTop: 12,
+    marginBottom: 12,
+    borderRadius: 16,
+    backgroundColor: 'rgba(5,15,11,0.82)',
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    overflow: 'hidden',
   },
   panes: {
     flex: 1,
@@ -670,7 +698,7 @@ const styles = StyleSheet.create({
     width: 340,
     flexGrow: 0,
     borderRadius: 16,
-    backgroundColor: 'rgba(0,0,0,0.2)',
+    backgroundColor: 'rgba(5,15,11,0.82)',
     borderWidth: 1,
     borderColor: colors.glassBorder,
   },
@@ -678,7 +706,7 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     borderRadius: 16,
-    backgroundColor: 'rgba(0,0,0,0.2)',
+    backgroundColor: 'rgba(5,15,11,0.82)',
     borderWidth: 1,
     borderColor: colors.glassBorder,
     overflow: 'hidden',
@@ -785,6 +813,8 @@ const styles = StyleSheet.create({
   },
   bubbleMine: { backgroundColor: colors.gold, borderBottomRightRadius: 4 },
   pending: { opacity: 0.6 },
+  bubbleBare: { paddingHorizontal: 2, paddingVertical: 0 },
+  bodyBig: { fontSize: 38, lineHeight: 46 },
   body: { color: colors.text, fontSize: 15, lineHeight: 20 },
   bodyMine: { color: colors.onGold },
   time: { color: colors.muted, fontSize: 10, alignSelf: 'flex-end', marginTop: 2 },
