@@ -5,7 +5,6 @@ import {
   WEEKLY_COINS,
   WEEKLY_FEAT,
   WEEKLY_TITLE,
-  type WeeklyBracket,
   type WeeklyMatch,
   cleanAvatar,
   defaultAvatar,
@@ -13,6 +12,7 @@ import {
   nextWeeklyFriday,
   ownedKey,
   secureRng,
+  weeklyMatchesToOpen,
 } from '../_shared/engine/index.ts';
 import { GameError, cleanName, makeRoomCode } from '../poker/logic.ts';
 import {
@@ -531,10 +531,28 @@ async function rewardChampion(row: WeeklyRow) {
   if (error) console.error('récompense du tournoi non donnée', error);
 }
 
-/** Does what is due for a tournament: reminder, start, results, next tables, champion. */
+/** Saves a new bracket if nobody changed the tournament meanwhile; null when someone did. */
+async function saveWeekly(row: WeeklyRow, columns: Record<string, unknown>) {
+  const { data, error } = await admin
+    .from('weekly_tournaments')
+    .update({ ...columns, version: row.version + 1 })
+    .eq('id', row.id)
+    .eq('version', row.version)
+    .select('*')
+    .maybeSingle();
+  if (error) throw error;
+  return data as WeeklyRow | null;
+}
+
+/**
+ * Does what is due for a tournament: reminder, start, results, next tables, champion.
+ * Each step is saved (checked against the version) before the next one, and a table is only
+ * opened for a match of a saved bracket: once saved, the two players of a match never change, so
+ * two requests running at once can only open the same table for the same players.
+ */
 async function syncWeekly(id: string, now = Date.now()): Promise<WeeklyRow> {
-  for (let attempt = 0; attempt < 4; attempt++) {
-    const row = await loadWeekly(id);
+  for (let attempt = 0; attempt < 6; attempt++) {
+    let row = await loadWeekly(id);
     if (weeklyRemindDue(row, now)) {
       const { data: claimed } = await admin
         .from('weekly_tournaments')
@@ -553,25 +571,23 @@ async function syncWeekly(id: string, now = Date.now()): Promise<WeeklyRow> {
     if (row.status === 'finished') await rewardChampion(row);
     if (row.status !== 'running' && !weeklyDue(row, now)) return row;
 
-    const starting = row.status === 'open';
-    let bracket: WeeklyBracket | null = row.bracket;
-    let players = row.players;
-    if (starting) {
+    // 1. The start: the bracket is drawn and saved, without tables yet.
+    if (row.status === 'open') {
       const start = startWeekly(await loadRegistrations(id), secureRng, () => crypto.randomUUID());
-      if (start.status === 'cancelled') {
-        await admin
-          .from('weekly_tournaments')
-          .update({ status: 'cancelled', version: row.version + 1 })
-          .eq('id', id)
-          .eq('version', row.version);
-        return await loadWeekly(id);
-      }
-      bracket = start.bracket;
-      players = start.players;
+      const saved = await saveWeekly(row, {
+        status: start.status,
+        bracket: start.bracket,
+        players: start.players,
+      });
+      if (!saved) continue; // someone else started it meanwhile
+      if (saved.status !== 'running') return saved;
+      row = saved;
     }
-    if (!bracket) return row;
+    if (!row.bracket) return row;
+
+    // 2. Results of the tables: winners move on, robots meet by a draw, maybe a champion.
     const results = [];
-    for (const m of playingMatches(bracket)) {
+    for (const m of playingMatches(row.bracket)) {
       try {
         const r = await matchResult(m, now);
         if (r) results.push(r);
@@ -579,37 +595,42 @@ async function syncWeekly(id: string, now = Date.now()): Promise<WeeklyRow> {
         console.error('match du tournoi non lu', e);
       }
     }
-    const step = advanceWeekly(bracket, results, secureRng);
-    let next = step.bracket;
-    for (const m of step.toOpen) next = withRoom(next, matchKey(m), await openMatchRoom(row, m, now), now);
-    const opened = matchNotices(row.bracket, next);
-    if (!starting && results.length === 0 && opened.length === 0 && !step.champion) return row;
-
-    const { data: saved, error } = await admin
-      .from('weekly_tournaments')
-      .update({
-        bracket: next,
-        players,
-        version: row.version + 1,
-        status: 'running',
+    const step = advanceWeekly(row.bracket, results, secureRng);
+    const moved = JSON.stringify(step.bracket) !== JSON.stringify(row.bracket);
+    if (moved || step.champion) {
+      const saved = await saveWeekly(row, {
+        bracket: step.bracket,
         ...(step.champion ? championColumns(step.champion, now) : {}),
-      })
-      .eq('id', id)
-      .eq('version', row.version)
-      .select('*')
-      .maybeSingle();
-    if (error) throw error;
-    if (!saved) continue; // someone else moved the bracket meanwhile: start again from theirs
-    for (const n of opened) {
+      });
+      if (!saved) continue; // someone else moved the bracket meanwhile: start again from theirs
+      row = saved;
+    }
+    if (row.status === 'finished') {
+      await rewardChampion(row);
+      return row;
+    }
+
+    // 3. The tables of the matches whose two players are now known.
+    const toOpen = weeklyMatchesToOpen(row.bracket!);
+    if (toOpen.length === 0) return row;
+    let next = row.bracket!;
+    for (const m of toOpen) next = withRoom(next, matchKey(m), await openMatchRoom(row, m, now), now);
+    const saved = await saveWeekly(row, { bracket: next });
+    if (!saved) continue; // the tables stay, and are found again from the saved bracket
+    for (const n of matchNotices(row.bracket, next)) {
       inBackground(
-        notify(admin, [n.userId], (lang) => weeklyMatchNotice(lang, row.game, n.code, n.opponent, starting), {
-          ttl: 900,
-          urgency: 'high',
-        }),
+        notify(
+          admin,
+          [n.userId],
+          (lang) => weeklyMatchNotice(lang, row.game, n.code, n.opponent, n.round === 0),
+          {
+            ttl: 900,
+            urgency: 'high',
+          },
+        ),
       );
     }
-    await rewardChampion(saved as WeeklyRow);
-    return saved as WeeklyRow;
+    return saved;
   }
   return await loadWeekly(id);
 }

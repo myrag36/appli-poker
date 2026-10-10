@@ -240,13 +240,13 @@ export function playingMatches(bracket: WeeklyBracket | null): WeeklyMatch[] {
 export function matchNotices(
   before: WeeklyBracket | null,
   after: WeeklyBracket,
-): { userId: string; opponent: string; code: string }[] {
+): { userId: string; opponent: string; code: string; round: number }[] {
   const had = new Set((before?.rounds.flat() ?? []).filter((m) => m.roomId).map((m) => matchKey(m)));
-  const out: { userId: string; opponent: string; code: string }[] = [];
+  const out: { userId: string; opponent: string; code: string; round: number }[] = [];
   for (const m of after.rounds.flat()) {
     if (!m.roomId || !m.code || had.has(matchKey(m)) || !m.a || !m.b) continue;
-    if (!m.a.bot) out.push({ userId: m.a.id, opponent: m.b.name, code: m.code });
-    if (!m.b.bot) out.push({ userId: m.b.id, opponent: m.a.name, code: m.code });
+    if (!m.a.bot) out.push({ userId: m.a.id, opponent: m.b.name, code: m.code, round: m.round });
+    if (!m.b.bot) out.push({ userId: m.b.id, opponent: m.a.name, code: m.code, round: m.round });
   }
   return out;
 }
