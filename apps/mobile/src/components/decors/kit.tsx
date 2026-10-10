@@ -105,7 +105,19 @@ export function Tri({
 }
 
 /** A flame tongue: a drop pointing up, centered on `x`, its bottom at `y`. */
-export function Flame({ x, y, size, color, stretch = 1.5 }: { x: number; y: number; size: number; color: string; stretch?: number }) {
+export function Flame({
+  x,
+  y,
+  size,
+  color,
+  stretch = 1.5,
+}: {
+  x: number;
+  y: number;
+  size: number;
+  color: string;
+  stretch?: number;
+}) {
   return (
     <View
       style={{
@@ -171,7 +183,8 @@ const webStyles: Partial<Record<Motion, object>> = web
           {
             animationKeyframes: [frames],
             animationIterationCount: 'infinite',
-            animationTimingFunction: m === 'sway' || m === 'pulse' || m === 'twinkle' ? 'ease-in-out' : 'linear',
+            animationTimingFunction:
+              m === 'sway' || m === 'pulse' || m === 'twinkle' ? 'ease-in-out' : 'linear',
           },
         ]),
       ) as never,
@@ -181,20 +194,38 @@ const webStyles: Partial<Record<Motion, object>> = web
 function nativeStyle(motion: Motion, t: Animated.Value, distance: number) {
   switch (motion) {
     case 'fall':
-      return { transform: [{ translateY: t.interpolate({ inputRange: [0, 1], outputRange: [-distance, 0] }) }] };
+      return {
+        transform: [{ translateY: t.interpolate({ inputRange: [0, 1], outputRange: [-distance, 0] }) }],
+      };
     case 'rise':
-      return { transform: [{ translateY: t.interpolate({ inputRange: [0, 1], outputRange: [0, -distance] }) }] };
+      return {
+        transform: [{ translateY: t.interpolate({ inputRange: [0, 1], outputRange: [0, -distance] }) }],
+      };
     case 'slide':
-      return { transform: [{ translateX: t.interpolate({ inputRange: [0, 1], outputRange: [-distance, 0] }) }] };
+      return {
+        transform: [{ translateX: t.interpolate({ inputRange: [0, 1], outputRange: [-distance, 0] }) }],
+      };
     case 'flicker':
       return {
-        opacity: t.interpolate({ inputRange: [0, 0.18, 0.37, 0.55, 0.78, 1], outputRange: [1, 0.78, 0.95, 0.72, 0.92, 1] }),
+        opacity: t.interpolate({
+          inputRange: [0, 0.18, 0.37, 0.55, 0.78, 1],
+          outputRange: [1, 0.78, 0.95, 0.72, 0.92, 1],
+        }),
         transform: [
-          { scale: t.interpolate({ inputRange: [0, 0.18, 0.37, 0.55, 0.78, 1], outputRange: [1, 0.96, 1.03, 0.97, 1.02, 1] }) },
+          {
+            scale: t.interpolate({
+              inputRange: [0, 0.18, 0.37, 0.55, 0.78, 1],
+              outputRange: [1, 0.96, 1.03, 0.97, 1.02, 1],
+            }),
+          },
         ],
       };
     case 'sway':
-      return { transform: [{ rotate: t.interpolate({ inputRange: [0, 0.5, 1], outputRange: ['-3deg', '3deg', '-3deg'] }) }] };
+      return {
+        transform: [
+          { rotate: t.interpolate({ inputRange: [0, 0.5, 1], outputRange: ['-3deg', '3deg', '-3deg'] }) },
+        ],
+      };
     case 'pulse':
       return { opacity: t.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0.35, 1, 0.35] }) };
     case 'twinkle':
@@ -370,7 +401,10 @@ export function Cross({
     );
   }
   return (
-    <View pointerEvents="none" style={{ position: 'absolute', left: 0, top, width, height, overflow: 'hidden' }}>
+    <View
+      pointerEvents="none"
+      style={{ position: 'absolute', left: 0, top, width, height, overflow: 'hidden' }}
+    >
       <Loop
         motion="slide"
         duration={duration}

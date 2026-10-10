@@ -3,7 +3,19 @@ import { Platform } from 'react-native';
 type Stops = readonly [string, string, ...string[]];
 
 /** The scenery drawn behind every screen, which is what makes each theme feel different. */
-export type Decor = 'suits' | 'synthwave' | 'curtain' | 'lounge' | 'space' | 'sakura' | 'saloon';
+export type Decor =
+  | 'suits'
+  | 'synthwave'
+  | 'curtain'
+  | 'lounge'
+  | 'space'
+  | 'sakura'
+  | 'saloon'
+  | 'pirates'
+  | 'chateau'
+  | 'beach'
+  | 'chalet'
+  | 'cyberpunk';
 
 export interface Theme {
   name: string;
@@ -274,6 +286,161 @@ export const THEMES = {
       glass,
       wood: ['#a0703f', '#6f4a24', '#3d2810'],
       felt: ['#7a8a45', '#606c38', '#3f4a22'],
+    },
+  },
+  pirates: {
+    name: 'Pirates',
+    tagline: 'Pont du navire au clair de lune, trésor à bord',
+    decor: 'pirates',
+    feltMark: '⚓',
+    swatch: '#1b6b62',
+    colors: {
+      ...shared,
+      background: '#06142a',
+      felt: '#1b5c55',
+      rail: '#3e2410',
+      muted: '#bcd9d2',
+      gold: '#f2c14e',
+      onGold: '#2a1a00',
+      onGoldMuted: '#5a4010',
+      goldBorder: '#ffe6a3',
+      glass: 'rgba(5, 18, 34, 0.82)',
+      glassBorder: 'rgba(242, 193, 78, 0.24)',
+      railBorder: '#b8863f',
+      feltBorder: '#120b04',
+      glow: 'rgba(150, 220, 210, 0.12)',
+    },
+    gradients: {
+      background: ['#13284a', '#0a1830', '#040a16'],
+      gold: ['#ffe6a3', '#f2c14e', '#c08a1e'],
+      danger,
+      glass,
+      wood: ['#8a5a32', '#5e3a1a', '#2e1a0a'],
+      felt: ['#2a7d72', '#1b5c55', '#0f3a35'],
+    },
+  },
+  chateau: {
+    name: 'Château',
+    tagline: 'Grande salle, torches et vitraux',
+    decor: 'chateau',
+    feltMark: '⚜',
+    swatch: '#6b1d3a',
+    colors: {
+      ...shared,
+      background: '#120d0f',
+      felt: '#5c1a33',
+      rail: '#3a2a20',
+      muted: '#ddc9b8',
+      gold: '#e8b84a',
+      onGold: '#251600',
+      onGoldMuted: '#55380c',
+      goldBorder: '#f8dd9a',
+      glass: 'rgba(22, 15, 17, 0.84)',
+      glassBorder: 'rgba(232, 184, 74, 0.24)',
+      railBorder: '#c79a3c',
+      feltBorder: '#140608',
+      glow: 'rgba(255, 170, 90, 0.12)',
+    },
+    gradients: {
+      background: ['#3a3236', '#1d181a', '#0a0808'],
+      gold: ['#f8dd9a', '#e8b84a', '#b07f1c'],
+      danger,
+      glass,
+      wood: ['#6e5038', '#4a3424', '#251912'],
+      felt: ['#7d2648', '#5c1a33', '#36101f'],
+    },
+  },
+  plage: {
+    name: 'Plage tropicale',
+    tagline: 'Paillote au coucher du soleil, palmiers et guirlandes',
+    decor: 'beach',
+    feltMark: '🌴',
+    swatch: '#ff7b54',
+    colors: {
+      ...shared,
+      background: '#1c1030',
+      felt: '#137a8c',
+      rail: '#8a6236',
+      muted: '#ffe0c8',
+      gold: '#ffb347',
+      onGold: '#2e1500',
+      onGoldMuted: '#6a3a0a',
+      goldBorder: '#ffe0a8',
+      glass: 'rgba(32, 16, 42, 0.8)',
+      glassBorder: 'rgba(255, 179, 71, 0.28)',
+      railBorder: '#e8c48a',
+      feltBorder: '#2a1a08',
+      glow: 'rgba(255, 170, 120, 0.14)',
+    },
+    gradients: {
+      background: ['#ff9a5a', '#a8406a', '#2a1440'],
+      gold: ['#ffe0a8', '#ffb347', '#e67e22'],
+      danger,
+      glass,
+      wood: ['#c8995a', '#8a6236', '#55391b'],
+      felt: ['#1fa0b4', '#137a8c', '#0a4f5c'],
+    },
+  },
+  chalet: {
+    name: 'Chalet',
+    tagline: 'Feu de cheminée et neige derrière la fenêtre',
+    decor: 'chalet',
+    feltMark: '❄',
+    swatch: '#9a3b2e',
+    colors: {
+      ...shared,
+      background: '#1a0f0a',
+      felt: '#7a2e22',
+      rail: '#4a2e1a',
+      muted: '#ead7c3',
+      gold: '#f7c873',
+      onGold: '#2a1600',
+      onGoldMuted: '#5c3a0e',
+      goldBorder: '#fde4b4',
+      glass: 'rgba(30, 17, 11, 0.84)',
+      glassBorder: 'rgba(247, 200, 115, 0.24)',
+      railBorder: '#c49060',
+      feltBorder: '#1a0905',
+      glow: 'rgba(255, 160, 80, 0.14)',
+    },
+    gradients: {
+      background: ['#4a2c1a', '#26160c', '#0e0805'],
+      gold: ['#fde4b4', '#f7c873', '#d6922e'],
+      danger,
+      glass,
+      wood: ['#9a6a40', '#6a4426', '#3a2412'],
+      felt: ['#9a3b2e', '#7a2e22', '#4e1b13'],
+    },
+  },
+  cyberpunk: {
+    name: 'Cyberpunk',
+    tagline: 'Pluie, hologrammes et mégapole au néon',
+    decor: 'cyberpunk',
+    feltMark: '⚡',
+    swatch: '#f5e663',
+    colors: {
+      ...shared,
+      background: '#05070d',
+      felt: '#10262c',
+      rail: '#14161c',
+      muted: '#a9c4d0',
+      gold: '#f5e663',
+      onGold: '#14130a',
+      onGoldMuted: '#3a3712',
+      goldBorder: '#fbf3b0',
+      glass: 'rgba(6, 10, 18, 0.84)',
+      glassBorder: 'rgba(0, 240, 255, 0.28)',
+      railBorder: '#00e5ff',
+      feltBorder: '#000000',
+      glow: 'rgba(0, 229, 255, 0.12)',
+    },
+    gradients: {
+      background: ['#1a0d2e', '#0a0b18', '#020306'],
+      gold: ['#fbf3b0', '#f5e663', '#c9b81c'],
+      danger: ['#ff6fa8', '#ff2a6d', '#b0124a'],
+      glass,
+      wood: ['#2c3038', '#16181e', '#07080b'],
+      felt: ['#18404a', '#10262c', '#071417'],
     },
   },
 } satisfies Record<string, Theme>;
