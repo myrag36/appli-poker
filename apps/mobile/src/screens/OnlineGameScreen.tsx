@@ -59,10 +59,12 @@ interface Props {
   tournament?: TournamentTable;
   /** Code of a table to join straight away (from an invitation or a notification). */
   joinCode?: string;
+  /** A match of the Friday tournament: no rematch, and leaving goes back to the bracket. */
+  weekly?: boolean;
 }
 
 /** Blackjack, Président, Yams or Belote with friends, each on their own phone. */
-export function OnlineGameScreen({ game, initialName, onBack, tournament, joinCode }: Props) {
+export function OnlineGameScreen({ game, initialName, onBack, tournament, joinCode, weekly }: Props) {
   const [table, setTable] = useState<{ roomId: string; userId: string } | null>(null);
 
   async function enter(roomId: string, name: string) {
@@ -90,13 +92,13 @@ export function OnlineGameScreen({ game, initialName, onBack, tournament, joinCo
       game={game}
       roomId={table.roomId}
       userId={table.userId}
-      inTournament={!!tournament}
+      inTournament={!!tournament || !!weekly}
       onSwitch={enter}
       // A tournament table goes back to the tournament, not to the lobby.
-      onLeave={() => (tournament ? onBack() : setTable(null))}
+      onLeave={() => (tournament || weekly ? onBack() : setTable(null))}
       onGone={() => {
         saveLastGameRoom(game, null);
-        if (tournament) onBack();
+        if (tournament || weekly) onBack();
         else setTable(null);
       }}
     />

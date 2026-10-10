@@ -23,6 +23,7 @@ import classement from './classement';
 import sons from './sons';
 import perudo from './perudo';
 import ambiances from './ambiances';
+import tournoiVendredi from './tournoiVendredi';
 
 export const EN: Record<string, string> = {
   ...accueil,
@@ -49,4 +50,5 @@ export const EN: Record<string, string> = {
   ...sons,
   ...perudo,
   ...ambiances,
+  ...tournoiVendredi,
 };

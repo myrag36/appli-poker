@@ -216,11 +216,13 @@ async function openFromNotification(href) {
   if (url.origin !== SCOPE.origin || !url.pathname.startsWith(SCOPE.pathname)) return;
   const game = url.searchParams.get('jeu');
   const code = url.searchParams.get('table');
+  const weekly = url.searchParams.get('tournoi') === 'vendredi';
   const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
   const open = windows.find((c) => c.url.startsWith(SHELL_URL));
   if (open) {
     await open.focus().catch(() => {});
-    if (game && code) open.postMessage({ type: 'open-table', game, code });
+    if (weekly) open.postMessage({ type: 'open-weekly', game, code });
+    else if (game && code) open.postMessage({ type: 'open-table', game, code });
     return;
   }
   await self.clients.openWindow(url.href);
