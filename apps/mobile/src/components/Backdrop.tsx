@@ -2,8 +2,7 @@ import type { ReactNode } from 'react';
 import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { type Theme, THEMES, themeId } from '../theme';
-
-const SUITS = ['♠', '♥', '♦', '♣'];
+import { Suits } from './decors/classic-casino';
 
 /** Small deterministic random generator, so the scenery is the same on every render. */
 function random(seed: number) {
@@ -63,33 +62,6 @@ function Glow({ x, y, size, color }: { x: number; y: number; size: number; color
         boxShadow: `0 0 ${size}px ${size * 0.8}px ${color}`,
       }}
     />
-  );
-}
-
-function Suits({ w, h, k }: { w: number; h: number; k: number }) {
-  const step = 92 * k;
-  const cols = Math.ceil(w / step) + 1;
-  const rows = Math.ceil(h / step) + 1;
-  return (
-    <>
-      {Array.from({ length: rows }, (_, r) =>
-        Array.from({ length: cols }, (_, c) => (
-          <Text
-            key={`${r}-${c}`}
-            style={{
-              position: 'absolute',
-              fontSize: 30 * k,
-              color: 'rgba(255, 255, 255, 0.035)',
-              left: c * step + (r % 2 ? step / 2 : 0) - 20 * k,
-              top: r * step - 20 * k,
-              transform: [{ rotate: `${((r + c) % 2 ? 1 : -1) * 15}deg` }],
-            }}
-          >
-            {SUITS[(r + c) % 4]}
-          </Text>
-        )),
-      )}
-    </>
   );
 }
 
