@@ -77,6 +77,8 @@ export interface Reward {
   price?: number;
   /** Seasonal shop items are only for sale during their month (1-12). */
   season?: number;
+  /** Trophies are neither sold nor unlocked by level: only won (the Friday tournament). */
+  trophy?: boolean;
 }
 
 export const REWARD_KIND_NAMES: Record<RewardKind, string> = {
@@ -126,6 +128,8 @@ export const REWARDS: Reward[] = [
   r('title', 'asdesas', 32, 'As des as'),
   r('title', 'maitre', 42, 'Grand maître'),
   r('title', 'legende', 50, 'Légende'),
+  // Only for the champions of the Friday tournament.
+  { id: 'vendredi', kind: 'title', level: 1, name: 'Champion du vendredi', trophy: true },
 
   r('avatar', '🐉', 7, 'Dragon'),
   r('avatar', '🦈', 9, 'Requin'),
@@ -296,18 +300,20 @@ export function isUnlocked(
 ): boolean {
   const reward = findReward(kind, id);
   if (!reward) return false;
-  if (reward.price !== undefined) return owned.includes(ownedKey(kind, reward.id));
+  if (reward.price !== undefined || reward.trophy) return owned.includes(ownedKey(kind, reward.id));
   return reward.level <= level;
 }
 
 /** Rewards that unlock exactly at a level, to celebrate a level up. */
 export function rewardsAtLevel(level: number): Reward[] {
-  return REWARDS.filter((x) => x.level === level && x.price === undefined);
+  return REWARDS.filter((x) => x.level === level && x.price === undefined && !x.trophy);
 }
 
 /** The next reward still locked, to show what is coming. */
 export function nextReward(level: number): Reward | undefined {
-  return REWARDS.filter((x) => x.level > level && x.price === undefined).sort((a, b) => a.level - b.level)[0];
+  return REWARDS.filter((x) => x.level > level && x.price === undefined && !x.trophy).sort(
+    (a, b) => a.level - b.level,
+  )[0];
 }
 
 /** Keeps only equipped items that exist and are unlocked; anything else goes back to the default. */

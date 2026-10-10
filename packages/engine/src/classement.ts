@@ -135,7 +135,7 @@ export function leaderboardPodium(
 }
 
 /** Minutes Paris is ahead of UTC at this moment. */
-function parisOffset(at: number): number {
+export function parisOffset(at: number): number {
   const parts = Object.fromEntries(
     new Intl.DateTimeFormat('en-GB', {
       timeZone: 'Europe/Paris',

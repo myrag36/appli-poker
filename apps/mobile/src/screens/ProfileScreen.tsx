@@ -131,7 +131,7 @@ export function ProfileScreen({ onBack, onShop }: { onBack: () => void; onShop: 
 
   // Level rewards, and shop items only once bought.
   const items = REWARDS.filter(
-    (r) => r.kind === tab && (r.price === undefined || isUnlocked(r.kind, r.id, level, owned)),
+    (r) => r.kind === tab && ((r.price === undefined && !r.trophy) || isUnlocked(r.kind, r.id, level, owned)),
   );
   const identity = (
     <>

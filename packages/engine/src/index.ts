@@ -25,3 +25,4 @@ export * from './tarot.ts';
 export * from './classement.ts';
 export * from './perudo.ts';
 export * from './online-perudo.ts';
+export * from './weekly.ts';
