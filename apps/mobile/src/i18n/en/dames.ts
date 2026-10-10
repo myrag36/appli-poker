@@ -87,6 +87,7 @@ export default {
   '{name} remporte la partie': '{name} wins the game',
   'pièce prise': 'piece taken',
   'pièces prises': 'pieces taken',
+  'plus aucune pièce': 'no pieces left',
   '{n} pion': '{n} man',
   '{n} pions': '{n} men',
   '{n} dame': '{n} king',

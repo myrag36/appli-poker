@@ -218,7 +218,7 @@ export const DAMES_RULES: GameRules = {
       icon: '↗️',
       title: t('Avancer'),
       text: t('Un pion avance d’une case en diagonale, toujours vers l’avant. Touche un pion puis sa case.'),
-      visual: <Corner rows={['.....', '.*.*.', '..w..']} label={t('Deux cases possibles')} />,
+      visual: <Corner rows={['......', '..*.*.', '...w..']} label={t('Deux cases possibles')} />,
     },
     {
       icon: '⚔️',
@@ -240,7 +240,10 @@ export const DAMES_RULES: GameRules = {
         'Après un saut, si une autre prise est possible, on continue : c’est une rafle. Il faut jouer la rafle qui prend le plus de pièces. Les pièces prises ne sont enlevées qu’à la fin.',
       ),
       visual: (
-        <Corner rows={['.....*', '....x.', '.....', '..x...', '.w....']} label={t('Deux pièces d’un coup')} />
+        <Corner
+          rows={['.....*', '....x.', '......', '..x...', '.w....']}
+          label={t('Deux pièces d’un coup')}
+        />
       ),
     },
     {
@@ -523,6 +526,15 @@ function moveSound(game: DamesState) {
   if (game.promoted) setTimeout(() => sounds.flip(), m.path.length * STEP_MS);
 }
 
+/** The pieces a player still has, as "3 pions · 1 dame". */
+function piecesLeft({ men, kings }: { men: number; kings: number }): string {
+  if (men + kings === 0) return t('plus aucune pièce');
+  const parts = [];
+  if (men > 0) parts.push(tn(men, '{n} pion', '{n} pions'));
+  if (kings > 0) parts.push(tn(kings, '{n} dame', '{n} dames'));
+  return parts.join(' · ');
+}
+
 /** Pieces of the other color a player has taken. */
 const taken = (board: string, p: DamesPlayer) => {
   const { men, kings } = damesCount(board, p === 0 ? 1 : 0);
@@ -796,10 +808,7 @@ function SidePlayer({
           </View>
         ))}
       </View>
-      <Text style={styles.sideLeft}>
-        {tn(left.men, '{n} pion', '{n} pions')}
-        {left.kings > 0 ? ` · ${tn(left.kings, '{n} dame', '{n} dames')}` : ''}
-      </Text>
+      <Text style={styles.sideLeft}>{piecesLeft(left)}</Text>
     </View>
   );
 }
@@ -1348,10 +1357,7 @@ function Results({
           <Text style={styles.finalScore}>{taken(game.board, p)}</Text>
         </View>
         <Text style={styles.finalSub}>{tn(taken(game.board, p), 'pièce prise', 'pièces prises')}</Text>
-        <Text style={styles.finalSub}>
-          {tn(left.men, '{n} pion', '{n} pions')}
-          {left.kings > 0 ? ` · ${tn(left.kings, '{n} dame', '{n} dames')}` : ''}
-        </Text>
+        <Text style={styles.finalSub}>{piecesLeft(left)}</Text>
       </View>
     );
   };
