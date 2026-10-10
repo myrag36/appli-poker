@@ -92,6 +92,13 @@ const PIECE_COLORS = {
   black: { top: '#3b302a', side: '#120d0b', ring: 'rgba(255,235,210,0.14)', edge: 'rgba(0,0,0,0.7)' },
 };
 const CROWN = '#e8b923';
+/** What a square holds, for screen readers. */
+const PIECE_NAMES: Record<string, string> = {
+  w: t('pion blanc'),
+  b: t('pion noir'),
+  W: t('dame blanche'),
+  B: t('dame noire'),
+};
 
 /** A draughts piece seen slightly from the side: a thick disc, two for a king, with a crown. */
 export function DamesPiece({ piece, size, dim }: { piece: Piece; size: number; dim?: boolean }) {
@@ -1268,7 +1275,11 @@ function Board({
             <Pressable
               key={`z${sq}`}
               accessibilityRole="button"
-              accessibilityLabel={t('Case {n}', { n: sq + 1 })}
+              accessibilityLabel={
+                PIECE_NAMES[game.board[sq]]
+                  ? t('Case {n}, {piece}', { n: sq + 1, piece: PIECE_NAMES[game.board[sq]] })
+                  : t('Case {n}', { n: sq + 1 })
+              }
               disabled={!canPlay}
               onPress={() => press(sq)}
               style={[
