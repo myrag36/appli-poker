@@ -719,9 +719,16 @@ function SeasonPill({
 }
 
 const styles = StyleSheet.create({
-  social: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  social: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 12,
+    paddingHorizontal: 12,
+  },
   socialButton: {
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 18,
     overflow: 'hidden',
