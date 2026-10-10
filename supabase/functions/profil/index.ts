@@ -13,8 +13,21 @@ import {
 } from '../_shared/engine/index.ts';
 import { GameError, cleanName, makeRoomCode } from '../poker/logic.ts';
 import { levelChests, unlockedEmojis } from '../_shared/xp.ts';
-import { notify, vapidKeys } from '../_shared/push.ts';
-import { MAX_SUBSCRIPTIONS, canInviteAgain, cleanSubscription, inviteNotice } from '../_shared/notify.ts';
+import { inBackground, notify, vapidKeys } from '../_shared/push.ts';
+import {
+  MAX_SUBSCRIPTIONS,
+  canInviteAgain,
+  cleanSubscription,
+  inviteNotice,
+  messageNotice,
+} from '../_shared/notify.ts';
+import {
+  MESSAGE_HOURLY,
+  canSendMessage,
+  cleanMessage,
+  cleanUserId,
+  shouldNotifyMessage,
+} from '../_shared/messagerie.ts';
 import {
   chestContents,
   cleanFeat,
@@ -360,6 +373,12 @@ async function invite(userId: string, body: Record<string, unknown>) {
     .eq('to_id', friendId)
     .lt('created_at', new Date(Date.now() - 86_400_000).toISOString());
 
+  // The invitation also shows in our conversation, with a button to join.
+  const { error: cardError } = await admin
+    .from('direct_messages')
+    .insert({ sender_id: userId, recipient_id: friendId, body: '', game, room_code: code });
+  if (cardError) console.error('invitation absente de la conversation', cardError.message);
+
   let notified = 0;
   try {
     notified = await notify(admin, [friendId], (lang) => inviteNotice(lang, name, game, code), {
@@ -370,6 +389,67 @@ async function invite(userId: string, body: Record<string, unknown>) {
     console.error('invitation non envoyée', (e as Error).message);
   }
   return { ok: true, notified: notified > 0 };
+}
+
+/** Columns of a message sent back to the app. */
+const MESSAGE_COLUMNS = 'id, sender_id, recipient_id, body, game, room_code, created_at, read_at';
+
+/** Writes to a friend: kept for both of us, and a notification on their phone if they were not told yet. */
+async function sendMessage(userId: string, body: Record<string, unknown>) {
+  const friendId = cleanUserId(body.friendId);
+  const text = cleanMessage(body.body);
+  const { data: friendship } = await admin
+    .from('friendships')
+    .select('friend_id')
+    .eq('user_id', userId)
+    .eq('friend_id', friendId)
+    .maybeSingle();
+  if (!friendship) throw new GameError('Ce joueur n’est pas dans tes amis');
+
+  const now = Date.now();
+  const { data: recent, error: recentError } = await admin
+    .from('direct_messages')
+    .select('created_at')
+    .eq('sender_id', userId)
+    .is('game', null)
+    .gt('created_at', new Date(now - 3_600_000).toISOString())
+    .order('created_at', { ascending: false })
+    .limit(MESSAGE_HOURLY);
+  if (recentError) throw recentError;
+  if (!canSendMessage((recent ?? []).map((r) => r.created_at as string), now)) {
+    throw new GameError('Doucement ! Attends un peu avant d’écrire encore');
+  }
+  const { data: previous } = await admin
+    .from('direct_messages')
+    .select('created_at, read_at')
+    .eq('sender_id', userId)
+    .eq('recipient_id', friendId)
+    .order('id', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const { data: message, error } = await admin
+    .from('direct_messages')
+    .insert({ sender_id: userId, recipient_id: friendId, body: text })
+    .select(MESSAGE_COLUMNS)
+    .single();
+  // The database checks friends and limits again: its refusals are shown as they are.
+  if (error?.code === 'P0001') throw new GameError(error.message);
+  if (error) throw error;
+
+  if (shouldNotifyMessage(previous, now)) {
+    inBackground(
+      (async () => {
+        const { data: me } = await admin.from('profiles').select('name').eq('user_id', userId).maybeSingle();
+        const from = (me?.name as string | undefined) || 'Joueur';
+        await notify(admin, [friendId], (lang) => messageNotice(lang, from, text, userId), {
+          ttl: 3600,
+          urgency: 'high',
+        });
+      })(),
+    );
+  }
+  return { message };
 }
 
 Deno.serve(async (req) => {
@@ -417,6 +497,8 @@ Deno.serve(async (req) => {
         return json(await pushUnsubscribe(user.id, body));
       case 'invite':
         return json(await invite(user.id, body));
+      case 'message':
+        return json(await sendMessage(user.id, body));
       default:
         return json({ error: 'Requête inconnue' }, 400);
     }
