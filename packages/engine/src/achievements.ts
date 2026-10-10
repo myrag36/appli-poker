@@ -145,6 +145,7 @@ const DEFS: Def[] = [
     s.feats.includes('tournoi-vendredi') ? 1 : 0,
   ),
   feat('echecs', '♚', 'Échec et mat', 'Gagne une partie d’échecs par échec et mat', 60),
+  def('dames-10', '⚪', 'Maître des dames', 'Gagne 10 parties de dames', 10, 100, (s) => wonIn(s, 'dames')),
 ];
 
 /** Every achievement, in display order. */

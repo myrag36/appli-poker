@@ -32,6 +32,7 @@ import {
   bnSunkShips,
 } from '../src/bataille.ts';
 import { chessLegalMoves } from '../src/echecs.ts';
+import { damesLegalMoves } from '../src/dames.ts';
 
 function seeded(seed: number): Rng {
   let a = seed;
@@ -158,6 +159,17 @@ const CANDIDATES: Record<OnlineGameId, (state: any, seat: number, rng: Rng) => u
     return out;
   },
   echecs: echecsCandidates,
+  dames(s) {
+    const legal = damesLegalMoves(s.game).map((m) => ({ type: 'move', from: m.from, path: m.path }));
+    const out: unknown[] = [...legal];
+    // Stopping a capture halfway, or moving a square too far.
+    for (const m of legal.slice(0, 2)) {
+      if (m.path.length > 1) out.push({ ...m, path: m.path.slice(0, -1) });
+      out.push({ ...m, path: [...m.path, m.path[m.path.length - 1]] });
+    }
+    out.push({ type: 'move', from: 0, path: [5] }, { type: 'move', from: 49, path: [44] });
+    return out;
+  },
 };
 
 /** A few legal chess moves, promotions without their piece, made-up moves, and sometimes resigning. */
@@ -229,6 +241,11 @@ const LEGAL: Partial<Record<OnlineGameId, (state: any, seat: number, move: any) 
     if (m.type === 'resign') return true;
     return chessLegalMoves(s.game).some((l) => l.from === m.from && l.to === m.to && l.promo === m.promo);
   },
+  dames: (s, seat, m) =>
+    seat === s.game.current &&
+    damesLegalMoves(s.game).some(
+      (x) => x.from === m.from && x.path.length === m.path.length && x.path.every((v, i) => v === m.path[i]),
+    ),
 };
 
 function unoCandidates(s: any, seat: number, rng: Rng): unknown[] {
@@ -474,6 +491,17 @@ function checkWinners(game: OnlineGameId, state: any, winners: number[], count: 
       if (result.reason === 'cinquante') assert.ok(state.game.halfmove >= 100);
       break;
     }
+    case 'dames': {
+      // A draw is shared; otherwise the loser has nothing left to play.
+      const g = state.game;
+      if (g.draw) assert.deepEqual([...winners].sort(), [0, 1]);
+      else {
+        assert.deepEqual(winners, [g.winner]);
+        const loser = { ...g, winner: null, current: 1 - g.winner };
+        assert.equal(damesLegalMoves(loser).length, 0);
+      }
+      break;
+    }
   }
 }
 
@@ -490,6 +518,7 @@ const SIZES: Record<OnlineGameId, number[]> = {
   perudo: [2, 3, 4, 6],
   bataille: [2],
   echecs: [2],
+  dames: [2],
 };
 
 /** The shortest game each game offers, so many seeds stay quick. */
@@ -506,6 +535,7 @@ const OPTIONS: Record<OnlineGameId, Record<string, unknown>> = {
   perudo: { calza: true },
   bataille: {},
   echecs: {},
+  dames: {},
 };
 
 const SEEDS = Number(process.env.FUZZ_SEEDS ?? 12);

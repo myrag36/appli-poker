@@ -116,7 +116,7 @@ export function Tutorial({ visible, onClose }: { visible: boolean; onClose: () =
       visual: <Fan />,
       title: t('Bienvenue à La Tablée !'),
       text: t(
-        'Poker, belote, tarot, Uno, Yams… 13 jeux à partager entre amis, en ligne ou sur un seul téléphone.',
+        'Poker, belote, tarot, Uno, Yams… 14 jeux à partager entre amis, en ligne ou sur un seul téléphone.',
       ),
     },
     {

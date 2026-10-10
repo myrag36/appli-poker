@@ -52,6 +52,7 @@ const NAMES: Record<ProgressGame, { label: string; emoji: string }> = {
   huit: { label: 'de 8 américain', emoji: '🎱' },
   tarot: { label: 'de tarot', emoji: '🔮' },
   perudo: { label: 'de Perudo', emoji: '🎲' },
+  dames: { label: 'de dames', emoji: '⚪' },
 };
 
 /** Days since 1970-01-01 for a "YYYY-MM-DD" day. */

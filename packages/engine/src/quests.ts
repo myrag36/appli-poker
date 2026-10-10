@@ -38,6 +38,7 @@ const GAME_LABELS: Partial<Record<ProgressGame, string>> = {
   huit: 'de 8 américain',
   tarot: 'de tarot',
   perudo: 'de Perudo',
+  dames: 'de dames',
 };
 
 const sum = (counts: Partial<Record<ProgressGame, number>> | undefined) =>

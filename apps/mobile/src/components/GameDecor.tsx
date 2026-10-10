@@ -16,7 +16,8 @@ export type DecorId =
   | 'uno'
   | 'huit'
   | 'tarot'
-  | 'perudo';
+  | 'perudo'
+  | 'dames';
 
 interface Size {
   w: number;
@@ -773,6 +774,58 @@ function Perudo({ w, h }: Size) {
   );
 }
 
+function Dames({ w, h }: Size) {
+  // A games table in a wooden study: a checkerboard pattern, warm lamp light, a few loose pieces.
+  const pieces = [
+    { x: 0.12, y: 0.08, s: 30, white: true },
+    { x: 0.78, y: 0.05, s: 34, white: false },
+    { x: 0.86, y: 0.3, s: 26, white: true },
+    { x: 0.06, y: 0.34, s: 28, white: false },
+  ];
+  const step = 26;
+  return (
+    <>
+      <LinearGradient colors={['#7a4a26', '#4e2c14', '#2a160a']} style={StyleSheet.absoluteFill} />
+      {Array.from({ length: Math.ceil(h / step) }, (_, r) =>
+        Array.from({ length: Math.ceil(w / step) }, (_, c) =>
+          (r + c) % 2 ? (
+            <View
+              key={`${r}-${c}`}
+              style={{
+                position: 'absolute',
+                left: c * step,
+                top: r * step,
+                width: step,
+                height: step,
+                backgroundColor: 'rgba(255,225,180,0.05)',
+              }}
+            />
+          ) : null,
+        ),
+      )}
+      <Glow x={w / 2} y={h * 0.25} size={w * 0.5} color="rgba(255,200,130,0.12)" />
+      {pieces.map((p, i) => (
+        <View
+          key={i}
+          style={{
+            position: 'absolute',
+            left: p.x * w,
+            top: p.y * h,
+            width: p.s,
+            height: p.s,
+            borderRadius: p.s / 2,
+            backgroundColor: p.white ? '#f4ecda' : '#2e2420',
+            borderWidth: p.s * 0.1,
+            borderColor: p.white ? '#d8c7a4' : '#4a3a33',
+            opacity: 0.55,
+            boxShadow: '0 4px 8px rgba(0,0,0,0.5)',
+          }}
+        />
+      ))}
+    </>
+  );
+}
+
 const DECORS: Record<DecorId, (size: Size) => ReactNode> = {
   poker: Poker,
   blackjack: Blackjack,
@@ -787,6 +840,7 @@ const DECORS: Record<DecorId, (size: Size) => ReactNode> = {
   huit: Huit,
   tarot: Tarot,
   perudo: Perudo,
+  dames: Dames,
 };
 
 /** The illustrated background of a game's card in the carousel. */

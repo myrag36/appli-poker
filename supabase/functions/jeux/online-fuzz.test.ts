@@ -32,6 +32,7 @@ import {
   bnSunkShips,
 } from '../_shared/engine/bataille.ts';
 import { chessLegalMoves } from '../_shared/engine/echecs.ts';
+import { damesLegalMoves } from '../_shared/engine/dames.ts';
 import {
   type GameRoomRow,
   type GameSnapshot,
@@ -133,6 +134,10 @@ const OFFERED: Record<OnlineGameId, (view: any, seat: number, rng: Rng) => unkno
   },
   echecs: (v, seat) =>
     v.game.turn === seat ? chessLegalMoves(v.game).map((m) => ({ type: 'move', ...m })) : [],
+  dames: (v, seat) =>
+    v.game.current === seat
+      ? damesLegalMoves(v.game).map((m) => ({ type: 'move', from: m.from, path: m.path }))
+      : [],
 };
 
 /** A fleet laid out by hand on the placement screen: ships may touch, in any order. */
@@ -228,6 +233,7 @@ const OPTIONS: Record<OnlineGameId, Record<string, unknown>> = {
   perudo: {},
   bataille: {},
   echecs: {},
+  dames: {},
 };
 
 /** Tables to try: how many people, and how many robots the host added. */
@@ -288,6 +294,10 @@ const TABLES: Record<OnlineGameId, [number, number][]> = {
     [2, 0],
   ],
   echecs: [
+    [1, 0],
+    [2, 0],
+  ],
+  dames: [
     [1, 0],
     [2, 0],
   ],
