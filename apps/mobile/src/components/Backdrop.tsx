@@ -9,6 +9,11 @@ import { Lounge } from './decors/classic-lounge';
 import { Space } from './decors/classic-space';
 import { Sakura } from './decors/classic-zen';
 import { Saloon } from './decors/classic-saloon';
+import { Chalet } from './decors/Chalet';
+import { Chateau } from './decors/Chateau';
+import { Cyberpunk } from './decors/Cyberpunk';
+import { Pirates } from './decors/Pirates';
+import { Plage } from './decors/Plage';
 
 function Glow({ x, y, size, color }: { x: number; y: number; size: number; color: string }) {
   return (
@@ -35,6 +40,11 @@ const DECORS: Record<Theme['decor'], (p: { w: number; h: number; k: number }) =>
   space: Space,
   sakura: Sakura,
   saloon: Saloon,
+  pirates: Pirates,
+  chateau: Chateau,
+  beach: Plage,
+  chalet: Chalet,
+  cyberpunk: Cyberpunk,
 };
 
 /**

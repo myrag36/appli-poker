@@ -61,12 +61,15 @@ export function ThemeChooser() {
   if (!canChangeTheme) return null;
 
   const current = THEMES[themeId];
-  // Two columns on a phone; on a computer, a wider gallery with every theme on two rows.
-  const columns = desktop ? 4 : 2;
-  const sheetW = desktop ? Math.min(screenW - 48, 920) : Math.min(screenW - 24, 480);
-  // Sheet border (2), side padding (32) and the gaps between the columns (12 each).
-  const cardW = Math.floor((sheetW - 2 - 32 - 12 * (columns - 1)) / columns);
-  const previewH = Math.round(cardW * (desktop ? 0.85 : 1.15));
+  // Three columns on a phone (two on a very narrow one); on a computer, a wider gallery
+  // with every theme on two rows.
+  const columns = desktop ? 6 : screenW < 340 ? 2 : 3;
+  const compact = columns === 3;
+  const sheetW = desktop ? Math.min(screenW - 48, 1100) : Math.min(screenW - 24, 480);
+  // Sheet border (2), side padding (32) and the gaps between the columns.
+  const gap = compact ? 10 : 12;
+  const cardW = Math.floor((sheetW - 2 - 32 - gap * (columns - 1)) / columns);
+  const previewH = Math.round(cardW * (desktop ? 0.85 : compact ? 0.9 : 1.15));
 
   return (
     <>
@@ -101,7 +104,7 @@ export function ThemeChooser() {
                 <Text style={styles.closeText}>✕</Text>
               </Pressable>
             </View>
-            <ScrollView contentContainerStyle={styles.grid}>
+            <ScrollView contentContainerStyle={[styles.grid, { gap }]}>
               {(Object.keys(THEMES) as ThemeId[]).map((id) => {
                 const t = THEMES[id];
                 const active = id === themeId;
@@ -119,12 +122,28 @@ export function ThemeChooser() {
                     ]}
                   >
                     <ThemePreview id={id} width={cardW - 4} height={previewH} />
-                    <View style={[styles.cardBody, { backgroundColor: t.colors.background }]}>
-                      <Text style={[styles.cardName, { color: t.colors.gold }]}>
+                    <View
+                      style={[
+                        styles.cardBody,
+                        compact && styles.cardBodyCompact,
+                        { backgroundColor: t.colors.background },
+                      ]}
+                    >
+                      <Text
+                        style={[styles.cardName, compact && styles.cardNameCompact, { color: t.colors.gold }]}
+                        numberOfLines={compact ? 2 : 1}
+                      >
                         {tr(t.name)}
                         {active ? '  ✓' : ''}
                       </Text>
-                      <Text style={[styles.cardTagline, { color: t.colors.muted }]} numberOfLines={2}>
+                      <Text
+                        style={[
+                          styles.cardTagline,
+                          compact && styles.cardTaglineCompact,
+                          { color: t.colors.muted },
+                        ]}
+                        numberOfLines={2}
+                      >
                         {tr(t.tagline)}
                       </Text>
                     </View>
@@ -205,9 +224,12 @@ const styles = StyleSheet.create({
   closeText: { color: '#f8f9fa', fontSize: 16, fontWeight: '700' },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, paddingHorizontal: 16, paddingBottom: 16 },
   card: { borderRadius: 14, borderWidth: 2, overflow: 'hidden' },
-  cardBody: { paddingHorizontal: 10, paddingVertical: 8, gap: 2, minHeight: 58 },
+  cardBody: { paddingHorizontal: 10, paddingVertical: 8, gap: 2, minHeight: 58, flexGrow: 1 },
+  cardBodyCompact: { paddingHorizontal: 7, paddingVertical: 6, minHeight: 52 },
   cardName: { fontSize: 15, fontWeight: '800' },
+  cardNameCompact: { fontSize: 13 },
   cardTagline: { fontSize: 11, lineHeight: 14 },
+  cardTaglineCompact: { fontSize: 10, lineHeight: 13 },
   previewRail: { position: 'absolute', borderWidth: 1, padding: 4, overflow: 'hidden' },
   previewFelt: {
     flex: 1,
