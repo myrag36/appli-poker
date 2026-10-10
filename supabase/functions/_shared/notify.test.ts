@@ -13,6 +13,8 @@ import {
   subscriptionGone,
   tableUrl,
   turnNotice,
+  weeklyMatchNotice,
+  weeklySoonNotice,
 } from './notify.ts';
 import { toBase64Url } from './webpush.ts';
 import { humanActors, playGameMove, playGameTimeout, startGame } from '../jeux/logic.ts';
@@ -222,4 +224,18 @@ test('uno: forgetting to announce does not tell the others it is their turn, and
   const after = playGameTimeout(played.secret, rng, played.secret.deadline!);
   assert.deepEqual(after.public.actors, ['c']);
   assert.deepEqual(newTurns(humanActors(played.secret), humanActors(after.secret)), ['c']);
+});
+
+test('Friday tournament notices: soon, first match, next match', () => {
+  const soon = weeklySoonNotice('fr', 'uno');
+  assert.equal(soon.title, 'Le tournoi du vendredi commence dans 10 min');
+  assert.equal(soon.url, './?tournoi=vendredi');
+  assert.equal(weeklySoonNotice('en', 'yams').body, 'Yahtzee tonight: get ready!');
+  const first = weeklyMatchNotice('fr', 'puissance4', 'ABC123', 'Zoé', true);
+  assert.equal(first.title, 'Le tournoi du vendredi commence !');
+  assert.equal(first.body, 'Puissance 4 contre Zoé : rejoins la table (code ABC123).');
+  assert.equal(first.url, './?jeu=puissance4&table=ABC123&tournoi=vendredi');
+  assert.equal(first.kind, 'tournament');
+  assert.equal(weeklyMatchNotice('en', 'uno', 'ABC123', 'Bip', false).title, 'Your next match is ready');
+  assert.ok(noticePayload(first).length < 4000);
 });

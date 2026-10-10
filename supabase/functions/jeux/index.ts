@@ -1,7 +1,19 @@
 // Server of the online tables for Blackjack, Président, Yams, Belote and Rami: the only code
 // allowed to write these tables, deal cards and apply moves.
 import { createClient } from 'npm:@supabase/supabase-js@2';
-import { cleanAvatar, defaultAvatar, secureRng } from '../_shared/engine/index.ts';
+import {
+  WEEKLY_COINS,
+  WEEKLY_FEAT,
+  WEEKLY_TITLE,
+  type WeeklyBracket,
+  type WeeklyMatch,
+  cleanAvatar,
+  defaultAvatar,
+  matchKey,
+  nextWeeklyFriday,
+  ownedKey,
+  secureRng,
+} from '../_shared/engine/index.ts';
 import { GameError, cleanName, makeRoomCode } from '../poker/logic.ts';
 import {
   type GamePlayerRow,
@@ -29,7 +41,32 @@ import {
 } from './logic.ts';
 import { awardXp, unlockedEmojis } from '../_shared/xp.ts';
 import { inBackground, notify } from '../_shared/push.ts';
-import { newTurns, turnNotice } from '../_shared/notify.ts';
+import { newTurns, turnNotice, weeklyMatchNotice, weeklySoonNotice } from '../_shared/notify.ts';
+import {
+  type WeeklyRegistration,
+  type WeeklyRow,
+  advanceWeekly,
+  championColumns,
+  checkRegister,
+  checkUnregister,
+  hallOfFame,
+  matchNotices,
+  matchOutcome,
+  matchOverdue,
+  matchPlayers,
+  matchRoom,
+  newWeeklyRow,
+  playOut,
+  playingMatches,
+  publicWeekly,
+  registrationRow,
+  rewardDue,
+  startMatch,
+  startWeekly,
+  weeklyDue,
+  weeklyRemindDue,
+  withRoom,
+} from './weekly.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -287,7 +324,7 @@ async function move(userId: string, roomId: string, raw: unknown) {
   return await saveAndAward(room, secret, playGameMove(secret, userId, raw, secureRng, Date.now()));
 }
 
-async function saveAndAward(room: GameRoomRow, before: GameSecret, after: GameSnapshot) {
+async function saveAndAward(room: GameRoomRow, before: GameSecret, after: GameSnapshot, weekly = true) {
   const saved = await save(room, after);
   notifyTurns(room, before, after);
   await Promise.all(
@@ -298,6 +335,10 @@ async function saveAndAward(room: GameRoomRow, before: GameSecret, after: GameSn
   if (results) {
     const { error } = await admin.rpc('tournament_round_done', { p_room: room.id, p_results: results });
     if (error) console.error('tournoi non mis à jour', error);
+  }
+  // A match of the Friday tournament just ended: the winner moves on, the next tables open.
+  if (weekly && room.weekly_id && after.public.over) {
+    await syncWeekly(room.weekly_id).catch((e) => console.error('tournoi du vendredi non avancé', e));
   }
   return saved;
 }
@@ -379,6 +420,299 @@ async function insertRematchRoom(settings: ReturnType<typeof gameRematch>['room'
   throw new GameError('Impossible de créer la table, réessaie');
 }
 
+// ---------------------------------------------------------------------------
+// The Friday tournament. No timer runs on the server: each request does what is due (see weekly.ts).
+
+async function loadWeekly(id: string) {
+  const { data, error } = await admin.from('weekly_tournaments').select('*').eq('id', id).single();
+  if (error) throw error;
+  return data as WeeklyRow;
+}
+
+async function loadRegistrations(id: string) {
+  const { data, error } = await admin
+    .from('weekly_registrations')
+    .select('user_id, name, avatar, avatar_color')
+    .eq('tournament_id', id)
+    .order('registered_at');
+  if (error) throw error;
+  return (data ?? []) as WeeklyRegistration[];
+}
+
+/** The row of the next Friday, made the first time anyone asks. */
+async function upcomingWeekly(now: number) {
+  const fresh = newWeeklyRow(now);
+  const { error } = await admin
+    .from('weekly_tournaments')
+    .upsert(fresh, { onConflict: 'friday', ignoreDuplicates: true });
+  if (error) throw error;
+  const { data, error: readError } = await admin
+    .from('weekly_tournaments')
+    .select('*')
+    .eq('friday', fresh.friday)
+    .single();
+  if (readError) throw readError;
+  return data as WeeklyRow;
+}
+
+/** The table of a match: opened once (unique per match), dealt at once. */
+async function openMatchRoom(row: WeeklyRow, m: WeeklyMatch, now: number) {
+  const key = matchKey(m);
+  const existing = async () => {
+    const { data } = await admin
+      .from('game_rooms')
+      .select('*')
+      .eq('weekly_id', row.id)
+      .eq('weekly_match', key)
+      .maybeSingle();
+    return data as GameRoomRow | null;
+  };
+  let room = await existing();
+  for (let attempt = 0; !room && attempt < 5; attempt++) {
+    const { data, error } = await admin
+      .from('game_rooms')
+      .insert({ code: makeRoomCode(), ...matchRoom(row.id, row.game, m) })
+      .select('*')
+      .maybeSingle();
+    if (error?.code === '23505') {
+      // Either the code was taken, or another request opened this match first.
+      room = await existing();
+      continue;
+    }
+    if (error) throw error;
+    room = data as GameRoomRow;
+    const { error: seatError } = await admin
+      .from('game_players')
+      .insert(matchPlayers(m).map((p) => ({ ...p, room_id: room!.id })));
+    if (seatError) throw seatError;
+  }
+  if (!room) throw new GameError('Impossible de créer la table, réessaie');
+  if (room.status === 'lobby') {
+    const { count } = await admin
+      .from('game_players')
+      .select('user_id', { count: 'exact', head: true })
+      .eq('room_id', room.id);
+    if (!count) {
+      await admin.from('game_players').insert(matchPlayers(m).map((p) => ({ ...p, room_id: room!.id })));
+    }
+    const snap = startMatch(room, m, secureRng, now);
+    // Two requests may deal at once: the version check keeps one.
+    await save(room, snap).catch((e) => console.error('table du tournoi non lancée', e));
+  }
+  return { id: room.id, code: room.code };
+}
+
+/** The result of a match's table, if it ended; a table left too long is played out by the server. */
+async function matchResult(m: WeeklyMatch, now: number) {
+  const { data } = await admin.from('game_secrets').select('state').eq('room_id', m.roomId!).maybeSingle();
+  if (!data) return null;
+  const secret = data.state as GameSecret;
+  const tieBreak = secureRng(2);
+  const winner = matchOutcome(secret, m, tieBreak);
+  if (winner) return { key: matchKey(m), winner, by: 'game' as const };
+  if (!matchOverdue(m, now)) return null;
+  const done = playOut(secret, secureRng, now);
+  if (!done) return null;
+  await saveAndAward(await loadRoom(m.roomId!), secret, done, false);
+  const late = matchOutcome(done.secret, m, tieBreak);
+  return late ? { key: matchKey(m), winner: late, by: 'timeout' as const } : null;
+}
+
+/** Gives the champion their coins, title and trophy (once: the database checks it). */
+async function rewardChampion(row: WeeklyRow) {
+  if (!rewardDue(row)) return;
+  const { error } = await admin.rpc('weekly_reward', {
+    p_tournament: row.id,
+    p_user: row.winner_id,
+    p_coins: WEEKLY_COINS,
+    p_title: ownedKey('title', WEEKLY_TITLE),
+    p_feat: WEEKLY_FEAT,
+  });
+  if (error) console.error('récompense du tournoi non donnée', error);
+}
+
+/** Does what is due for a tournament: reminder, start, results, next tables, champion. */
+async function syncWeekly(id: string, now = Date.now()): Promise<WeeklyRow> {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const row = await loadWeekly(id);
+    if (weeklyRemindDue(row, now)) {
+      const { data: claimed } = await admin
+        .from('weekly_tournaments')
+        .update({ reminded: true })
+        .eq('id', id)
+        .eq('reminded', false)
+        .select('id')
+        .maybeSingle();
+      if (claimed) {
+        const ids = (await loadRegistrations(id)).map((r) => r.user_id);
+        inBackground(
+          notify(admin, ids, (lang) => weeklySoonNotice(lang, row.game), { ttl: 600, urgency: 'high' }),
+        );
+      }
+    }
+    if (row.status === 'finished') await rewardChampion(row);
+    if (row.status !== 'running' && !weeklyDue(row, now)) return row;
+
+    const starting = row.status === 'open';
+    let bracket: WeeklyBracket | null = row.bracket;
+    let players = row.players;
+    if (starting) {
+      const start = startWeekly(await loadRegistrations(id), secureRng, () => crypto.randomUUID());
+      if (start.status === 'cancelled') {
+        await admin
+          .from('weekly_tournaments')
+          .update({ status: 'cancelled', version: row.version + 1 })
+          .eq('id', id)
+          .eq('version', row.version);
+        return await loadWeekly(id);
+      }
+      bracket = start.bracket;
+      players = start.players;
+    }
+    if (!bracket) return row;
+    const results = [];
+    for (const m of playingMatches(bracket)) {
+      try {
+        const r = await matchResult(m, now);
+        if (r) results.push(r);
+      } catch (e) {
+        console.error('match du tournoi non lu', e);
+      }
+    }
+    const step = advanceWeekly(bracket, results, secureRng);
+    let next = step.bracket;
+    for (const m of step.toOpen) next = withRoom(next, matchKey(m), await openMatchRoom(row, m, now), now);
+    const opened = matchNotices(row.bracket, next);
+    if (!starting && results.length === 0 && opened.length === 0 && !step.champion) return row;
+
+    const { data: saved, error } = await admin
+      .from('weekly_tournaments')
+      .update({
+        bracket: next,
+        players,
+        version: row.version + 1,
+        status: 'running',
+        ...(step.champion ? championColumns(step.champion, now) : {}),
+      })
+      .eq('id', id)
+      .eq('version', row.version)
+      .select('*')
+      .maybeSingle();
+    if (error) throw error;
+    if (!saved) continue; // someone else moved the bracket meanwhile: start again from theirs
+    for (const n of opened) {
+      inBackground(
+        notify(admin, [n.userId], (lang) => weeklyMatchNotice(lang, row.game, n.code, n.opponent, starting), {
+          ttl: 900,
+          urgency: 'high',
+        }),
+      );
+    }
+    await rewardChampion(saved as WeeklyRow);
+    return saved as WeeklyRow;
+  }
+  return await loadWeekly(id);
+}
+
+/** The Friday tournament: the next one, the one being played (or just played), past champions. */
+async function weekly(userId: string) {
+  const now = Date.now();
+  await upcomingWeekly(now);
+  // Tournaments that start within 15 minutes or are being played: send what is due.
+  const { data: active, error } = await admin
+    .from('weekly_tournaments')
+    .select('id')
+    .in('status', ['open', 'running'])
+    .lte('starts_at', new Date(now + 15 * 60_000).toISOString());
+  if (error) throw error;
+  for (const t of active ?? []) {
+    try {
+      await syncWeekly(t.id as string, now);
+    } catch (e) {
+      console.error('tournoi du vendredi non synchronisé', e);
+    }
+  }
+  const [next, current, past] = await Promise.all([
+    admin.from('weekly_tournaments').select('*').eq('friday', nextWeeklyFriday(now)).single(),
+    admin
+      .from('weekly_tournaments')
+      .select('*')
+      .lte('starts_at', new Date(now).toISOString())
+      .order('friday', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    admin
+      .from('weekly_tournaments')
+      .select(
+        'friday, game, status, winner_id, winner_name, winner_avatar, winner_avatar_color, winner_bot, players',
+      )
+      .eq('status', 'finished')
+      .order('friday', { ascending: false })
+      .limit(200),
+  ]);
+  for (const r of [next, current, past]) if (r.error) throw r.error;
+  const upcoming = next.data as WeeklyRow;
+  const playing = current.data as WeeklyRow | null;
+  // The one being played, or the last one for a day after it started.
+  const shown =
+    playing && (playing.status === 'running' || now - Date.parse(playing.starts_at) < 30 * 3_600_000)
+      ? playing
+      : null;
+  const [upcomingRegs, shownRegs] = await Promise.all([
+    loadRegistrations(upcoming.id),
+    shown ? loadRegistrations(shown.id) : Promise.resolve([]),
+  ]);
+  const pastRows = (past.data ?? []) as WeeklyRow[];
+  return {
+    now,
+    upcoming: publicWeekly(upcoming, upcomingRegs, userId),
+    current: shown ? publicWeekly(shown, shownRegs, userId) : null,
+    past: pastRows.slice(0, 12).map((r) => ({
+      friday: r.friday,
+      game: r.game,
+      players: r.players,
+      winner: {
+        id: r.winner_id,
+        name: r.winner_name ?? 'Joueur',
+        avatar: r.winner_avatar,
+        avatar_color: r.winner_avatar_color,
+        bot: !!r.winner_bot,
+      },
+    })),
+    hall: hallOfFame(pastRows).slice(0, 10),
+  };
+}
+
+async function weeklyRegister(userId: string, body: Record<string, unknown>) {
+  const now = Date.now();
+  const row = await upcomingWeekly(now);
+  const regs = await loadRegistrations(row.id);
+  checkRegister(
+    row,
+    regs.length,
+    regs.some((r) => r.user_id === userId),
+    now,
+  );
+  const { error } = await admin
+    .from('weekly_registrations')
+    .upsert(registrationRow(row.id, userId, body, await unlockedEmojis(admin, userId)));
+  if (error) throw error;
+  return await weekly(userId);
+}
+
+async function weeklyUnregister(userId: string) {
+  const now = Date.now();
+  const row = await upcomingWeekly(now);
+  checkUnregister(row, now);
+  const { error } = await admin
+    .from('weekly_registrations')
+    .delete()
+    .eq('tournament_id', row.id)
+    .eq('user_id', userId);
+  if (error) throw error;
+  return await weekly(userId);
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
 
@@ -412,6 +746,12 @@ Deno.serve(async (req) => {
         return json(await tick(user.id, roomId));
       case 'rematch':
         return json(await rematch(user.id, roomId));
+      case 'weekly':
+        return json(await weekly(user.id));
+      case 'weeklyRegister':
+        return json(await weeklyRegister(user.id, body));
+      case 'weeklyUnregister':
+        return json(await weeklyUnregister(user.id));
       default:
         return json({ error: 'Requête inconnue' }, 400);
     }

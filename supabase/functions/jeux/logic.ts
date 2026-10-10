@@ -32,6 +32,9 @@ export interface GameRoomRow {
   status: 'lobby' | 'playing';
   version: number;
   tournament_id?: string | null;
+  /** The Friday tournament this table is a match of. */
+  weekly_id?: string | null;
+  weekly_match?: string | null;
   /** Set once someone asked for a rematch of this finished game. */
   rematch?: Rematch | null;
 }
@@ -268,7 +271,7 @@ export function gameRematch(
   players: SeatedGamePlayerRow[],
   userId: string,
 ) {
-  if (room.tournament_id) throw new GameError('Pas de revanche pendant un tournoi');
+  if (room.tournament_id || room.weekly_id) throw new GameError('Pas de revanche pendant un tournoi');
   const me = players.find((p) => p.user_id === userId);
   if (!me || me.is_bot) throw new GameError("Tu n'es pas à cette table");
   if (!secret || !gameDef(secret.game).over(secret.state)) throw new GameError('La partie n’est pas finie');

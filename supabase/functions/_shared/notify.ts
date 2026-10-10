@@ -7,7 +7,7 @@ export type NoticeLang = 'fr' | 'en';
 
 /** A notification as the service worker shows it. */
 export interface Notice {
-  kind: 'invite' | 'turn';
+  kind: 'invite' | 'turn' | 'tournament';
   title: string;
   body: string;
   /** Notifications with the same tag replace each other on the phone. */
@@ -136,6 +136,52 @@ export function turnNotice(lang: NoticeLang, game: string, code: string): Notice
         : `Tes amis t’attendent à la table de ${name}.`,
     tag: `turn-${code}`,
     url: tableUrl(game, code),
+  };
+}
+
+/** The page of the Friday tournament. */
+export const WEEKLY_URL = './?tournoi=vendredi';
+
+/** The Friday tournament starts in 10 minutes (to the people signed up). */
+export function weeklySoonNotice(lang: NoticeLang, game: string): Notice {
+  const name = gameName(game, lang);
+  return {
+    kind: 'tournament',
+    title:
+      lang === 'en'
+        ? 'The Friday tournament starts in 10 min'
+        : 'Le tournoi du vendredi commence dans 10 min',
+    body: lang === 'en' ? `${name} tonight: get ready!` : `Ce soir c’est ${name} : prépare-toi !`,
+    tag: 'tournoi-vendredi',
+    url: WEEKLY_URL,
+  };
+}
+
+/** My next match of the Friday tournament is ready (the first one: the tournament starts now). */
+export function weeklyMatchNotice(
+  lang: NoticeLang,
+  game: string,
+  code: string,
+  opponent: string,
+  first: boolean,
+): Notice {
+  const name = gameName(game, lang);
+  const title = first
+    ? lang === 'en'
+      ? 'The Friday tournament starts now!'
+      : 'Le tournoi du vendredi commence !'
+    : lang === 'en'
+      ? 'Your next match is ready'
+      : 'Ton prochain match est prêt';
+  return {
+    kind: 'tournament',
+    title,
+    body:
+      lang === 'en'
+        ? `${name} against ${opponent}: join the table (code ${code}).`
+        : `${name} contre ${opponent} : rejoins la table (code ${code}).`,
+    tag: `tournoi-${code}`,
+    url: `${tableUrl(game, code)}&tournoi=vendredi`,
   };
 }
 
