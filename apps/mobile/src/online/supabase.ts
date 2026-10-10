@@ -88,6 +88,7 @@ type ProfileRequest =
   | { type: 'open'; chest: string }
   | { type: 'achieve'; id: string }
   | { type: 'feat'; feat: string }
+  | { type: 'unlock' }
   | { type: 'me'; name?: string; avatar?: Avatar }
   | { type: 'addFriend'; code: string }
   | { type: 'removeFriend'; userId: string }

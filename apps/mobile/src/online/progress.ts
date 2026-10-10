@@ -10,14 +10,20 @@ import {
   type ProgressGame,
   type Reward,
   type RewardKind,
+  REWARDS,
   cleanEquipped,
   cleanOwned,
   levelFromXp,
   liveChallengeStreak,
+  ownedKey,
   parisDay,
+  pendingUnlocks,
   rewardsAtLevel,
+  unlockStats,
 } from '@appli-poker/engine';
 import { setCardBack } from '../components/cardBacks';
+import { setChipStyle } from '../components/chipStyles';
+import { setFelt } from '../components/felts';
 import { t } from '../i18n';
 import { callProfile, ensureSignedIn, loadAvatar, loadName, supabase } from './supabase';
 
@@ -45,6 +51,14 @@ export interface MyProgress {
   /** Today's challenge already taken, and challenges taken days in a row. */
   challengeClaimed: boolean;
   challengeStreak: number;
+  /** Daily challenges taken in all, for the items they unlock. */
+  challengesDone: number;
+}
+
+/** Items just earned by playing (an achievement, daily challenges), for a toast. */
+export interface UnlockEvent {
+  key: number;
+  rewards: Reward[];
 }
 
 /** Something to celebrate: experience just earned, maybe with a new level and its rewards. */
@@ -59,6 +73,7 @@ export interface ProgressEvent {
 
 let mine: MyProgress | null = null;
 let event: ProgressEvent | null = null;
+let unlockEvent: UnlockEvent | null = null;
 let userId: string | null = null;
 let started = false;
 const listeners = new Set<() => void>();
@@ -87,9 +102,10 @@ interface Row {
   podium_claimed?: string | null;
   challenge_day?: string | null;
   challenge_streak?: number;
+  challenges_done?: number;
 }
 const COLUMNS =
-  'xp, equipped, games, coins, owned, stats_day, day_stats, quests_claimed, last_day, streak, best_streak, chests, achievements, feats, quests_done, podium_claimed, challenge_day, challenge_streak';
+  'xp, equipped, games, coins, owned, stats_day, day_stats, quests_claimed, last_day, streak, best_streak, chests, achievements, feats, quests_done, podium_claimed, challenge_day, challenge_streak, challenges_done';
 
 /** The streak still counts if the last game was today or yesterday. */
 function liveStreak(lastDay: string | null | undefined, streak: number) {
@@ -122,6 +138,7 @@ function apply(row: Row | null) {
     podiumClaimed: row?.podium_claimed ?? null,
     challengeClaimed: row?.challenge_day === parisDay(),
     challengeStreak: liveChallengeStreak(row?.challenge_day, row?.challenge_streak ?? 0, parisDay()),
+    challengesDone: row?.challenges_done ?? 0,
   };
   // Experience earned since the last look: celebrate it (not on the first load). Coins
   // from a quest are shown where they are taken, so only those won while playing count.
@@ -132,9 +149,48 @@ function apply(row: Row | null) {
     const coins = Math.max(0, next.coins - mine.coins);
     event = { key: Date.now(), gained: xp - mine.xp, coins, level, levelUp, rewards };
   }
+  // Items earned by playing that just joined the collection: a toast for them.
+  if (mine) {
+    const before = mine.owned;
+    const earned = REWARDS.filter(
+      (r) => r.unlock && next.owned.includes(ownedKey(r.kind, r.id)) && !before.includes(ownedKey(r.kind, r.id)),
+    );
+    if (earned.length > 0) unlockEvent = { key: Date.now(), rewards: earned };
+  }
   mine = next;
-  setCardBack(next.equipped.cardBack);
+  wearLocally(next.equipped);
   emit();
+  if (row) askUnlocks(row);
+}
+
+/** Draws what I wear on every table of this device. */
+function wearLocally(e: Equipped) {
+  setCardBack(e.cardBack);
+  setChipStyle(e.chip);
+  setFelt(e.felt);
+}
+
+const asked = new Set<string>();
+let asking = false;
+
+/**
+ * When I reach an achievement or a number of daily challenges that earns an item, the profile
+ * server checks it and adds the item to my collection. Each item is asked for once per session.
+ */
+function askUnlocks(row: Row) {
+  if (asking) return;
+  const due = pendingUnlocks(unlockStats(row), cleanOwned(row.owned))
+    .map((r) => ownedKey(r.kind, r.id))
+    .filter((k) => !asked.has(k));
+  if (due.length === 0) return;
+  due.forEach((k) => asked.add(k));
+  asking = true;
+  callProfile<{ unlocked: string[] }>({ type: 'unlock' })
+    .then((r) => (r.unlocked.length > 0 ? refreshProgress() : undefined))
+    .catch(() => due.forEach((k) => asked.delete(k)))
+    .finally(() => {
+      asking = false;
+    });
 }
 
 /** Reloads my experience from the server. */
@@ -199,11 +255,17 @@ export function useProgressEvent(): ProgressEvent | null {
   return useSyncExternalStore(subscribe, () => event);
 }
 
+/** Items I just earned by playing, for the toast. */
+export function useUnlockEvent(): UnlockEvent | null {
+  useEffect(start, []);
+  return useSyncExternalStore(subscribe, () => unlockEvent);
+}
+
 /** Puts on an unlocked reward. */
 export async function equipReward(slot: keyof Equipped, id: string) {
   if (mine) {
     mine = { ...mine, equipped: { ...mine.equipped, [slot]: id } };
-    setCardBack(mine.equipped.cardBack);
+    wearLocally(mine.equipped);
     emit();
   }
   try {

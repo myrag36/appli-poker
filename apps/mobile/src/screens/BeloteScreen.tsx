@@ -48,6 +48,7 @@ import type { OnlineBoardProps, OnlineOptionsProps } from '../online-games/types
 import { deviceRng } from '../rng';
 import { t, tn } from '../i18n';
 import { colors, gradients, seatColors, shadow } from '../theme';
+import { FeltFill } from '../components/felts';
 
 /** How long a robot seems to think, in ms. */
 const BOT_DELAY = 900;
@@ -599,7 +600,7 @@ function BeloteFelt({
       <View style={styles.rail}>
         <LinearGradient colors={gradients.wood} style={StyleSheet.absoluteFill} />
         <View style={styles.felt}>
-          <LinearGradient colors={gradients.felt} style={StyleSheet.absoluteFill} />
+          <FeltFill />
           <View style={styles.feltGlow} />
           <View style={styles.feltLine} />
         </View>

@@ -219,6 +219,88 @@ const LOOKS: Record<string, BackLook> = {
     glow: '#ffd700',
     extra: (w, h) => <GoldShine w={w} h={h} />,
   },
+  // ---- Earned by playing ----
+  boussole: {
+    edge: '#f3ead2',
+    fill: ['#1d5c73', '#103f52', '#082431'],
+    line: '#e3c56b',
+    mark: '',
+    markColor: 'transparent',
+    emblem: '✵',
+    emblemFill: '#0a2d3b',
+    emblemColor: '#f6dc8a',
+    extra: (w, h) => <CompassRose w={w} h={h} />,
+  },
+  phoenix: {
+    edge: '#2a0a05',
+    fill: ['#ffb347', '#e8541e', '#9b1b1b', '#3d0a2a'],
+    line: '#ffe08a',
+    mark: '',
+    markColor: 'transparent',
+    emblem: '🔥',
+    emblemFill: '#4a0b14',
+    emblemColor: '#ffffff',
+    glow: '#ff8a1e',
+    extra: (w, h) => <Feathers w={w} h={h} />,
+  },
+  medaille: {
+    edge: '#0b1d3a',
+    fill: ['#1f4fa3', '#14336e', '#0a1a3d'],
+    line: '#ffd166',
+    mark: '★',
+    markColor: 'rgba(255, 209, 102, 0.2)',
+    emblem: '🏅',
+    emblemFill: '#0b1d3a',
+    emblemColor: '#ffffff',
+    glow: '#ffd166',
+    extra: (w) => <SunRays w={w} color="rgba(255, 209, 102, 0.3)" />,
+  },
+  // ---- More shop card backs ----
+  tartan: {
+    edge: '#f4efe4',
+    fill: ['#a31621', '#8a1220', '#6a0d18'],
+    line: '#1b4332',
+    mark: '',
+    markColor: 'transparent',
+    emblem: '♣',
+    emblemFill: '#1b4332',
+    emblemColor: '#ffd166',
+    extra: (w, h) => <Tartan w={w} h={h} />,
+  },
+  vagues: {
+    edge: '#f2f7fb',
+    fill: ['#2e86c1', '#1b5f8f', '#0e3a5a'],
+    line: '#f2f7fb',
+    mark: '',
+    markColor: 'transparent',
+    emblem: '🌊',
+    emblemFill: '#0e3a5a',
+    emblemColor: '#ffffff',
+    extra: (w, h) => <Waves w={w} h={h} />,
+  },
+  vitrail: {
+    edge: '#1a1a1a',
+    fill: ['#2b2b2b', '#1a1a1a'],
+    line: '#c9a227',
+    mark: '',
+    markColor: 'transparent',
+    emblem: '✠',
+    emblemFill: '#1a1a1a',
+    emblemColor: '#ffd166',
+    glow: '#7ab8ff',
+    extra: (w, h) => <StainedGlass w={w} h={h} />,
+  },
+  araignee: {
+    edge: '#140a1f',
+    fill: ['#ff8c1a', '#8a3a0a', '#2a0f3d'],
+    line: '#f2f2f2',
+    mark: '',
+    markColor: 'transparent',
+    emblem: '🕷️',
+    emblemFill: '#140a1f',
+    emblemColor: '#ffffff',
+    extra: (w, h) => <Web w={w} h={h} />,
+  },
 };
 
 /** Thin gold lines fanning out from the center, art deco style. */
@@ -549,6 +631,217 @@ function GoldShine({ w, h }: { w: number; h: number }) {
   );
 }
 
+/** Light rays from the middle, like a medal's sunburst. */
+function SunRays({ w, color }: { w: number; color: string }) {
+  return (
+    <View style={[StyleSheet.absoluteFill, styles.center]} pointerEvents="none">
+      {Array.from({ length: 12 }, (_, i) => (
+        <View
+          key={i}
+          style={{
+            position: 'absolute',
+            width: w * 2,
+            height: Math.max(1, w * 0.05),
+            backgroundColor: color,
+            transform: [{ rotate: `${i * 15}deg` }],
+          }}
+        />
+      ))}
+    </View>
+  );
+}
+
+/** An old map: faint grid lines and a compass rose behind the emblem. */
+function CompassRose({ w, h }: { w: number; h: number }) {
+  const line = Math.max(0.5, w * 0.01);
+  const ink = 'rgba(243, 234, 210, 0.16)';
+  return (
+    <View style={[StyleSheet.absoluteFill, styles.center]} pointerEvents="none">
+      {[0.2, 0.4, 0.6, 0.8].map((k) => (
+        <Fragment key={k}>
+          <View
+            style={{ position: 'absolute', left: 0, right: 0, top: h * k, height: line, backgroundColor: ink }}
+          />
+          <View
+            style={{ position: 'absolute', top: 0, bottom: 0, left: w * k, width: line, backgroundColor: ink }}
+          />
+        </Fragment>
+      ))}
+      {[0, 45, 90, 135].map((a) => (
+        <View
+          key={a}
+          style={{
+            position: 'absolute',
+            width: a % 90 ? w * 0.7 : w * 0.95,
+            height: Math.max(1, w * (a % 90 ? 0.02 : 0.035)),
+            backgroundColor: 'rgba(227, 197, 107, 0.55)',
+            transform: [{ rotate: `${a}deg` }],
+          }}
+        />
+      ))}
+      <Text style={[styles.northMark, { top: h * 0.03, fontSize: w * 0.13 }]}>N</Text>
+    </View>
+  );
+}
+
+/** Long flame-colored feathers fanning up from the bottom. */
+function Feathers({ w, h }: { w: number; h: number }) {
+  const tints = ['rgba(255, 224, 138, 0.5)', 'rgba(255, 140, 40, 0.45)', 'rgba(255, 90, 30, 0.4)'];
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      {[-50, -30, -12, 12, 30, 50].map((a, i) => (
+        <View
+          key={a}
+          style={{
+            position: 'absolute',
+            left: w * 0.5 - w * 0.09,
+            top: h * 0.32,
+            width: w * 0.18,
+            height: h * 0.75,
+            borderTopLeftRadius: w,
+            borderTopRightRadius: w,
+            backgroundColor: tints[i % 3],
+            transform: [{ translateY: h * 0.3 }, { rotate: `${a}deg` }, { translateY: -h * 0.3 }],
+          }}
+        />
+      ))}
+    </View>
+  );
+}
+
+/** Crossing bands of green and gold on red, a Scottish tartan. */
+function Tartan({ w, h }: { w: number; h: number }) {
+  const bands = [
+    { at: 0.12, size: 0.14, color: 'rgba(27, 67, 50, 0.75)' },
+    { at: 0.5, size: 0.2, color: 'rgba(27, 67, 50, 0.75)' },
+    { at: 0.86, size: 0.14, color: 'rgba(27, 67, 50, 0.75)' },
+    { at: 0.31, size: 0.025, color: 'rgba(255, 209, 102, 0.8)' },
+    { at: 0.69, size: 0.025, color: 'rgba(255, 209, 102, 0.8)' },
+  ];
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      {bands.map((b, i) => (
+        <Fragment key={i}>
+          <View
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              top: h * b.at - (w * b.size) / 2,
+              height: w * b.size,
+              backgroundColor: b.color,
+              opacity: 0.7,
+            }}
+          />
+          <View
+            style={{
+              position: 'absolute',
+              top: 0,
+              bottom: 0,
+              left: w * b.at - (w * b.size) / 2,
+              width: w * b.size,
+              backgroundColor: b.color,
+              opacity: 0.7,
+            }}
+          />
+        </Fragment>
+      ))}
+    </View>
+  );
+}
+
+/** Japanese wave scales: rows of overlapping circles. */
+function Waves({ w, h }: { w: number; h: number }) {
+  const r = w * 0.24;
+  const rows = Math.ceil(h / (r * 0.5)) + 2;
+  const cols = Math.ceil(w / r) + 2;
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      {Array.from({ length: rows }, (_, row) =>
+        Array.from({ length: cols }, (_, c) => (
+          <View
+            key={`${row}-${c}`}
+            style={{
+              position: 'absolute',
+              left: c * r - (row % 2 ? r / 2 : 0) - r / 2,
+              top: row * r * 0.5 - r / 2,
+              width: r,
+              height: r,
+              borderRadius: r / 2,
+              borderWidth: Math.max(0.75, w * 0.015),
+              borderColor: 'rgba(242, 247, 251, 0.55)',
+              backgroundColor: row % 2 ? '#1b5f8f' : '#2373a8',
+            }}
+          />
+        )),
+      )}
+    </View>
+  );
+}
+
+/** Panes of colored glass held by dark lead lines. */
+function StainedGlass({ w, h }: { w: number; h: number }) {
+  const glass = ['#c0392b', '#2471a3', '#d4ac0d', '#1e8449', '#7d3c98', '#2e86c1', '#ca6f1e'];
+  const cols = 4;
+  const rows = 6;
+  const rnd = random(5);
+  const lead = Math.max(1, w * 0.025);
+  return (
+    <View style={[StyleSheet.absoluteFill, styles.panes]} pointerEvents="none">
+      {Array.from({ length: rows * cols }, (_, i) => (
+        <LinearGradient
+          key={i}
+          colors={[glass[Math.floor(rnd() * glass.length)], glass[Math.floor(rnd() * glass.length)]]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={{
+            width: w / cols,
+            height: h / rows,
+            borderWidth: lead / 2,
+            borderColor: '#141414',
+            opacity: 0.85,
+          }}
+        />
+      ))}
+    </View>
+  );
+}
+
+/** A spider's web spun from the middle. */
+function Web({ w, h }: { w: number; h: number }) {
+  const thread = 'rgba(242, 242, 242, 0.45)';
+  const t = Math.max(0.5, w * 0.012);
+  return (
+    <View style={[StyleSheet.absoluteFill, styles.center]} pointerEvents="none">
+      {[0, 30, 60, 90, 120, 150].map((a) => (
+        <View
+          key={a}
+          style={{
+            position: 'absolute',
+            width: Math.hypot(w, h),
+            height: t,
+            backgroundColor: thread,
+            transform: [{ rotate: `${a}deg` }],
+          }}
+        />
+      ))}
+      {[0.3, 0.55, 0.8, 1.05, 1.3].map((k) => (
+        <View
+          key={k}
+          style={{
+            position: 'absolute',
+            width: w * k,
+            height: w * k,
+            borderRadius: w,
+            borderWidth: t,
+            borderColor: thread,
+          }}
+        />
+      ))}
+    </View>
+  );
+}
+
 /** The back of a playing card, in one of the unlockable designs. */
 export function CardBackFace({
   id,
@@ -660,6 +953,8 @@ const styles = StyleSheet.create({
     textShadowRadius: 2,
     textShadowOffset: { width: 0, height: 0 },
   },
+  panes: { flexDirection: 'row', flexWrap: 'wrap' },
+  northMark: { position: 'absolute', color: 'rgba(243, 234, 210, 0.6)', fontWeight: '900' },
   twinkle: {
     position: 'absolute',
     color: '#fff',

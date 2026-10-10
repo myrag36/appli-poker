@@ -115,7 +115,7 @@ export const REWARD_KIND_ONE: Record<RewardKind, string> = {
   frame: 'Bordure',
   title: 'Titre',
   avatar: 'Avatar',
-  cardBack: 'Dos de cartes',
+  cardBack: 'Dos de carte',
   banner: 'Bannière',
   emote: 'Emote',
   chip: 'Jetons',

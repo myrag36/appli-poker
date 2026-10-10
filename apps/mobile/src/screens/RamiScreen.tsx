@@ -43,6 +43,7 @@ import type { OnlineBoardProps, OnlineOptionsProps } from '../online-games/types
 import { deviceRng } from '../rng';
 import { lang, t, tn } from '../i18n';
 import { colors, gradients, seatColors, shadow } from '../theme';
+import { FeltFill } from '../components/felts';
 
 /** How long a robot seems to think before each step, in ms. */
 const BOT_DELAY = 850;
@@ -498,7 +499,7 @@ function RamiTable({
           <View style={[styles.rail, { width: w, height: h }]}>
             <LinearGradient colors={gradients.wood} style={StyleSheet.absoluteFill} />
             <View style={styles.felt}>
-              <LinearGradient colors={gradients.felt} style={StyleSheet.absoluteFill} />
+              <FeltFill />
               <Piles
                 game={game}
                 me={me}

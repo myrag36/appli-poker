@@ -3,6 +3,8 @@ import type { Avatar, Reward } from '@appli-poker/engine';
 import { AvatarBadge } from './AvatarPicker';
 import { Banner } from './Banner';
 import { CardBackPreview } from './cardBacks';
+import { ChipPreview } from './chipStyles';
+import { FeltPreview } from './felts';
 import { TitleBadge } from './TitleBadge';
 
 /** A small picture of a cosmetic item, worn by the player's own avatar when it is a border. */
@@ -15,6 +17,10 @@ export function RewardPreview({ reward, avatar, big }: { reward: Reward; avatar:
       return <TitleBadge id={reward.id} small={!big} />;
     case 'cardBack':
       return <CardBackPreview id={reward.id} width={40 * k} />;
+    case 'chip':
+      return <ChipPreview id={reward.id} size={26 * k} />;
+    case 'felt':
+      return <FeltPreview id={reward.id} width={84 * k} height={52 * k} />;
     case 'banner':
       return <Banner id={reward.id} width={96 * k} height={52 * k} />;
     default:

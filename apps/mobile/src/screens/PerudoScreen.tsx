@@ -36,9 +36,10 @@ import { reportLocalGame } from '../online/progress';
 import { PERUDO_RULES } from '../rules';
 import { sounds } from '../feedback';
 import { deviceRng } from '../rng';
-import { colors, gradients, theme } from '../theme';
+import { colors, gradients } from '../theme';
 import { COLUMN_MAX_WIDTH, useDesktop } from '../layout';
 import { t, tn } from '../i18n';
+import { FeltFill, feltMark } from '../components/felts';
 
 /** How long a robot seems to think before bidding or calling, in ms. */
 const BOT_DELAY = 1300;
@@ -542,11 +543,11 @@ function PerudoTable({
       <View style={styles.rail}>
         <LinearGradient colors={gradients.wood} style={StyleSheet.absoluteFill} />
         <View style={styles.felt}>
-          <LinearGradient colors={gradients.felt} style={StyleSheet.absoluteFill} />
+          <FeltFill />
           <View style={styles.feltGlow} />
           <View style={styles.feltLine} />
-          {theme.feltMark && (
-            <Text style={[styles.feltMark, { fontSize: Math.round(w * 0.3) }]}>{theme.feltMark}</Text>
+          {feltMark() && (
+            <Text style={[styles.feltMark, { fontSize: Math.round(w * 0.3) }]}>{feltMark()}</Text>
           )}
         </View>
       </View>

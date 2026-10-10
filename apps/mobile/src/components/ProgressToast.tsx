@@ -2,8 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { REWARD_KIND_NAMES } from '@appli-poker/engine';
-import { type ProgressEvent, useProgressEvent } from '../online/progress';
+import { type Avatar, REWARD_KIND_ONE, defaultAvatar } from '@appli-poker/engine';
+import { type ProgressEvent, type UnlockEvent, useProgressEvent, useUnlockEvent } from '../online/progress';
+import { loadAvatar } from '../online/supabase';
+import { RewardPreview } from './RewardPreview';
 import { sounds } from '../feedback';
 import { colors, gradients, shadow } from '../theme';
 import { t } from '../i18n';
@@ -46,6 +48,7 @@ export function ProgressToast() {
           </LinearGradient>
         </Animated.View>
       )}
+      <UnlockToast top={insets.top + (shown ? 56 : 8)} />
       <Modal
         visible={levelUp !== null}
         transparent
@@ -64,12 +67,12 @@ export function ProgressToast() {
                   {levelUp.rewards.map((r) => (
                     <Text key={`${r.kind}-${r.id}`} style={styles.reward}>
                       {t('{kind} : {name}', {
-                        kind: t(REWARD_KIND_NAMES[r.kind].replace(/s$/, '')),
+                        kind: t(REWARD_KIND_ONE[r.kind]),
                         name: r.kind === 'avatar' ? r.id : t(r.name),
                       })}
                     </Text>
                   ))}
-                  <Text style={styles.hint}>{t('Va dans « Mon profil » pour les essayer.')}</Text>
+                  <Text style={styles.hint}>{t('Va dans « Personnaliser » pour les essayer.')}</Text>
                 </>
               ) : (
                 <Text style={styles.hint}>{t('Continue comme ça, la prochaine récompense approche !')}</Text>
@@ -87,7 +90,62 @@ export function ProgressToast() {
   );
 }
 
+/** "Débloqué !" with a picture of each item just earned by playing. */
+function UnlockToast({ top }: { top: number }) {
+  const event = useUnlockEvent();
+  const [shown, setShown] = useState<UnlockEvent | null>(null);
+  const [avatar, setAvatar] = useState<Avatar>(defaultAvatar(0));
+  const y = useRef(new Animated.Value(-160)).current;
+
+  useEffect(() => {
+    if (!event) return;
+    loadAvatar().then((a) => a && setAvatar(a));
+    setShown(event);
+    sounds.win();
+    y.setValue(-160);
+    Animated.sequence([
+      Animated.spring(y, { toValue: 0, useNativeDriver: true }),
+      Animated.delay(3600),
+      Animated.timing(y, { toValue: -200, duration: 350, useNativeDriver: true }),
+    ]).start(() => setShown(null));
+  }, [event?.key]);
+
+  if (!shown) return null;
+  return (
+    <Animated.View pointerEvents="none" style={[styles.toastBox, { top, transform: [{ translateY: y }] }]}>
+      <View style={[styles.unlock, shadow]}>
+        <Text style={styles.unlockKicker}>{t('🔓 Débloqué en jouant !')}</Text>
+        {shown.rewards.slice(0, 3).map((r) => (
+          <View key={`${r.kind}-${r.id}`} style={styles.unlockRow}>
+            <View style={styles.unlockPreview}>
+              <RewardPreview reward={r} avatar={avatar} />
+            </View>
+            <View>
+              <Text style={styles.unlockKind}>{t(REWARD_KIND_ONE[r.kind])}</Text>
+              <Text style={styles.unlockName}>{t(r.name)}</Text>
+            </View>
+          </View>
+        ))}
+      </View>
+    </Animated.View>
+  );
+}
+
 const styles = StyleSheet.create({
+  unlock: {
+    minWidth: 250,
+    padding: 12,
+    borderRadius: 18,
+    backgroundColor: colors.background,
+    borderWidth: 2,
+    borderColor: colors.gold,
+    gap: 8,
+  },
+  unlockKicker: { color: colors.gold, fontWeight: '900', fontSize: 14, textAlign: 'center' },
+  unlockRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  unlockPreview: { width: 90, height: 64, alignItems: 'center', justifyContent: 'center' },
+  unlockKind: { color: colors.muted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 1 },
+  unlockName: { color: colors.text, fontSize: 16, fontWeight: '900' },
   toastBox: { position: 'absolute', alignSelf: 'center', zIndex: 50 },
   toast: { paddingHorizontal: 18, paddingVertical: 8, borderRadius: 20 },
   toastText: { color: colors.onGold, fontWeight: '900', fontSize: 15 },
