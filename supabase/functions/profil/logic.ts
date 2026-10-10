@@ -14,6 +14,9 @@ import {
   rollChest,
   COINS_WIN,
   DEFAULT_EQUIPPED,
+  EQUIP_SLOTS,
+  pendingUnlocks,
+  unlockStats,
   type DayStats,
   type Equipped,
   PROGRESS_GAMES,
@@ -45,7 +48,6 @@ import {
 } from '../_shared/engine/index.ts';
 import { GameError } from '../poker/logic.ts';
 
-const SLOTS: (keyof Equipped)[] = ['frame', 'title', 'cardBack', 'banner'];
 
 /** Puts on a reward the player has unlocked or bought, keeping the rest of what they wear. */
 export function equip(
@@ -55,7 +57,7 @@ export function equip(
   id: unknown,
   owned: unknown = [],
 ): Equipped {
-  if (!SLOTS.includes(slot as keyof Equipped)) throw new GameError('Emplacement inconnu');
+  if (!EQUIP_SLOTS.includes(slot as keyof Equipped)) throw new GameError('Emplacement inconnu');
   const level = levelFromXp(xp);
   const kind = slot as keyof Equipped;
   const mine = cleanOwned(owned);
@@ -128,22 +130,21 @@ interface ProgressRow {
   owned?: unknown;
   quests_done?: number;
   feats?: unknown;
+  challenges_done?: number;
 }
 
-/** An achievement the player has reached, to take its coins. */
+/** An achievement the player has reached, to take its coins. Earned items are not purchases. */
 export function reachedAchievement(id: unknown, row: ProgressRow) {
   const a = findAchievement(id);
   if (!a) throw new GameError('Succès inconnu');
-  const stats: AchievementStats = {
-    games: (row.games ?? {}) as GameCounters,
-    xp: row.xp ?? 0,
-    bestStreak: row.best_streak ?? 0,
-    owned: cleanOwned(row.owned).length,
-    questsDone: row.quests_done ?? 0,
-    feats: cleanOwned(row.feats),
-  };
+  const stats: AchievementStats = unlockStats(row);
   if (achievementProgress(a.id, stats) < a.target) throw new GameError('Succès pas encore atteint');
   return a;
+}
+
+/** Items earned by playing (achievement reached, daily challenges) not yet in the collection, as "kind:id". */
+export function unlocksDue(row: ProgressRow): string[] {
+  return pendingUnlocks(unlockStats(row), cleanOwned(row.owned)).map((r) => ownedKey(r.kind, r.id));
 }
 
 /** A rare moment a phone reports. */

@@ -65,7 +65,23 @@ export function levelProgress(xp: number): { level: number; into: number; needed
   return { level, into, needed, ratio: into / needed };
 }
 
-export type RewardKind = 'frame' | 'title' | 'avatar' | 'cardBack' | 'banner' | 'emote';
+export type RewardKind = 'frame' | 'title' | 'avatar' | 'cardBack' | 'banner' | 'emote' | 'chip' | 'felt';
+
+/** How rare an item is, shown with a colored border and a label. */
+export type Rarity = 'commun' | 'rare' | 'epique' | 'legendaire';
+export const RARITIES: Rarity[] = ['commun', 'rare', 'epique', 'legendaire'];
+export const RARITY_NAMES: Record<Rarity, string> = {
+  commun: 'Commun',
+  rare: 'Rare',
+  epique: 'Épique',
+  legendaire: 'Légendaire',
+};
+
+/**
+ * Earned by playing rather than by level or coins: an achievement reached, or a number of
+ * daily challenges taken. The profile server checks it and adds the item to the collection.
+ */
+export type UnlockCondition = { achievement: string } | { challenges: number };
 
 export interface Reward {
   /** Stable id, stored in the database. For avatars it is the emoji itself. */
@@ -77,6 +93,10 @@ export interface Reward {
   price?: number;
   /** Seasonal shop items are only for sale during their month (1-12). */
   season?: number;
+  /** Earned by playing (see UnlockCondition) instead of a level or a price. */
+  unlock?: UnlockCondition;
+  /** Set for the customization items; the others get one from their level or price (see rarityOf). */
+  rarity?: Rarity;
 }
 
 export const REWARD_KIND_NAMES: Record<RewardKind, string> = {
@@ -86,16 +106,62 @@ export const REWARD_KIND_NAMES: Record<RewardKind, string> = {
   cardBack: 'Dos de cartes',
   banner: 'Bannières',
   emote: 'Emotes',
+  chip: 'Jetons',
+  felt: 'Tapis',
 };
 
+/** One item of a kind, for "Tu débloques : Tapis : Velours". */
+export const REWARD_KIND_ONE: Record<RewardKind, string> = {
+  frame: 'Bordure',
+  title: 'Titre',
+  avatar: 'Avatar',
+  cardBack: 'Dos de cartes',
+  banner: 'Bannière',
+  emote: 'Emote',
+  chip: 'Jetons',
+  felt: 'Tapis',
+};
+
+/** An item's rarity: its own, or guessed from what it costs to get. */
+export function rarityOf(reward: Reward): Rarity {
+  if (reward.rarity) return reward.rarity;
+  const worth = reward.price ?? reward.level * 30;
+  return worth >= 1000 ? 'legendaire' : worth >= 600 ? 'epique' : worth >= 300 ? 'rare' : 'commun';
+}
+
 const r = (kind: RewardKind, id: string, level: number, name: string): Reward => ({ id, kind, level, name });
-const shop = (kind: RewardKind, id: string, price: number, name: string, season?: number): Reward => ({
+const shop = (
+  kind: RewardKind,
+  id: string,
+  price: number,
+  name: string,
+  season?: number,
+  rarity?: Rarity,
+): Reward => ({
   id,
   kind,
   level: 1,
   name,
   price,
   ...(season ? { season } : {}),
+  ...(rarity ? { rarity } : {}),
+});
+/** A level reward with its rarity set by hand. */
+const lv = (kind: RewardKind, id: string, level: number, name: string, rarity: Rarity): Reward => ({
+  id,
+  kind,
+  level,
+  name,
+  rarity,
+});
+/** An item earned by playing: an achievement, or daily challenges. */
+const earn = (kind: RewardKind, id: string, unlock: UnlockCondition, name: string, rarity: Rarity): Reward => ({
+  id,
+  kind,
+  level: 1,
+  name,
+  unlock,
+  rarity,
 });
 
 /** Everything that can be unlocked, in level order within each kind. Level 1 items are free. */
@@ -157,6 +223,33 @@ export const REWARDS: Reward[] = [
   r('banner', 'cosmos', 38, 'Cosmos'),
   r('banner', 'gold', 46, 'Pluie d’or'),
 
+  // ---- Customization: card backs, chips and felts for the tables, frames earned by playing. ----
+  earn('cardBack', 'boussole', { achievement: 'all-games' }, 'Boussole', 'rare'),
+  earn('cardBack', 'phoenix', { achievement: 'won-50' }, 'Phénix', 'epique'),
+  earn('cardBack', 'medaille', { challenges: 10 }, 'Médaille du défi', 'epique'),
+
+  lv('chip', 'classic', 1, 'Casino', 'commun'),
+  lv('chip', 'argile', 8, 'Argile', 'commun'),
+  lv('chip', 'marine', 16, 'Marine', 'rare'),
+  lv('chip', 'neon', 28, 'Néon', 'epique'),
+  lv('chip', 'or', 44, 'Or massif', 'legendaire'),
+  earn('chip', 'defi', { challenges: 5 }, 'Jetons du défi', 'rare'),
+  earn('chip', 'requin', { achievement: 'poker-10' }, 'Requin', 'epique'),
+
+  lv('felt', 'ambiance', 1, 'Celui de l’ambiance', 'commun'),
+  lv('felt', 'bordeaux', 3, 'Bordeaux', 'commun'),
+  lv('felt', 'nuit', 12, 'Bleu nuit', 'rare'),
+  lv('felt', 'vichy', 20, 'Vichy', 'rare'),
+  lv('felt', 'velours', 36, 'Velours royal', 'epique'),
+  earn('felt', 'defi', { challenges: 3 }, 'Tapis du défi', 'rare'),
+  earn('felt', 'jungle', { achievement: 'streak-7' }, 'Jungle', 'epique'),
+  earn('felt', 'champion', { achievement: 'won-150' }, 'Tapis des champions', 'legendaire'),
+
+  earn('frame', 'trefle', { achievement: 'feat-carre' }, 'Trèfle porte-bonheur', 'epique'),
+  earn('frame', 'ecrin', { achievement: 'shop-15' }, 'Écrin', 'epique'),
+  earn('frame', 'lauriers', { achievement: 'played-200' }, 'Lauriers', 'legendaire'),
+  earn('frame', 'medaille', { challenges: 30 }, 'Médaille d’or du défi', 'legendaire'),
+
   // The shop: bought with coins, at any level.
   shop('frame', 'sakura', 300, 'Sakura'),
   shop('frame', 'lagoon', 300, 'Lagon'),
@@ -186,6 +279,19 @@ export const REWARDS: Reward[] = [
   shop('cardBack', 'carbon', 400, 'Carbone'),
   shop('cardBack', 'circuit', 500, 'Circuit'),
   shop('cardBack', 'goldbar', 900, 'Or massif'),
+  shop('cardBack', 'tartan', 350, 'Tartan', undefined, 'rare'),
+  shop('cardBack', 'vagues', 450, 'Vagues', undefined, 'rare'),
+  shop('cardBack', 'vitrail', 650, 'Vitrail', undefined, 'epique'),
+
+  shop('chip', 'bois', 250, 'Bois sculpté', undefined, 'commun'),
+  shop('chip', 'pixel', 300, 'Pixel', undefined, 'rare'),
+  shop('chip', 'marbre', 400, 'Marbre', undefined, 'rare'),
+  shop('chip', 'cristal', 800, 'Cristal', undefined, 'epique'),
+
+  shop('felt', 'sable', 300, 'Dunes', undefined, 'rare'),
+  shop('felt', 'argyle', 450, 'Losanges', undefined, 'rare'),
+  shop('felt', 'etoiles', 700, 'Ciel étoilé', undefined, 'epique'),
+  shop('felt', 'brocart', 1100, 'Brocart d’or', undefined, 'legendaire'),
 
   shop('banner', 'forest', 300, 'Forêt'),
   shop('banner', 'desert', 300, 'Désert'),
@@ -243,6 +349,10 @@ export const REWARDS: Reward[] = [
   shop('frame', 'noel', 600, 'Guirlande', 12),
   shop('banner', 'noel', 500, 'Nuit de Noël', 12),
   shop('title', 'lutin', 300, 'Lutin', 12),
+  // Some months also bring something for the table.
+  shop('chip', 'carnaval', 450, 'Carnaval', 2, 'epique'),
+  shop('cardBack', 'araignee', 500, 'Toile d’araignée', 10, 'epique'),
+  shop('felt', 'noel', 500, 'Tapis de Noël', 12, 'epique'),
 ];
 
 /** How a bought item is stored in a player's collection, since ids repeat across kinds. */
@@ -274,13 +384,20 @@ export interface Equipped {
   title: string;
   cardBack: string;
   banner: string;
+  /** Chips on the poker and blackjack tables, and the cloth of every table. */
+  chip: string;
+  felt: string;
 }
+
+export const EQUIP_SLOTS: (keyof Equipped)[] = ['frame', 'title', 'cardBack', 'banner', 'chip', 'felt'];
 
 export const DEFAULT_EQUIPPED: Equipped = {
   frame: 'none',
   title: 'debutant',
   cardBack: 'classic',
   banner: 'felt',
+  chip: 'classic',
+  felt: 'ambiance',
 };
 
 export function findReward(kind: RewardKind, id: unknown): Reward | undefined {
@@ -296,18 +413,21 @@ export function isUnlocked(
 ): boolean {
   const reward = findReward(kind, id);
   if (!reward) return false;
-  if (reward.price !== undefined) return owned.includes(ownedKey(kind, reward.id));
+  // Bought and earned items are in the collection; level rewards only need the level.
+  if (reward.price !== undefined || reward.unlock) return owned.includes(ownedKey(kind, reward.id));
   return reward.level <= level;
 }
 
 /** Rewards that unlock exactly at a level, to celebrate a level up. */
 export function rewardsAtLevel(level: number): Reward[] {
-  return REWARDS.filter((x) => x.level === level && x.price === undefined);
+  return REWARDS.filter((x) => x.level === level && x.price === undefined && !x.unlock);
 }
 
 /** The next reward still locked, to show what is coming. */
 export function nextReward(level: number): Reward | undefined {
-  return REWARDS.filter((x) => x.level > level && x.price === undefined).sort((a, b) => a.level - b.level)[0];
+  return REWARDS.filter((x) => x.level > level && x.price === undefined && !x.unlock).sort(
+    (a, b) => a.level - b.level,
+  )[0];
 }
 
 /** Keeps only equipped items that exist and are unlocked; anything else goes back to the default. */
@@ -315,7 +435,14 @@ export function cleanEquipped(raw: unknown, level: number, owned: readonly strin
   const e = (raw ?? {}) as Partial<Equipped>;
   const pick = (kind: keyof Equipped) =>
     isUnlocked(kind, e[kind], level, owned) ? (e[kind] as string) : DEFAULT_EQUIPPED[kind];
-  return { frame: pick('frame'), title: pick('title'), cardBack: pick('cardBack'), banner: pick('banner') };
+  return {
+    frame: pick('frame'),
+    title: pick('title'),
+    cardBack: pick('cardBack'),
+    banner: pick('banner'),
+    chip: pick('chip'),
+    felt: pick('felt'),
+  };
 }
 
 /** Every avatar emoji a player may pick: the free ones plus those unlocked or bought. */
@@ -337,6 +464,11 @@ export const ALL_AVATAR_EMOJIS: string[] = [
 /** Like cleanAvatar, but also accepts the emojis this player unlocked or bought. */
 export function avatarAllowed(avatar: Avatar, level: number, owned: readonly string[] = []): boolean {
   return avatarEmojisFor(level, owned).includes(avatar.emoji);
+}
+
+/** Items bought with coins (or found in a chest), leaving out those earned by playing. */
+export function boughtCount(owned: readonly string[]): number {
+  return owned.filter((key) => !REWARDS.some((x) => x.unlock && ownedKey(x.kind, x.id) === key)).length;
 }
 
 /** Cleans a stored list of bought items. */

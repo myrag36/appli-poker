@@ -13,6 +13,7 @@ import {
   localGame,
   reachedAchievement,
   shopItem,
+  unlocksDue,
   weeklyLeaderboard,
 } from './logic.ts';
 
@@ -21,7 +22,14 @@ test('only unlocked rewards can be worn, the rest of the outfit stays', () => {
   assert.throws(() => equip(0, {}, 'hat', 'gold'), GameError);
   const at10 = xpForLevel(10);
   const worn = equip(at10, { title: 'habitue', frame: 'legend' }, 'frame', 'gold');
-  assert.deepEqual(worn, { frame: 'gold', title: 'habitue', cardBack: 'classic', banner: 'felt' });
+  assert.deepEqual(worn, {
+    frame: 'gold',
+    title: 'habitue',
+    cardBack: 'classic',
+    banner: 'felt',
+    chip: 'classic',
+    felt: 'ambiance',
+  });
 });
 
 test('a game on one phone pays like a game online', () => {
@@ -152,4 +160,33 @@ test('weekly ranking between friends: online games of this week, and last weekâ€
   assert.equal(tom.name, 'Joueur');
   assert.equal(tom.me, false);
   assert.equal(board.players.find((p) => p.user_id === 'moi')!.me, true);
+});
+
+test('chips and felts: level ones with the level, shop ones once bought', () => {
+  assert.throws(() => equip(xpForLevel(27), {}, 'chip', 'neon'), /Pas encore/);
+  assert.equal(equip(xpForLevel(28), {}, 'chip', 'neon').chip, 'neon');
+  assert.throws(() => equip(xpForLevel(50), {}, 'felt', 'brocart', []), /Pas encore/);
+  assert.equal(equip(0, { chip: 'neon' }, 'felt', 'brocart', ['felt:brocart']).felt, 'brocart');
+  // What can no longer be worn goes back to the default.
+  assert.equal(equip(0, { chip: 'neon' }, 'felt', 'brocart', ['felt:brocart']).chip, 'classic');
+  assert.deepEqual(shopItem('chip', 'cristal', 3), { key: 'chip:cristal', price: 800 });
+  assert.deepEqual(shopItem('cardBack', 'araignee', 10), { key: 'cardBack:araignee', price: 500 });
+  assert.throws(() => shopItem('cardBack', 'araignee', 11), /plus en vente/);
+});
+
+test('items earned by playing are granted by the server once their condition is met', () => {
+  assert.deepEqual(unlocksDue({ challenges_done: 2 }), []);
+  assert.deepEqual(unlocksDue({ challenges_done: 3 }), ['felt:defi']);
+  assert.deepEqual(unlocksDue({ challenges_done: 3, owned: ['felt:defi'] }), []);
+  assert.deepEqual(unlocksDue({ games: { poker: { played: 10, won: 10 } } }), ['chip:requin']);
+  // Cannot be bought, and cannot be worn before being granted.
+  assert.throws(() => shopItem('chip', 'requin'), /introuvable/);
+  assert.throws(() => equip(xpForLevel(50), {}, 'chip', 'requin', []), /Pas encore/);
+  assert.equal(equip(0, {}, 'chip', 'requin', ['chip:requin']).chip, 'requin');
+});
+
+test('earned items do not count toward the shopping achievements', () => {
+  const earned = ['felt:defi', 'chip:defi', 'chip:requin'];
+  assert.throws(() => reachedAchievement('shop-3', { owned: earned }), /pas encore/);
+  assert.equal(reachedAchievement('shop-3', { owned: [...earned, 'frame:sakura', 'frame:lagoon', 'emote:ğŸ”'] }).id, 'shop-3');
 });

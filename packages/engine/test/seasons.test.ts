@@ -2,10 +2,15 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SEASONS, SHOP_ITEMS, emotesFor, forSale, monthOf, seasonDaysLeft, weekStart } from '../src/index.ts';
 
-test('every month has a season and three items for sale only then', () => {
+test('every month has a season and its items for sale only then', () => {
   assert.equal(SEASONS.length, 12);
   for (let m = 1; m <= 12; m++) {
-    assert.equal(SHOP_ITEMS.filter((x) => x.season === m).length, 3);
+    // A frame, a banner and a title every month; some months add something for the table.
+    const items = SHOP_ITEMS.filter((x) => x.season === m);
+    for (const kind of ['frame', 'banner', 'title']) {
+      assert.equal(items.filter((x) => x.kind === kind).length, 1);
+    }
+    assert.ok(items.length <= 4);
     const other = SHOP_ITEMS.find((x) => x.season === (m % 12) + 1)!;
     assert.equal(forSale(other, m), false);
   }
