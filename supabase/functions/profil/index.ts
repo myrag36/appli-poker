@@ -37,6 +37,7 @@ import {
   finishedChallenge,
   localGame,
   reachedAchievement,
+  unlocksDue,
   shopItem,
   weeklyLeaderboard,
 } from './logic.ts';
@@ -60,7 +61,9 @@ function json(body: unknown, status = 200) {
 async function loadProgress(userId: string) {
   const { data, error } = await admin
     .from('player_progress')
-    .select('xp, equipped, owned, stats_day, day_stats, games, best_streak, quests_done, feats')
+    .select(
+      'xp, equipped, owned, stats_day, day_stats, games, best_streak, quests_done, feats, challenges_done',
+    )
     .eq('user_id', userId)
     .maybeSingle();
   if (error) throw error;
@@ -75,6 +78,7 @@ async function loadProgress(userId: string) {
       best_streak: 0,
       quests_done: 0,
       feats: [],
+      challenges_done: 0,
     }
   );
 }
@@ -153,6 +157,21 @@ async function openChest(userId: string, body: Record<string, unknown>) {
 async function achieve(userId: string, body: Record<string, unknown>) {
   const a = reachedAchievement(body.id, await loadProgress(userId));
   return await rpc('claim_achievement', { p_user: userId, p_id: a.id, p_coins: a.coins });
+}
+
+/**
+ * Adds to my collection the items I earned by playing (an achievement reached, daily
+ * challenges taken), checked here from my progress. They cost nothing: buy_item at price 0.
+ */
+async function unlock(userId: string) {
+  const due = unlocksDue(await loadProgress(userId));
+  const unlocked: string[] = [];
+  for (const key of due) {
+    const { data, error } = await admin.rpc('buy_item', { p_user: userId, p_item: key, p_price: 0 });
+    if (error) throw error;
+    if (!data?.error) unlocked.push(key);
+  }
+  return { unlocked };
 }
 
 async function feat(userId: string, body: Record<string, unknown>) {
@@ -485,6 +504,8 @@ Deno.serve(async (req) => {
         return json(await achieve(user.id, body));
       case 'feat':
         return json(await feat(user.id, body));
+      case 'unlock':
+        return json(await unlock(user.id));
       case 'me':
         return json(await me(user.id, body));
       case 'addFriend':

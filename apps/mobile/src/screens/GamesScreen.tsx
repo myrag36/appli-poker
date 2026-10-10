@@ -195,6 +195,7 @@ interface Props {
   onResume: () => void;
   onProfile: () => void;
   onShop: () => void;
+  onCustomize: () => void;
   onFriends: () => void;
   onTournaments: () => void;
 }
@@ -275,6 +276,7 @@ export function GamesScreen({
   onResume,
   onProfile,
   onShop,
+  onCustomize,
   onFriends,
   onTournaments,
 }: Props) {
@@ -309,6 +311,7 @@ export function GamesScreen({
         onResume={onResume}
         onProfile={onProfile}
         onShop={onShop}
+        onCustomize={onCustomize}
         onFriends={onFriends}
         onTournaments={onTournaments}
         tutorial={tutorial}
@@ -340,6 +343,14 @@ export function GamesScreen({
           style={({ pressed }) => [styles.socialButton, pressed && styles.pressed]}
         >
           <Text style={styles.socialText}>{tournamentsLabel()}</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('Personnaliser')}
+          onPress={onCustomize}
+          style={({ pressed }) => [styles.socialButton, pressed && styles.pressed]}
+        >
+          <Text style={styles.socialText}>{t('🎨 Style')}</Text>
         </Pressable>
         <SeasonPill onPress={onShop} />
       </View>
@@ -484,6 +495,7 @@ function DesktopGames({
   onResume,
   onProfile,
   onShop,
+  onCustomize,
   onFriends,
   onTournaments,
   tutorial,
@@ -536,6 +548,9 @@ function DesktopGames({
               </Pressable>
               <Pressable accessibilityRole="button" onPress={onTournaments} style={hoverable()}>
                 <Text style={desk.actionText}>{tournamentsLabel()}</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" onPress={onCustomize} style={hoverable()}>
+                <Text style={desk.actionText}>{t('🎨 Personnaliser')}</Text>
               </Pressable>
               <SeasonPill onPress={onShop} style={hoverable()} />
             </View>
@@ -759,12 +774,25 @@ function SeasonPill({
 }
 
 const styles = StyleSheet.create({
-  social: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  // Four buttons do not fit one phone row: two by two, the same width.
+  social: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 12,
+    paddingHorizontal: 16,
+    width: '100%',
+    maxWidth: 420,
+  },
   socialButton: {
     flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 14,
+    flexGrow: 1,
+    flexBasis: '40%',
+    paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 18,
     overflow: 'hidden',

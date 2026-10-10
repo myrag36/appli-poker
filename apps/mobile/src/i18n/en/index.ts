@@ -28,6 +28,7 @@ import finitions from './finitions';
 import messagerie from './messagerie';
 import tournoiVendredi from './tournoiVendredi';
 import dames from './dames';
+import personnalisation from './personnalisation';
 
 export const EN: Record<string, string> = {
   ...accueil,
@@ -59,4 +60,5 @@ export const EN: Record<string, string> = {
   ...messagerie,
   ...tournoiVendredi,
   ...dames,
+  ...personnalisation,
 };

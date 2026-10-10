@@ -20,6 +20,7 @@ export * from './progress.ts';
 export * from './quests.ts';
 export * from './challenge.ts';
 export * from './achievements.ts';
+export * from './customization.ts';
 export * from './seasons.ts';
 export * from './rami.ts';
 export * from './uno.ts';

@@ -36,6 +36,7 @@ import { OnlineButton } from '../components/OnlineButton';
 import { RulesButton } from '../components/Rules';
 import { BLACKJACK_RULES } from '../rules';
 import { ChipStack } from '../components/Chip';
+import { ChipFace, chipIndex, useChipStyle } from '../components/chipStyles';
 import { GameLayout } from '../components/GameLayout';
 import { Appear } from '../components/Motion';
 import { PlayingCard } from '../components/PlayingCard';
@@ -45,8 +46,9 @@ import type { OnlineBoardProps, OnlineOptionsProps } from '../online-games/types
 import { sounds } from '../feedback';
 import { deviceRng } from '../rng';
 import { t, tn } from '../i18n';
-import { colors, gradients, shadow, theme } from '../theme';
+import { colors, gradients, shadow } from '../theme';
 import { COLUMN_MAX_WIDTH, useDesktop } from '../layout';
+import { FeltFill, feltMark } from '../components/felts';
 
 interface Settings {
   names: string[];
@@ -637,6 +639,7 @@ function BetPanel({
 }) {
   const min = bjMinBet(stack);
   const [bet, setBet] = useState(Math.max(min, Math.min(stack, initial)));
+  const chipStyle = useChipStyle();
   return (
     <View style={[ui.panel, ui.betPanel]}>
       <View style={ui.turnHeader}>
@@ -666,6 +669,7 @@ function BetPanel({
             onPress={() => setBet(Math.min(stack, bet + v))}
             style={({ pressed }) => [ui.chip, pressed && ui.chipPressed, bet >= stack && ui.chipOff]}
           >
+            <ChipFace style={chipStyle} index={chipIndex(v)} size={54} />
             <View style={ui.chipInner}>
               <Text style={ui.chipText}>+{v}</Text>
             </View>
@@ -787,7 +791,7 @@ function BlackjackTable({
         <View
           style={[tbl.felt, { borderBottomLeftRadius: radius - 10, borderBottomRightRadius: radius - 10 }]}
         >
-          <LinearGradient colors={gradients.felt} style={StyleSheet.absoluteFill} />
+          <FeltFill />
           <View style={tbl.glow} />
           <View
             style={[
@@ -795,9 +799,9 @@ function BlackjackTable({
               { borderBottomLeftRadius: radius - 18, borderBottomRightRadius: radius - 18 },
             ]}
           />
-          {theme.feltMark && (
+          {feltMark() && (
             <Text style={[tbl.feltMark, { top: arcY - w * 0.12, fontSize: Math.round(w * 0.22) }]}>
-              {theme.feltMark}
+              {feltMark()}
             </Text>
           )}
         </View>
@@ -1319,10 +1323,6 @@ const ui = StyleSheet.create({
     width: 54,
     height: 54,
     borderRadius: 27,
-    backgroundColor: colors.felt,
-    borderWidth: 3,
-    borderStyle: 'dashed',
-    borderColor: colors.gold,
     alignItems: 'center',
     justifyContent: 'center',
     ...shadow,
@@ -1330,14 +1330,11 @@ const ui = StyleSheet.create({
   chipPressed: { transform: [{ scale: 0.92 }] },
   chipOff: { opacity: 0.35 },
   chipInner: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 1,
-    borderColor: colors.goldBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.25)',
+    position: 'absolute',
+    paddingHorizontal: 5,
+    paddingVertical: 1,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.6)',
   },
   chipText: { color: colors.text, fontWeight: '800', fontSize: 13 },
   nets: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, justifyContent: 'center' },

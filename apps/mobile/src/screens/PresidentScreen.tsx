@@ -44,7 +44,8 @@ import { sounds } from '../feedback';
 import { COLUMN_MAX_WIDTH, useDesktop } from '../layout';
 import { deviceRng } from '../rng';
 import { lang, t, tn } from '../i18n';
-import { colors, gradients, shadow, theme } from '../theme';
+import { colors, gradients, shadow } from '../theme';
+import { FeltFill, feltMark } from '../components/felts';
 
 /** How long a robot seems to think before playing, in ms. */
 const BOT_DELAY = 950;
@@ -502,11 +503,11 @@ function Felt({ state, avatars, width, height, children, desktop }: TableProps &
       <View style={styles.rail}>
         <LinearGradient colors={gradients.wood} style={StyleSheet.absoluteFill} />
         <View style={styles.felt}>
-          <LinearGradient colors={gradients.felt} style={StyleSheet.absoluteFill} />
+          <FeltFill />
           <View style={styles.feltGlow} />
           <View style={styles.feltLine} />
-          {theme.feltMark && (
-            <Text style={[styles.feltMark, { fontSize: Math.round(w * 0.3) }]}>{theme.feltMark}</Text>
+          {feltMark() && (
+            <Text style={[styles.feltMark, { fontSize: Math.round(w * 0.3) }]}>{feltMark()}</Text>
           )}
         </View>
       </View>

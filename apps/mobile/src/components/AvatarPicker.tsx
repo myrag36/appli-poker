@@ -272,6 +272,44 @@ const FRAMES: Record<string, FrameLook> = {
     lights: ['#ff3b3b', '#ffd23f', '#3bb2ff', '#ff7be5', '#7dff6b'],
     ornaments: [{ e: '🎀', a: -90, k: 0.34, d: 1.02 }],
   },
+  // ---- Earned by playing ----
+  trefle: {
+    ring: ['#d7ffd0', '#4cc35a', '#16752a', '#8ee68f', '#0c5420'],
+    glow: 'rgba(90, 230, 110, 0.6)',
+    ornaments: [
+      { e: '🍀', a: -90, k: 0.34, d: 1.04 },
+      { e: '🍀', a: 150, k: 0.2, r: -25 },
+      { e: '✦', a: 30, k: 0.16, color: '#fff6c9', glow: 'rgba(255, 220, 90, 1)' },
+    ],
+  },
+  ecrin: {
+    ring: ['#f3d7ff', '#9b4dca', '#3c0f63', '#c58af0', '#25083f'],
+    glow: 'rgba(190, 110, 255, 0.7)',
+    gems: '#ffe58a',
+    facets: true,
+    ornaments: [{ e: '💎', a: -90, k: 0.3, d: 1.04 }],
+  },
+  lauriers: {
+    ring: ['#fff4c2', '#f2c24b', '#9a6a10', '#ffe17a', '#b8860b'],
+    glow: 'rgba(255, 200, 60, 0.6)',
+    ornaments: [
+      { e: '🌿', a: 160, k: 0.26, r: 70 },
+      { e: '🌿', a: 125, k: 0.26, r: 35 },
+      { e: '🌿', a: 20, k: 0.26, r: -70 },
+      { e: '🌿', a: 55, k: 0.26, r: -35 },
+      { e: '★', a: -90, k: 0.28, d: 1.04, color: '#fff6c9', glow: 'rgba(255, 200, 60, 1)' },
+    ],
+  },
+  medaille: {
+    ring: ['#fff6c9', '#ffd700', '#b8860b', '#ffe17a', '#8a5d00'],
+    glow: 'rgba(255, 215, 80, 0.85)',
+    motion: 'pulse',
+    sparkles: true,
+    ornaments: [
+      { e: '🏅', a: 90, k: 0.34, d: 1.04 },
+      { e: '★', a: -90, k: 0.22, d: 1.06, color: '#ffffff', glow: 'rgba(255, 215, 80, 1)' },
+    ],
+  },
 };
 
 /** A faceted ring repeats every color twice, so each one keeps a flat band with hard edges. */
