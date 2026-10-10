@@ -428,7 +428,11 @@ export function Space({ w, h, k }: SceneProps) {
         d={planet}
         k={k}
       />
-      <Moon x={w * (narrow ? 0.12 : 0.06)} y={h * (narrow ? 0.05 : 0.16)} d={Math.min(w * 0.08, 64 * k)} />
+      <Moon
+        x={w * (phone ? 0.5 : narrow ? 0.12 : 0.06)}
+        y={h * (phone ? 0.04 : narrow ? 0.05 : 0.16)}
+        d={Math.min(w * 0.08, 64 * k)}
+      />
       {/* Asteroids drifting in the lower right corner */}
       {Array.from({ length: 6 }, (_, i) => {
         const size = (8 + rand() * 18) * k;

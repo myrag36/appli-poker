@@ -449,7 +449,8 @@ export function Suits({ w, h, k }: SceneProps) {
   const floor = h * 0.84;
   const rand = random(19);
   // Kept clear of the title and the profile bar, which sit at the top left and right.
-  const chandeliers = narrow ? [0.16, 0.84] : [0.04, 0.5, 0.96];
+  const phone = narrow && k >= 0.95;
+  const chandeliers = phone ? [0.5] : narrow ? [0.16, 0.84] : [0.04, 0.5, 0.96];
   const slotS = Math.min(1.25, Math.max(0.75, h / 800)) * k;
   const slots = narrow ? 2 : 4;
   const wheelR = Math.min(w * (narrow ? 0.3 : 0.15), 230 * k);

@@ -319,6 +319,8 @@ function Microphone({ x, y, s }: { x: number; y: number; s: number }) {
 export function Lounge({ w, h, k }: SceneProps) {
   const still = tiny(w);
   const narrow = w < 560;
+  // On a phone the title and buttons fill the top: the shelf hangs lower, beside the cards.
+  const phone = narrow && k >= 0.95;
   const rail = h * 0.62;
   const rand = random(31);
   const shelfW = narrow ? w * 0.34 : Math.min(w * 0.2, 300 * k);
@@ -386,9 +388,9 @@ export function Lounge({ w, h, k }: SceneProps) {
         style={{
           position: 'absolute',
           left: 0,
-          top: h * (narrow ? 0.12 : 0.27),
+          top: h * (phone ? 0.37 : narrow ? 0.12 : 0.27),
           width: shelfW,
-          height: h * (narrow ? 0.36 : 0.33),
+          height: h * (phone ? 0.25 : narrow ? 0.36 : 0.33),
           overflow: 'hidden',
           borderTopRightRadius: 6 * k,
           borderBottomRightRadius: 6 * k,
@@ -404,7 +406,7 @@ export function Lounge({ w, h, k }: SceneProps) {
           style={StyleSheet.absoluteFill}
         />
       </View>
-      {(narrow ? [0.25, 0.37, 0.48] : [0.38, 0.48, 0.58]).map((t, i) => (
+      {(phone ? [0.45, 0.53, 0.61] : narrow ? [0.25, 0.37, 0.48] : [0.38, 0.48, 0.58]).map((t, i) => (
         <Shelf key={t} x={0} y={h * t} width={shelfW - 2 * k} s={s} seed={i + 4} />
       ))}
 

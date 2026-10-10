@@ -707,7 +707,7 @@ export function Saloon({ w, h, k }: SceneProps) {
         </View>
       </Pivot>
       {/* Lamps */}
-      {(narrow ? [0.08, 0.26] : [0.3, 0.7]).map((x) => (
+      {(phone ? [] : narrow ? [0.08, 0.26] : [0.3, 0.7]).map((x) => (
         <OilLamp key={x} x={w * x} drop={(narrow ? 22 : 40) * k} s={s} still={still} />
       ))}
 

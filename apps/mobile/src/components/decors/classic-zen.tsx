@@ -642,20 +642,22 @@ export function Sakura({ w, h, k }: SceneProps) {
       {!narrow && <StoneLantern x={w * 0.97} base={h - 20 * k} s={k * 0.9} still={still} />}
 
       {/* Cherry branches from the top corners, with paper lanterns */}
-      <Branch
-        x={-10 * k}
-        y={-6 * k}
-        dir={1}
-        len={Math.min(w * (phone ? 0.42 : narrow ? 0.6 : 0.24), 340 * k)}
-        k={k}
-        seed={4}
-        angle={narrow ? 0.35 : 1}
-      />
+      {!phone && (
+        <Branch
+          x={-10 * k}
+          y={-6 * k}
+          dir={1}
+          len={Math.min(w * (phone ? 0.42 : narrow ? 0.6 : 0.24), 340 * k)}
+          k={k}
+          seed={4}
+          angle={narrow ? 0.35 : 1}
+        />
+      )}
       <Branch
         x={w + 10 * k}
         y={narrow && !phone ? 40 * k : -6 * k}
         dir={-1}
-        len={Math.min(w * (phone ? 0.3 : narrow ? 0.45 : 0.22), 320 * k)}
+        len={Math.min(w * (phone ? 0.36 : narrow ? 0.45 : 0.22), 320 * k)}
         k={k}
         seed={9}
         angle={narrow ? 0.35 : 1}
