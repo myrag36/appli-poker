@@ -7,7 +7,7 @@ export type NoticeLang = 'fr' | 'en';
 
 /** A notification as the service worker shows it. */
 export interface Notice {
-  kind: 'invite' | 'turn';
+  kind: 'invite' | 'turn' | 'message';
   title: string;
   body: string;
   /** Notifications with the same tag replace each other on the phone. */
@@ -136,6 +136,24 @@ export function turnNotice(lang: NoticeLang, game: string, code: string): Notice
         : `Tes amis t’attendent à la table de ${name}.`,
     tag: `turn-${code}`,
     url: tableUrl(game, code),
+  };
+}
+
+/** The page that opens my conversation with a friend. */
+export function chatUrl(friendId: string): string {
+  return `./?ami=${encodeURIComponent(friendId)}`;
+}
+
+/** A friend wrote to me: their name and the start of the message. */
+export function messageNotice(lang: NoticeLang, from: string, body: string, fromId: string): Notice {
+  const chars = Array.from(body.replace(/\s+/g, ' ').trim());
+  const preview = chars.length > 120 ? `${chars.slice(0, 119).join('')}…` : chars.join('');
+  return {
+    kind: 'message',
+    title: `💬 ${from}`,
+    body: preview || (lang === 'en' ? 'New message' : 'Nouveau message'),
+    tag: `message-${fromId}`,
+    url: chatUrl(fromId),
   };
 }
 

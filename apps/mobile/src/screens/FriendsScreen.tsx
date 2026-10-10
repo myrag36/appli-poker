@@ -11,20 +11,14 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import {
-  ALL_AVATAR_EMOJIS,
-  cleanAvatar,
-  cleanEquipped,
-  cleanOwned,
-  defaultAvatar,
-  levelFromXp,
-} from '@appli-poker/engine';
-import { AvatarBadge } from '../components/AvatarPicker';
+import { cleanEquipped, cleanOwned, levelFromXp } from '@appli-poker/engine';
+import { MessagesPanel, PresenceAvatar, friendAvatar } from '../components/Messagerie';
 import { TitleBadge } from '../components/TitleBadge';
 import { TopBar } from '../components/TopBar';
 import { ClassementPanel } from './ClassementPanel';
 import { type FriendRow, addFriend, loadFriends, removeFriend, syncMe } from '../online/progress';
 import { type TableInvite, dismissInvite, loadInvites } from '../online/invites';
+import { useOnline, useUnreadCount } from '../online/messagerie';
 import { ONLINE_UI } from '../online-games';
 import type { OnlineGameId } from '@appli-poker/engine';
 import { sounds } from '../feedback';
@@ -40,10 +34,13 @@ export function FriendsScreen({
   onBack,
   onJoin,
   initialTab = 'amis',
+  initialFriend,
 }: {
   onBack: () => void;
-  /** Opens straight on the weekly ranking of online games. */
-  initialTab?: 'amis' | 'classement';
+  /** Opens straight on the weekly ranking of online games, or on my messages. */
+  initialTab?: Tab;
+  /** Opens this friend's conversation (from a notification). */
+  initialFriend?: string;
   /** Goes to a friend's table from an invitation. */
   onJoin?: (game: string, code: string) => void;
 }) {
@@ -59,7 +56,9 @@ export function FriendsScreen({
   const [error, setError] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
   const [invites, setInvites] = useState<TableInvite[]>([]);
-  const [tab, setTab] = useState<'amis' | 'classement'>(initialTab);
+  const [tab, setTab] = useState<Tab>(initialFriend ? 'messages' : initialTab);
+  const unread = useUnreadCount();
+  const online = useOnline();
 
   async function reload() {
     try {
@@ -228,7 +227,13 @@ export function FriendsScreen({
       ) : (
         <View style={styles.board}>
           {friends.map((r, i) => (
-            <Row key={r.user_id} row={r} index={i + 1} onLongPress={() => setRemoving(r.user_id)} />
+            <Row
+              key={r.user_id}
+              row={r}
+              index={i + 1}
+              online={online.has(r.user_id)}
+              onLongPress={() => setRemoving(r.user_id)}
+            />
           ))}
           {friends.length === 0 && (
             <Text style={styles.empty}>
@@ -267,16 +272,13 @@ export function FriendsScreen({
     </>
   );
 
-  return (
-    <ScrollView
-      contentContainerStyle={[styles.container, desktop && styles.containerDesktop, { width }]}
-      keyboardShouldPersistTaps="handled"
-    >
+  const header = (
+    <>
       <TopBar onBack={onBack} backLabel={t('← Jeux')}>
         <Text style={styles.topTitle}>{t('Amis')}</Text>
       </TopBar>
       <View style={[styles.tabs, desktop && styles.tabsDesktop]} accessibilityRole="tablist">
-        {(['amis', 'classement'] as const).map((id) => (
+        {TABS.map((id) => (
           <Pressable
             key={id}
             accessibilityRole="tab"
@@ -284,12 +286,61 @@ export function FriendsScreen({
             onPress={() => setTab(id)}
             style={[styles.tab, tab === id && styles.tabOn]}
           >
-            <Text style={[styles.tabText, tab === id && styles.tabTextOn]}>
-              {id === 'amis' ? t('👥 Mes amis') : t('🏆 Classement')}
+            <Text
+              style={[styles.tabText, !desktop && styles.tabTextPhone, tab === id && styles.tabTextOn]}
+              numberOfLines={1}
+            >
+              {id === 'amis'
+                ? desktop
+                  ? t('👥 Mes amis')
+                  : t('👥 Amis')
+                : id === 'messages'
+                  ? // On a phone the unread badge needs the room of the emoji.
+                    desktop || unread === 0
+                    ? t('💬 Messages')
+                    : t('Messages')
+                  : t('🏆 Classement')}
             </Text>
+            {id === 'messages' && unread > 0 && (
+              <View style={styles.tabBadge}>
+                <Text style={styles.tabBadgeText}>{unread > 99 ? '99+' : unread}</Text>
+              </View>
+            )}
           </Pressable>
         ))}
       </View>
+    </>
+  );
+
+  // Messages fill the screen: the conversation scrolls by itself, the writing box stays below.
+  if (tab === 'messages') {
+    return (
+      <View
+        style={[
+          styles.container,
+          desktop && styles.containerDesktop,
+          styles.messagesPage,
+          { width, paddingBottom: desktop ? 32 : 0 },
+        ]}
+      >
+        {header}
+        <MessagesPanel
+          friends={rows}
+          desktop={desktop}
+          initialFriend={initialFriend}
+          onJoin={onJoin}
+          onAddFriends={() => setTab('amis')}
+        />
+      </View>
+    );
+  }
+
+  return (
+    <ScrollView
+      contentContainerStyle={[styles.container, desktop && styles.containerDesktop, { width }]}
+      keyboardShouldPersistTaps="handled"
+    >
+      {header}
       {tab === 'classement' ? (
         <ClassementPanel desktop={desktop} />
       ) : desktop ? (
@@ -307,29 +358,38 @@ export function FriendsScreen({
   );
 }
 
+type Tab = 'amis' | 'messages' | 'classement';
+const TABS: Tab[] = ['amis', 'messages', 'classement'];
+
 /** Desktop page width and its left column. */
 const DESK_WIDTH = 1040;
 const DESK_LEFT = 400;
 
 /** A friend: avatar, name, title, level and days in a row; a long press offers to remove them. */
-function Row({ row, index, onLongPress }: { row: FriendRow; index: number; onLongPress: () => void }) {
+function Row({
+  row,
+  index,
+  online,
+  onLongPress,
+}: {
+  row: FriendRow;
+  index: number;
+  online: boolean;
+  onLongPress: () => void;
+}) {
   const level = levelFromXp(row.xp);
   const equipped = cleanEquipped(row.equipped, level, cleanOwned(row.owned));
-  const avatar = cleanAvatar(
-    { emoji: row.avatar, color: row.avatar_color },
-    defaultAvatar(index),
-    ALL_AVATAR_EMOJIS,
-  );
   return (
     <Pressable
       onLongPress={onLongPress}
       accessibilityLabel={t('{name}, niveau {level}', { name: row.name, level })}
       style={styles.row}
     >
-      <AvatarBadge avatar={{ ...avatar, frame: equipped.frame, level }} size={44} />
+      <PresenceAvatar avatar={friendAvatar(row, index)} size={44} online={online} />
       <View style={styles.rowBody}>
         <Text style={styles.rowName} numberOfLines={1}>
           {row.name}
+          {online ? <Text style={styles.rowOnline}>{t(' · en ligne')}</Text> : null}
           {row.streak > 0 ? <Text style={styles.rowStreak}> 🔥{row.streak}</Text> : null}
         </Text>
         <TitleBadge id={equipped.title} small />
@@ -358,10 +418,32 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.glassBorder,
   },
-  tabsDesktop: { alignSelf: 'flex-start', minWidth: 400 },
-  tab: { flex: 1, paddingVertical: 9, paddingHorizontal: 14, borderRadius: 10, alignItems: 'center' },
+  tabsDesktop: { alignSelf: 'flex-start', minWidth: 560 },
+  tab: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: 6,
+    paddingVertical: 9,
+    paddingHorizontal: 4,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabBadge: {
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: '#e63946',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tabBadgeText: { color: '#fff', fontSize: 11, fontWeight: '900' },
+  messagesPage: { flex: 1, minHeight: 0 },
+  rowOnline: { color: '#3ddc84', fontSize: 12, fontWeight: '700' },
   tabOn: { backgroundColor: colors.gold },
   tabText: { color: colors.muted, fontSize: 14, fontWeight: '800' },
+  tabTextPhone: { fontSize: 13 },
   tabTextOn: { color: colors.onGold, fontWeight: '900' },
   codeCard: {
     marginTop: 8,

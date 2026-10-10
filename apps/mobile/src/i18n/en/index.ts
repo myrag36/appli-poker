@@ -24,6 +24,7 @@ import sons from './sons';
 import perudo from './perudo';
 import ambiances from './ambiances';
 import finitions from './finitions';
+import messagerie from './messagerie';
 
 export const EN: Record<string, string> = {
   ...accueil,
@@ -51,4 +52,5 @@ export const EN: Record<string, string> = {
   ...perudo,
   ...ambiances,
   ...finitions,
+  ...messagerie,
 };

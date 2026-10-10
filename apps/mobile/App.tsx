@@ -54,7 +54,7 @@ type Screen =
   | { name: 'stats' }
   | { name: 'profile' }
   | { name: 'shop'; from: 'games' | 'profile' }
-  | { name: 'friends' }
+  | { name: 'friends'; friend?: string }
   | { name: 'tournaments'; id?: string };
 
 export default function App() {
@@ -74,9 +74,13 @@ export default function App() {
     const params = new URLSearchParams(window.location.search);
     const game = params.get('jeu');
     const code = params.get('table');
+    const friend = params.get('ami');
     if (game && code) {
       window.history.replaceState(null, '', window.location.pathname);
       joinFromLink(game, code);
+    } else if (friend) {
+      window.history.replaceState(null, '', window.location.pathname);
+      openChat(friend);
     }
   }, []);
 
@@ -84,6 +88,7 @@ export default function App() {
     if (typeof navigator === 'undefined' || !navigator.serviceWorker) return;
     const onMessage = (e: MessageEvent) => {
       if (e.data?.type === 'open-table') joinFromLink(String(e.data.game), String(e.data.code));
+      if (e.data?.type === 'open-chat') openChat(String(e.data.friend));
     };
     navigator.serviceWorker.addEventListener('message', onMessage);
     return () => navigator.serviceWorker.removeEventListener('message', onMessage);
@@ -117,6 +122,11 @@ export default function App() {
     }
   }
 
+  /** Opens my conversation with a friend, from a message notification. */
+  function openChat(friend: string) {
+    if (/^[0-9a-f-]{36}$/i.test(friend)) setScreen({ name: 'friends', friend: friend.toLowerCase() });
+  }
+
   async function openRoom(roomId: string) {
     try {
       const userId = await ensureSignedIn();
@@ -148,7 +158,15 @@ export default function App() {
         {screen.name === 'profile' && (
           <ProfileScreen onBack={games} onShop={() => setScreen({ name: 'shop', from: 'profile' })} />
         )}
-        {screen.name === 'friends' && <FriendsScreen onBack={games} onJoin={joinFromLink} />}
+        {screen.name === 'friends' && (
+          <FriendsScreen
+            // A notification for another friend opens their conversation afresh.
+            key={screen.friend ?? 'amis'}
+            onBack={games}
+            onJoin={joinFromLink}
+            initialFriend={screen.friend}
+          />
+        )}
         {screen.name === 'tournaments' && (
           <TournamentScreen
             initialId={screen.id}
