@@ -197,6 +197,8 @@ interface Props {
   onShop: () => void;
   onCustomize: () => void;
   onFriends: () => void;
+  /** The club tab of the friends screen. */
+  onClub: () => void;
   onTournaments: () => void;
 }
 
@@ -278,6 +280,7 @@ export function GamesScreen({
   onShop,
   onCustomize,
   onFriends,
+  onClub,
   onTournaments,
 }: Props) {
   const insets = useSafeAreaInsets();
@@ -313,6 +316,7 @@ export function GamesScreen({
         onShop={onShop}
         onCustomize={onCustomize}
         onFriends={onFriends}
+        onClub={onClub}
         onTournaments={onTournaments}
         tutorial={tutorial}
         onTutorialClose={() => setTutorial(false)}
@@ -332,10 +336,25 @@ export function GamesScreen({
         <Pressable
           accessibilityRole="button"
           onPress={onFriends}
-          style={({ pressed }) => [styles.socialButton, pressed && styles.pressed]}
+          style={({ pressed }) => [styles.socialButton, styles.socialShort, pressed && styles.pressed]}
         >
           <Text style={styles.socialText}>{t('👥 Amis')}</Text>
           <UnreadBadge />
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          onPress={onClub}
+          style={({ pressed }) => [styles.socialButton, styles.socialShort, pressed && styles.pressed]}
+        >
+          <Text style={styles.socialText}>{t('🛡️ Club')}</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('Personnaliser')}
+          onPress={onCustomize}
+          style={({ pressed }) => [styles.socialButton, styles.socialShort, pressed && styles.pressed]}
+        >
+          <Text style={styles.socialText}>{t('🎨 Style')}</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
@@ -343,14 +362,6 @@ export function GamesScreen({
           style={({ pressed }) => [styles.socialButton, pressed && styles.pressed]}
         >
           <Text style={styles.socialText}>{tournamentsLabel()}</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('Personnaliser')}
-          onPress={onCustomize}
-          style={({ pressed }) => [styles.socialButton, pressed && styles.pressed]}
-        >
-          <Text style={styles.socialText}>{t('🎨 Style')}</Text>
         </Pressable>
         <SeasonPill onPress={onShop} />
       </View>
@@ -497,6 +508,7 @@ function DesktopGames({
   onShop,
   onCustomize,
   onFriends,
+  onClub,
   onTournaments,
   tutorial,
   onTutorialClose,
@@ -545,6 +557,9 @@ function DesktopGames({
               <Pressable accessibilityRole="button" onPress={onFriends} style={hoverable()}>
                 <Text style={desk.actionText}>{t('👥 Amis')}</Text>
                 <UnreadBadge />
+              </Pressable>
+              <Pressable accessibilityRole="button" onPress={onClub} style={hoverable()}>
+                <Text style={desk.actionText}>{t('🛡️ Club')}</Text>
               </Pressable>
               <Pressable accessibilityRole="button" onPress={onTournaments} style={hoverable()}>
                 <Text style={desk.actionText}>{tournamentsLabel()}</Text>
@@ -774,7 +789,7 @@ function SeasonPill({
 }
 
 const styles = StyleSheet.create({
-  // Four buttons do not fit one phone row: two by two, the same width.
+  // Five buttons do not fit one phone row: the three short ones above, the two longer below.
   social: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -800,6 +815,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.glassBorder,
   },
+  socialShort: { flexBasis: '28%' },
   socialText: { color: colors.text, fontSize: 14, fontWeight: '800' },
   chips: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
   coins: {

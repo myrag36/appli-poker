@@ -108,6 +108,11 @@ export function callProfile<T>(body: ProfileRequest): Promise<T> {
   return invoke<T>('profil', body);
 }
 
+/** Calls the clubs server (club, members, lounge, challenges); requests are listed in clubs.ts. */
+export function callClubs<T>(body: { type: string } & Record<string, unknown>): Promise<T> {
+  return invoke<T>('clubs', body);
+}
+
 async function invoke<T>(fn: string, body: unknown): Promise<T> {
   await ensureSignedIn();
   const { data, error } = await supabase.functions.invoke(fn, { body: body as Record<string, unknown> });

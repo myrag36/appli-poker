@@ -65,7 +65,7 @@ type Screen =
   | { name: 'profile' }
   | { name: 'shop'; from: 'games' | 'profile' | 'customize' }
   | { name: 'customize'; from: 'games' | 'profile' | 'shop' }
-  | { name: 'friends'; friend?: string }
+  | { name: 'friends'; friend?: string; club?: string }
   | { name: 'tournaments'; id?: string; weekly?: boolean };
 
 export default function App() {
@@ -87,6 +87,7 @@ export default function App() {
     const code = params.get('table');
     const friend = params.get('ami');
     const weekly = params.get('tournoi') === 'vendredi';
+    const club = params.get('club');
     if ((game && code) || weekly) {
       window.history.replaceState(null, '', window.location.pathname);
       if (weekly) openWeekly(game, code);
@@ -94,6 +95,9 @@ export default function App() {
     } else if (friend) {
       window.history.replaceState(null, '', window.location.pathname);
       openChat(friend);
+    } else if (club) {
+      window.history.replaceState(null, '', window.location.pathname);
+      openClub(club);
     }
   }, []);
 
@@ -103,6 +107,7 @@ export default function App() {
       if (e.data?.type === 'open-table') joinFromLink(String(e.data.game), String(e.data.code));
       if (e.data?.type === 'open-chat') openChat(String(e.data.friend));
       if (e.data?.type === 'open-weekly') openWeekly(e.data.game ?? null, e.data.code ?? null);
+      if (e.data?.type === 'open-club') openClub(String(e.data.club ?? ''));
     };
     navigator.serviceWorker.addEventListener('message', onMessage);
     return () => navigator.serviceWorker.removeEventListener('message', onMessage);
@@ -148,6 +153,12 @@ export default function App() {
     if (/^[0-9a-f-]{36}$/i.test(friend)) setScreen({ name: 'friends', friend: friend.toLowerCase() });
   }
 
+  /** The club tab: from a link to join a club (?club=CODE) or a club notification (?club=salon). */
+  function openClub(club: string) {
+    const code = club.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    setScreen({ name: 'friends', club: code.length === 6 ? code : '' });
+  }
+
   async function openRoom(roomId: string) {
     try {
       const userId = await ensureSignedIn();
@@ -174,6 +185,7 @@ export default function App() {
             onShop={() => setScreen({ name: 'shop', from: 'games' })}
             onCustomize={() => setScreen({ name: 'customize', from: 'games' })}
             onFriends={() => setScreen({ name: 'friends' })}
+            onClub={() => setScreen({ name: 'friends', club: '' })}
             onTournaments={() => setScreen({ name: 'tournaments' })}
           />
         )}
@@ -187,10 +199,11 @@ export default function App() {
         {screen.name === 'friends' && (
           <FriendsScreen
             // A notification for another friend opens their conversation afresh.
-            key={screen.friend ?? 'amis'}
+            key={screen.friend ?? (screen.club !== undefined ? `club-${screen.club}` : 'amis')}
             onBack={games}
             onJoin={joinFromLink}
             initialFriend={screen.friend}
+            initialClubCode={screen.club}
           />
         )}
         {screen.name === 'tournaments' && (
