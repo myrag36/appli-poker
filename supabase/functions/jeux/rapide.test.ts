@@ -10,8 +10,11 @@ import {
   QUEUE_STALE_MS,
   OPEN_TABLE_MS,
   type QueueRow,
+  blockRow,
   blockedAtTable,
   checkBlock,
+  expiryCutoffs,
+  freeName,
   checkQueueJoin,
   cleanVisibility,
   fillGroup,
@@ -398,4 +401,47 @@ test('open tables: waiting public tables of others, not full, not blocked, recen
     created_at: iso(60_000),
   });
   assert.equal(list[0].host.level, 1);
+});
+
+test('the database deletes exactly the expired rows', () => {
+  const rows = [
+    row('w1', { last_seen: iso(QUEUE_STALE_MS + 1) }),
+    row('w2', { last_seen: iso(QUEUE_STALE_MS - 1) }),
+    row('m1', { status: 'matched', last_seen: iso(QUEUE_MATCHED_KEEP_MS + 1) }),
+    row('m2', { status: 'matched', last_seen: iso(QUEUE_MATCHED_KEEP_MS - 1) }),
+    row('l1', { status: 'left', joins_since: iso(QUEUE_JOIN_WINDOW_MS + 1) }),
+    row('l2', { status: 'left', joins_since: iso(QUEUE_JOIN_WINDOW_MS - 1) }),
+  ];
+  const cuts = expiryCutoffs(NOW);
+  for (const r of rows) {
+    const deleted = cuts.some((c) => c.status === r.status && (r as any)[c.column] < c.before);
+    assert.equal(deleted, isExpired(r, NOW), r.user_id);
+  }
+});
+
+test('a block keeps what the blocker saw, cleaned', () => {
+  const me = uid(1);
+  assert.deepEqual(
+    blockRow(me, { userId: uid(2), name: '  Zoé  ', avatar: '🐱', avatarColor: '#e9c46a' }, 3),
+    {
+      user_id: me,
+      blocked_id: uid(2),
+      name: 'Zoé',
+      avatar: '🐱',
+      avatar_color: '#e9c46a',
+    },
+  );
+  assert.deepEqual(blockRow(me, { userId: uid(2), name: 7, avatar: 'x'.repeat(40), avatarColor: 'red' }, 0), {
+    user_id: me,
+    blocked_id: uid(2),
+    name: null,
+    avatar: null,
+    avatar_color: null,
+  });
+});
+
+test('a stranger with a name already taken at a public table gets a number', () => {
+  assert.equal(freeName(['Léa', 'Tom'], 'léa'), 'léa 2');
+  assert.equal(freeName(['Léa', 'Léa 2'], 'Léa'), 'Léa 3');
+  assert.equal(freeName([], 'Tom'), 'Tom');
 });

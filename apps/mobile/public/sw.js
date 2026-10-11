@@ -227,8 +227,8 @@ async function showPush(data) {
     badge: new URL('icons/icon-192.png', SHELL_URL).href,
     data: { url: new URL(typeof data.url === 'string' ? data.url : './', SHELL_URL).href },
   };
-  if (data.kind === 'turn' || data.kind === 'message') {
-    // Turn and message notices are for when the app is in the background: on screen, the app
+  if (data.kind === 'turn' || data.kind === 'message' || data.kind === 'match') {
+    // Turn, message and "opponent found" notices are for when the app is in the background: on screen, the app
     // shows them itself.
     const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     if (windows.some((c) => c.visibilityState === 'visible')) {

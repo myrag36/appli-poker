@@ -37,6 +37,8 @@ import {
 import { awardXp, unlockedEmojis } from '../_shared/xp.ts';
 import { inBackground, notify } from '../_shared/push.ts';
 import { newTurns, pokerToAct, turnNotice } from '../_shared/notify.ts';
+import { loadBlocks, rateTable } from '../_shared/rapide.ts';
+import { blockedAtTable, cleanVisibility, freeName, isRated } from '../jeux/rapide.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -138,11 +140,31 @@ async function recordHand(room: RoomRow, saved: SaveParams) {
         const won = p.user_id === records.game!.winner_id;
         awards.push(awardXp(admin, p.user_id, 'poker', XP_PLAY + (won ? XP_WIN : 0), { won }));
       }
+      if (isRated(room.visibility)) awards.push(ratePokerGame(room, records.game!.winner_id));
     }
     await Promise.all(awards);
   } catch (e) {
     console.error('main non enregistrée', e);
   }
+}
+
+/**
+ * A sit-and-go open to strangers is over: ratings move by the order players were knocked out in
+ * (the winner first, those knocked out in the same hand share a place). Robots never count.
+ */
+async function ratePokerGame(room: RoomRow, winnerId: string) {
+  const { data, error } = await admin
+    .from('room_players')
+    .select('user_id, is_bot, place')
+    .eq('room_id', room.id);
+  if (error) throw error;
+  const placements = (data ?? [])
+    .filter((p) => !p.is_bot)
+    .map((p) => ({
+      userId: p.user_id as string,
+      place: p.user_id === winnerId ? 1 : Math.max(2, (p.place as number | null) ?? 2),
+    }));
+  await rateTable(admin, room, 'poker', placements);
 }
 
 async function createRoom(userId: string, body: Record<string, unknown>) {
@@ -173,6 +195,7 @@ async function createRoom(userId: string, body: Record<string, unknown>) {
         starting_stack: stack,
         level_minutes: levelMinutes,
         variant,
+        visibility: cleanVisibility(body.visibility),
       })
       .select('id, code')
       .single();
@@ -190,13 +213,13 @@ async function createRoom(userId: string, body: Record<string, unknown>) {
 }
 
 async function joinRoom(userId: string, body: Record<string, unknown>) {
-  const name = cleanName(body.name);
+  let name = cleanName(body.name);
   const code = String(body.code ?? '')
     .trim()
     .toUpperCase();
   const { data: room, error } = await admin
     .from('rooms')
-    .select('id, starting_stack')
+    .select('id, starting_stack, visibility')
     .eq('code', code)
     .maybeSingle();
   if (error) throw error;
@@ -204,6 +227,16 @@ async function joinRoom(userId: string, body: Record<string, unknown>) {
 
   const players = await loadPlayers(admin, room.id);
   if (players.some((p) => p.user_id === userId)) return { roomId: room.id };
+  if (room.visibility !== 'private') {
+    // A table open to strangers: never with someone blocked, and a name already taken gets a number.
+    if (blockedAtTable(userId, players, await loadBlocks(admin, [userId]))) {
+      throw new GameError('Cette table n’est pas disponible');
+    }
+    name = freeName(
+      players.map((p) => p.name),
+      name,
+    );
+  }
   if (players.length >= MAX_PLAYERS) throw new GameError('La table est pleine (8 joueurs maximum)');
   if (players.some((p) => p.name.toLowerCase() === name.toLowerCase())) {
     throw new GameError('Ce prénom est déjà pris à cette table');
@@ -252,13 +285,20 @@ function notifyTurn(room: RoomRow, before: HandState | null, saved: SaveParams) 
   const ids = newTurns(pokerToAct(before), pokerToAct(saved.p_secret), saved.p_public.bots ?? []);
   if (ids.length === 0 || !room.code) return;
   const code = room.code;
-  inBackground(notify(admin, ids, (lang) => turnNotice(lang, 'poker', code), { ttl: 300, urgency: 'high' }));
+  const strangers = isRated(room.visibility);
+  inBackground(
+    notify(admin, ids, (lang) => turnNotice(lang, 'poker', code, strangers), { ttl: 300, urgency: 'high' }),
+  );
 }
 
 async function nextHand(userId: string, roomId: string) {
   const room = await loadRoom(admin, roomId);
-  if (room.host_id !== userId) throw new GameError('Seul le créateur de la table peut distribuer');
   const [players, previous] = await Promise.all([loadPlayers(admin, roomId), loadHand(admin, roomId)]);
+  // At a quick table nobody is in charge: anyone seated deals, so a host who left blocks nobody.
+  const seated = players.some((p) => p.user_id === userId && !p.is_bot);
+  if (room.host_id !== userId && !(room.visibility === 'quick' && seated)) {
+    throw new GameError('Seul le créateur de la table peut distribuer');
+  }
   const saved = dealNextHand(room, players, previous, Date.now());
   const version = await save(admin, saved);
   notifyTurn(room, null, saved);
@@ -295,6 +335,8 @@ async function timeout(userId: string, roomId: string) {
 async function setPaused(userId: string, roomId: string, paused: boolean) {
   const room = await loadRoom(admin, roomId);
   if (room.host_id !== userId) throw new GameError('Seul le créateur de la table peut mettre en pause');
+  // Strangers did not agree to wait for the host.
+  if (room.visibility === 'quick' && paused) throw new GameError('Pas de pause à une table rapide');
   if (Boolean(room.paused) === paused) return { version: room.version };
   const { data, error } = await admin
     .from('rooms')
@@ -319,6 +361,7 @@ async function addBot(userId: string, roomId: string) {
 
 async function removePlayer(userId: string, roomId: string, targetId: string) {
   const room = await loadRoom(admin, roomId);
+  if (room.visibility === 'quick') throw new GameError('Personne ne peut être retiré d’une table rapide');
   checkRemoval(room, await loadPlayers(admin, roomId), userId, targetId);
   const { error } = await admin.from('room_players').delete().eq('room_id', roomId).eq('user_id', targetId);
   if (error) throw error;

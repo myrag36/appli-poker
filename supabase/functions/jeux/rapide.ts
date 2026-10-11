@@ -484,3 +484,38 @@ export function checkBlock(userId: string, target: unknown, count: number): stri
   if (count >= MAX_BLOCKS) throw new GameError('Tu as bloqué trop de joueurs');
   return id;
 }
+
+/** The row saved when blocking: who, and how they looked, to recognize them in the list. */
+export function blockRow(userId: string, body: Record<string, unknown>, count: number) {
+  const name = typeof body.name === 'string' ? body.name.trim().slice(0, 16) : '';
+  const avatar = typeof body.avatar === 'string' && body.avatar.length <= 16 ? body.avatar : null;
+  const color =
+    typeof body.avatarColor === 'string' && /^#[0-9a-f]{6}$/i.test(body.avatarColor)
+      ? body.avatarColor
+      : null;
+  return {
+    user_id: userId,
+    blocked_id: checkBlock(userId, body.userId, count),
+    name: name || null,
+    avatar,
+    avatar_color: color,
+  };
+}
+
+/**
+ * The deletes that clear the queue, one per status: the same rows as `isExpired`, as columns
+ * and dates the database can filter on.
+ */
+export function expiryCutoffs(now: number) {
+  const at = (ago: number) => new Date(now - ago).toISOString();
+  return [
+    { status: 'waiting', column: 'last_seen', before: at(QUEUE_STALE_MS) },
+    { status: 'matched', column: 'last_seen', before: at(QUEUE_MATCHED_KEEP_MS) },
+    { status: 'left', column: 'joins_since', before: at(QUEUE_JOIN_WINDOW_MS) },
+  ] as const;
+}
+
+/** A name at a public table: someone already called the same gets a number, like at a quick table. */
+export function freeName(taken: string[], name: string): string {
+  return uniqueNames([...taken, name])[taken.length];
+}

@@ -45,6 +45,8 @@ export interface RoomRow {
   public_state?: PublicState | null;
   /** Set once someone asked for a rematch of this finished game. */
   rematch?: Rematch | null;
+  /** private (the default), public (listed in "Tables ouvertes") or quick (made by the matchmaker). */
+  visibility?: string;
 }
 
 /** Tournament level of the hand being played and when the next one starts (epoch ms). */
