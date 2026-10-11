@@ -171,10 +171,7 @@ export interface ClubLine {
 
 /** A club's points: the sum of its members' points in the weekly ranking. */
 export function clubPoints(members: (GameTally | LeaderboardLine)[]): number {
-  return members.reduce(
-    (sum, m) => sum + ('points' in m ? m.points : leaderboardPoints(m as GameTally)),
-    0,
-  );
+  return members.reduce((sum, m) => sum + ('points' in m ? m.points : leaderboardPoints(m as GameTally)), 0);
 }
 
 /**
@@ -287,7 +284,10 @@ export function challengeRefusal(
   if (thisWeek.some((c) => c.status === 'accepted' && involves(c, to))) {
     return 'Ce club a déjà un défi cette semaine';
   }
-  if (thisWeek.filter((c) => c.status === 'pending' && c.from_club === from).length >= CLUB_MAX_PENDING_CHALLENGES) {
+  if (
+    thisWeek.filter((c) => c.status === 'pending' && c.from_club === from).length >=
+    CLUB_MAX_PENDING_CHALLENGES
+  ) {
     return 'Trop de défis en attente, patiente qu’ils répondent';
   }
   return null;

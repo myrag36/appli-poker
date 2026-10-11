@@ -25,6 +25,7 @@ export const CHEST_REASONS: Record<string, string> = {
   serie: '7 jours d’affilée',
   podium: 'Podium de la semaine',
   tournoi: 'Champion du tournoi',
+  club: 'Podium des clubs',
 };
 
 /** What a chest holds: coins, and sometimes a shop item the player does not have yet. */
