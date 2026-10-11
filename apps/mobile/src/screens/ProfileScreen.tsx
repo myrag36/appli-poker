@@ -16,6 +16,9 @@ import {
   type Equipped,
   MAX_LEVEL,
   PROGRESS_GAMES,
+  RANKED_LEVEL,
+  type RankedGameId,
+  mainRank,
   type ProgressGame,
   REWARDS,
   REWARD_KIND_NAMES,
@@ -42,6 +45,8 @@ import { useMyClubBadge } from '../online/clubs';
 import { TopBar } from '../components/TopBar';
 import { BlockedList, quickGameLook } from '../components/Strangers';
 import { useMyRatings } from '../online/rapide';
+import { useRankedOverview } from '../online/classees';
+import { RankBadge, RankChip, rankLine } from '../components/Ranked';
 import { Tutorial } from '../components/Tutorial';
 import { equipReward, syncMe, useMyProgress } from '../online/progress';
 import { loadAvatar, loadName, saveAvatar, saveName } from '../online/supabase';
@@ -80,10 +85,16 @@ export function ProfileScreen({
   onBack,
   onShop,
   onCustomize,
+  onRanked,
+  onBoard,
 }: {
   onBack: () => void;
   onShop: () => void;
   onCustomize: () => void;
+  /** 🏆 Tables classées. */
+  onRanked: () => void;
+  /** The ranked leaderboard of a game. */
+  onBoard: (game: RankedGameId) => void;
 }) {
   const progress = useMyProgress();
   const { width: screenW } = useWindowDimensions();
@@ -131,6 +142,10 @@ export function ProfileScreen({
   const me: Avatar = { ...avatar, frame: equipped.frame, level };
   const club = useMyClubBadge();
   const ratings = Object.values(useMyRatings());
+  const rankedOpen = level >= RANKED_LEVEL;
+  const { overview } = useRankedOverview(rankedOpen);
+  const placedRanks = (overview?.ranks ?? []).filter((r) => !r.fresh);
+  const best = mainRank(overview?.ranks ?? []);
 
   async function wear(slot: keyof Equipped, reward: Reward) {
     if (!isUnlocked(reward.kind, reward.id, level, owned)) return;
@@ -326,6 +341,59 @@ export function ProfileScreen({
     </>
   );
 
+  const ranks = (
+    <>
+      <Text style={styles.section}>{t('Mes rangs')}</Text>
+      <View style={styles.card}>
+        {!rankedOpen ? (
+          <Text style={styles.how}>
+            {t('🔒 Les tables classées s’ouvrent au niveau {n} : un rang par jeu, de Bronze à Légende.', {
+              n: RANKED_LEVEL,
+            })}
+          </Text>
+        ) : (
+          <>
+            <View style={styles.mainRank}>
+              {best ? (
+                <RankBadge points={best.points} legend={best.legend} size={56} />
+              ) : (
+                <RankBadge points={0} placement={1} size={56} />
+              )}
+              <View style={styles.flexOne}>
+                <Text style={styles.mainRankKicker}>{t('Rang principal')}</Text>
+                <Text style={styles.mainRankName}>{best ? rankLine(best) : t('Pas encore classé')}</Text>
+                {best && <Text style={styles.statValue}>{quickGameLook(best.game).title}</Text>}
+              </View>
+            </View>
+            {placedRanks.map((r) => (
+              <Pressable
+                key={r.game}
+                accessibilityRole="button"
+                onPress={() => onBoard(r.game)}
+                style={({ pressed }) => [styles.statRow, styles.rankRow, pressed && { opacity: 0.8 }]}
+              >
+                <Text style={styles.statGame} numberOfLines={1}>
+                  {quickGameLook(r.game).emoji} {quickGameLook(r.game).title}
+                </Text>
+                <RankChip points={r.points} placement={r.placement} legend={r.legend} showRp />
+              </Pressable>
+            ))}
+            {overview && placedRanks.length === 0 && (
+              <Text style={styles.how}>{t('Aucune partie classée cette saison.')}</Text>
+            )}
+          </>
+        )}
+        <Pressable
+          accessibilityRole="button"
+          onPress={onRanked}
+          style={({ pressed }) => [styles.rankedLink, pressed && { opacity: 0.8 }]}
+        >
+          <Text style={styles.rankedLinkText}>{t('🏆 Tables classées ›')}</Text>
+        </Pressable>
+      </View>
+    </>
+  );
+
   const strangers = (
     <>
       <Text style={styles.section}>{t('Ma cote en ligne')}</Text>
@@ -419,6 +487,7 @@ export function ProfileScreen({
         <View style={styles.columns}>
           <View style={{ width: DESK_LEFT }}>
             {identity}
+            {ranks}
             {games}
             {strangers}
             {settings}
@@ -433,6 +502,7 @@ export function ProfileScreen({
           {identity}
           {rewards}
           {achievements}
+          {ranks}
           {games}
           {strangers}
           {settings}
@@ -543,6 +613,13 @@ const styles = StyleSheet.create({
   statGame: { color: colors.text, fontSize: 15, fontWeight: '700' },
   statValue: { color: colors.muted, fontSize: 14 },
   rating: { color: colors.gold, fontWeight: '900' },
+  mainRank: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 8 },
+  flexOne: { flex: 1, minWidth: 0 },
+  mainRankKicker: { color: colors.muted, fontSize: 12, fontWeight: '800', textTransform: 'uppercase' },
+  mainRankName: { color: colors.gold, fontSize: 18, fontWeight: '900' },
+  rankRow: { alignItems: 'center', paddingVertical: 5, gap: 8 },
+  rankedLink: { alignSelf: 'flex-start', marginTop: 8 },
+  rankedLinkText: { color: colors.gold, fontSize: 14, fontWeight: '800' },
   error: { color: colors.gold, marginTop: 10, textAlign: 'center' },
   langs: { flexDirection: 'row', gap: 10, marginTop: 10 },
   lang: {

@@ -31,6 +31,8 @@ export interface GameRoom {
   rematch?: { roomId: string; code: string; byId: string; by: string } | null;
   /** private (friends with the code), public ("Tables ouvertes") or quick (found by Partie rapide). */
   visibility?: 'private' | 'public' | 'quick';
+  /** A table of the ranked queue (tables classées). */
+  ranked?: boolean;
 }
 
 export interface GamePlayer {

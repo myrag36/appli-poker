@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { type Avatar, REWARD_KIND_ONE, defaultAvatar } from '@appli-poker/engine';
+import { type Avatar, RANKED_LEVEL, RANK_TIERS, REWARD_KIND_ONE, defaultAvatar } from '@appli-poker/engine';
 import { type ProgressEvent, type UnlockEvent, useProgressEvent, useUnlockEvent } from '../online/progress';
 import { loadAvatar } from '../online/supabase';
 import { RewardPreview } from './RewardPreview';
@@ -10,8 +10,11 @@ import { sounds } from '../feedback';
 import { colors, gradients, shadow } from '../theme';
 import { t } from '../i18n';
 
-/** "+50 XP" when experience comes in, and a celebration with the new rewards on a level up. */
-export function ProgressToast() {
+/**
+ * "+50 XP" when experience comes in, and a celebration with the new rewards on a level up (and
+ * the tables classées opening at level 10).
+ */
+export function ProgressToast({ onRanked }: { onRanked?: () => void }) {
   const event = useProgressEvent();
   const insets = useSafeAreaInsets();
   const [shown, setShown] = useState<ProgressEvent | null>(null);
@@ -61,6 +64,29 @@ export function ProgressToast() {
               <Text style={styles.party}>🎉</Text>
               <Text style={styles.kicker}>{t('Niveau supérieur')}</Text>
               <Text style={styles.level}>{t('Niveau {n}', { n: levelUp.level })}</Text>
+              {levelUp.from < RANKED_LEVEL && levelUp.level >= RANKED_LEVEL && (
+                <View style={styles.rankedUnlock}>
+                  <Text style={styles.rankedEmblems}>{RANK_TIERS.map((x) => x.glyph).join(' ')}</Text>
+                  <Text style={styles.rankedTitle}>{t('🏆 Tables classées débloquées !')}</Text>
+                  <Text style={styles.rankedText}>
+                    {t(
+                      'Affronte des joueurs de ton rang, grimpe de Bronze à Légende et gagne des récompenses à chaque saison.',
+                    )}
+                  </Text>
+                  {onRanked && (
+                    <Pressable
+                      accessibilityRole="button"
+                      onPress={() => {
+                        setLevelUp(null);
+                        onRanked();
+                      }}
+                      style={({ pressed }) => [styles.rankedGo, pressed && { opacity: 0.8 }]}
+                    >
+                      <Text style={styles.rankedGoText}>{t('Découvrir les tables classées ›')}</Text>
+                    </Pressable>
+                  )}
+                </View>
+              )}
               {levelUp.rewards.length > 0 ? (
                 <>
                   <Text style={styles.unlocked}>{t('Tu débloques :')}</Text>
@@ -132,6 +158,22 @@ function UnlockToast({ top }: { top: number }) {
 }
 
 const styles = StyleSheet.create({
+  rankedUnlock: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    gap: 4,
+    marginVertical: 8,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 193, 7, 0.12)',
+    borderWidth: 1,
+    borderColor: colors.gold,
+  },
+  rankedEmblems: { fontSize: 20, letterSpacing: 2 },
+  rankedTitle: { color: colors.gold, fontSize: 17, fontWeight: '900', textAlign: 'center' },
+  rankedText: { color: colors.text, fontSize: 13, lineHeight: 18, textAlign: 'center' },
+  rankedGo: { marginTop: 4, paddingVertical: 6, paddingHorizontal: 12 },
+  rankedGoText: { color: colors.gold, fontSize: 14, fontWeight: '800', textDecorationLine: 'underline' },
   unlock: {
     minWidth: 250,
     padding: 12,

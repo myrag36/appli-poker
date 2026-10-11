@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import {
   type Avatar,
   defaultAvatar,
@@ -7,7 +7,7 @@ import {
   questProgress,
   questsFor,
   seasonOf,
-} from "@appli-poker/engine";
+} from '@appli-poker/engine';
 import {
   Animated,
   Platform,
@@ -19,47 +19,49 @@ import {
   useWindowDimensions,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import {
+  RANKED_LEVEL,
   lastWeeklyFriday,
+  levelFromXp,
   nextWeeklyFriday,
   weeklyStartsAt,
-} from "@appli-poker/engine";
-import { GameDecor } from "../components/GameDecor";
-import { ThemeChooser } from "../components/ThemeChooser";
-import { InstallBanner } from "../components/InstallBanner";
-import { Tutorial, tutorialPending } from "../components/Tutorial";
-import { AvatarBadge } from "../components/AvatarPicker";
-import { achievementsReady } from "../components/Achievements";
-import { DailyChallenge } from "../components/DailyChallenge";
-import { useMyProgress } from "../online/progress";
-import { useUnreadCount } from "../online/messagerie";
-import { loadAvatar } from "../online/supabase";
-import { PlayingCard } from "../components/PlayingCard";
-import { Token } from "../components/Token";
-import { UnoCard } from "../components/UnoCard";
-import { TarotCard } from "../components/TarotCard";
-import { colors, gradients, shadow } from "../theme";
-import { LANGS, lang, setLang, t, tn } from "../i18n";
-import { PAGE_MAX_WIDTH, useDesktop } from "../layout";
+} from '@appli-poker/engine';
+import { GameDecor } from '../components/GameDecor';
+import { ThemeChooser } from '../components/ThemeChooser';
+import { InstallBanner } from '../components/InstallBanner';
+import { Tutorial, tutorialPending } from '../components/Tutorial';
+import { AvatarBadge } from '../components/AvatarPicker';
+import { achievementsReady } from '../components/Achievements';
+import { DailyChallenge } from '../components/DailyChallenge';
+import { useMyProgress } from '../online/progress';
+import { useUnreadCount } from '../online/messagerie';
+import { loadAvatar } from '../online/supabase';
+import { PlayingCard } from '../components/PlayingCard';
+import { Token } from '../components/Token';
+import { UnoCard } from '../components/UnoCard';
+import { TarotCard } from '../components/TarotCard';
+import { colors, gradients, shadow } from '../theme';
+import { LANGS, lang, setLang, t, tn } from '../i18n';
+import { PAGE_MAX_WIDTH, useDesktop } from '../layout';
 
 export type GameId =
-  | "poker"
-  | "blackjack"
-  | "president"
-  | "yams"
-  | "belote"
-  | "puissance4"
-  | "bataille"
-  | "echecs"
-  | "rami"
-  | "uno"
-  | "huit"
-  | "tarot"
-  | "perudo"
-  | "dames";
+  | 'poker'
+  | 'blackjack'
+  | 'president'
+  | 'yams'
+  | 'belote'
+  | 'puissance4'
+  | 'bataille'
+  | 'echecs'
+  | 'rami'
+  | 'uno'
+  | 'huit'
+  | 'tarot'
+  | 'perudo'
+  | 'dames';
 
 interface Game {
   id: GameId;
@@ -73,136 +75,114 @@ interface Game {
 
 const GAMES: Game[] = [
   {
-    id: "poker",
-    title: "Poker",
+    id: 'poker',
+    title: 'Poker',
     tagline: t("Texas Hold'em ou Omaha, en ligne ou sur un seul téléphone."),
-    players: t("2 à 8 joueurs"),
-    art: ["As", "Kh", "Qd"],
+    players: t('2 à 8 joueurs'),
+    art: ['As', 'Kh', 'Qd'],
     ready: true,
   },
   {
-    id: "blackjack",
-    title: "Blackjack",
-    tagline: t("Approche-toi de 21 sans dépasser, contre la banque."),
-    players: t("1 à 7 joueurs"),
-    art: ["Ah", "Js"],
+    id: 'blackjack',
+    title: 'Blackjack',
+    tagline: t('Approche-toi de 21 sans dépasser, contre la banque.'),
+    players: t('1 à 7 joueurs'),
+    art: ['Ah', 'Js'],
     ready: true,
   },
   {
-    id: "president",
-    title: t("Président"),
-    tagline: t(
-      "Débarrasse-toi de tes cartes le premier pour devenir président.",
-    ),
-    players: t("3 à 8 joueurs"),
-    art: ["2c", "2d", "2h", "2s"],
+    id: 'president',
+    title: t('Président'),
+    tagline: t('Débarrasse-toi de tes cartes le premier pour devenir président.'),
+    players: t('3 à 8 joueurs'),
+    art: ['2c', '2d', '2h', '2s'],
     ready: true,
   },
   {
-    id: "yams",
-    title: "Yams",
-    tagline: t(
-      "Cinq dés, trois lancers, une grille de combinaisons à remplir.",
-    ),
-    players: t("1 à 6 joueurs"),
-    art: ["⚄", "⚄", "⚄", "⚀", "⚅"],
+    id: 'yams',
+    title: 'Yams',
+    tagline: t('Cinq dés, trois lancers, une grille de combinaisons à remplir.'),
+    players: t('1 à 6 joueurs'),
+    art: ['⚄', '⚄', '⚄', '⚀', '⚅'],
     ready: true,
   },
   {
-    id: "belote",
-    title: "Belote",
-    tagline: t(
-      "Deux équipes, un atout, et la belote-rebelote pour les chanceux.",
-    ),
-    players: t("4 joueurs"),
-    art: ["Jh", "9h", "Ah", "Kh", "Qh"],
+    id: 'belote',
+    title: 'Belote',
+    tagline: t('Deux équipes, un atout, et la belote-rebelote pour les chanceux.'),
+    players: t('4 joueurs'),
+    art: ['Jh', '9h', 'Ah', 'Kh', 'Qh'],
     ready: true,
   },
   {
-    id: "puissance4",
-    title: t("Puissance 4"),
-    tagline: t("Fais tomber tes jetons et aligne-en quatre avant l’autre."),
-    players: t("2 joueurs ou contre le robot"),
-    art: ["r", "y", "r", "y", "r"],
+    id: 'puissance4',
+    title: t('Puissance 4'),
+    tagline: t('Fais tomber tes jetons et aligne-en quatre avant l’autre.'),
+    players: t('2 joueurs ou contre le robot'),
+    art: ['r', 'y', 'r', 'y', 'r'],
     ready: true,
   },
   {
-    id: "bataille",
-    title: t("Bataille navale"),
-    tagline: t(
-      "Cache ta flotte, tire à l’aveugle et coule tous les navires adverses.",
-    ),
-    players: t("2 joueurs ou contre le robot"),
+    id: 'bataille',
+    title: t('Bataille navale'),
+    tagline: t('Cache ta flotte, tire à l’aveugle et coule tous les navires adverses.'),
+    players: t('2 joueurs ou contre le robot'),
     art: [],
     ready: true,
   },
   {
-    id: "echecs",
-    title: t("Échecs"),
-    tagline: t(
-      "Le roi des jeux de stratégie : roque, promotion, et mate le roi adverse.",
-    ),
-    players: t("2 joueurs ou contre le robot"),
+    id: 'echecs',
+    title: t('Échecs'),
+    tagline: t('Le roi des jeux de stratégie : roque, promotion, et mate le roi adverse.'),
+    players: t('2 joueurs ou contre le robot'),
     art: [],
     ready: true,
   },
   {
-    id: "rami",
-    title: "Rami",
-    tagline: t(
-      "Pose tes suites et tes brelans, ouvre à 51 et vide ta main le premier.",
-    ),
-    players: t("2 à 6 joueurs"),
-    art: ["7d", "8d", "Xr", "9d"],
+    id: 'rami',
+    title: 'Rami',
+    tagline: t('Pose tes suites et tes brelans, ouvre à 51 et vide ta main le premier.'),
+    players: t('2 à 6 joueurs'),
+    art: ['7d', '8d', 'Xr', '9d'],
     ready: true,
   },
   {
-    id: "uno",
-    title: "Uno",
-    tagline: t(
-      "Couleur ou chiffre, +2, +4 et Joker : crie « Uno ! » avant de gagner.",
-    ),
-    players: t("2 à 6 joueurs"),
-    art: ["bSa", "y7a", "wFa", "rDa", "g2a"],
+    id: 'uno',
+    title: 'Uno',
+    tagline: t('Couleur ou chiffre, +2, +4 et Joker : crie « Uno ! » avant de gagner.'),
+    players: t('2 à 6 joueurs'),
+    art: ['bSa', 'y7a', 'wFa', 'rDa', 'g2a'],
     ready: true,
   },
   {
-    id: "huit",
-    title: t("8 américain"),
-    tagline: t(
-      "Le 8 change la couleur, le 2 fait piocher : vide ta main le premier.",
-    ),
-    players: t("2 à 6 joueurs"),
-    art: ["2h", "8s", "8h", "Jd"],
+    id: 'huit',
+    title: t('8 américain'),
+    tagline: t('Le 8 change la couleur, le 2 fait piocher : vide ta main le premier.'),
+    players: t('2 à 6 joueurs'),
+    art: ['2h', '8s', '8h', 'Jd'],
     ready: true,
   },
   {
-    id: "tarot",
-    title: "Tarot",
-    tagline: t(
-      "Prends, garde ou passe : seul contre trois, avec les bouts pour alliés.",
-    ),
-    players: t("4 joueurs"),
-    art: ["1t", "EX", "21t", "Rh", "Cs"],
+    id: 'tarot',
+    title: 'Tarot',
+    tagline: t('Prends, garde ou passe : seul contre trois, avec les bouts pour alliés.'),
+    players: t('4 joueurs'),
+    art: ['1t', 'EX', '21t', 'Rh', 'Cs'],
     ready: true,
   },
   {
-    id: "perudo",
-    title: "Perudo",
-    tagline: t(
-      "Des dés cachés sous les gobelets : surenchéris, bluffe ou crie « Dudo ! ».",
-    ),
-    players: t("2 à 6 joueurs"),
-    art: ["⚀", "⚃", "⚃", "⚀", "⚃"],
+    id: 'perudo',
+    title: 'Perudo',
+    tagline: t('Des dés cachés sous les gobelets : surenchéris, bluffe ou crie « Dudo ! ».'),
+    players: t('2 à 6 joueurs'),
+    art: ['⚀', '⚃', '⚃', '⚀', '⚃'],
     ready: true,
   },
   {
-    id: "dames",
-    title: t("Dames"),
-    tagline: t(
-      "Pions, rafles et dames volantes : prends toutes les pièces adverses.",
-    ),
-    players: t("2 joueurs ou contre le robot"),
+    id: 'dames',
+    title: t('Dames'),
+    tagline: t('Pions, rafles et dames volantes : prends toutes les pièces adverses.'),
+    players: t('2 joueurs ou contre le robot'),
     art: [],
     ready: true,
   },
@@ -225,75 +205,58 @@ interface Props {
   onTournaments: () => void;
   /** ⚡ Partie rapide: play online with strangers right away. */
   onQuick: () => void;
+  /** 🏆 Tables classées (open from level 10). */
+  onRanked: () => void;
 }
 
 // These three pictures are drawn by their game's screen, a separate download (see App.tsx).
-const BatailleArt = lazy(() =>
-  import("./BatailleScreen").then((m) => ({ default: m.BatailleArt })),
-);
-const EchecsArt = lazy(() =>
-  import("./EchecsScreen").then((m) => ({ default: m.EchecsArt })),
-);
-const DamesArt = lazy(() =>
-  import("./DamesScreen").then((m) => ({ default: m.DamesArt })),
-);
+const BatailleArt = lazy(() => import('./BatailleScreen').then((m) => ({ default: m.BatailleArt })));
+const EchecsArt = lazy(() => import('./EchecsScreen').then((m) => ({ default: m.EchecsArt })));
+const DamesArt = lazy(() => import('./DamesScreen').then((m) => ({ default: m.DamesArt })));
 
 function Art({ game }: { game: Game }) {
-  if (game.id === "bataille" || game.id === "echecs" || game.id === "dames") {
-    const Board =
-      game.id === "bataille"
-        ? BatailleArt
-        : game.id === "echecs"
-          ? EchecsArt
-          : DamesArt;
+  if (game.id === 'bataille' || game.id === 'echecs' || game.id === 'dames') {
+    const Board = game.id === 'bataille' ? BatailleArt : game.id === 'echecs' ? EchecsArt : DamesArt;
     return (
       <Suspense fallback={null}>
         <Board />
       </Suspense>
     );
   }
-  if (game.id === "puissance4") {
+  if (game.id === 'puissance4') {
     return (
       <View style={styles.tokens}>
         {game.art.map((tok, i) => (
           <Token
             key={i}
-            player={tok === "r" ? 0 : 1}
+            player={tok === 'r' ? 0 : 1}
             size={46}
             style={{
-              transform: [
-                { translateY: (i % 2 ? 10 : -8) + Math.abs(i - 2) * 3 },
-              ],
+              transform: [{ translateY: (i % 2 ? 10 : -8) + Math.abs(i - 2) * 3 }],
             }}
           />
         ))}
       </View>
     );
   }
-  if (game.id === "yams" || game.id === "perudo") {
-    const perudo = game.id === "perudo";
+  if (game.id === 'yams' || game.id === 'perudo') {
+    const perudo = game.id === 'perudo';
     return (
       <View style={styles.dice}>
         {game.art.map((d, i) => (
           <View
             key={i}
-            style={[
-              styles.die,
-              perudo && styles.dieRed,
-              { transform: [{ rotate: `${(i - 2) * 9}deg` }] },
-            ]}
+            style={[styles.die, perudo && styles.dieRed, { transform: [{ rotate: `${(i - 2) * 9}deg` }] }]}
           >
-            <Text style={[styles.dieText, perudo && styles.dieTextRed]}>
-              {d}
-            </Text>
+            <Text style={[styles.dieText, perudo && styles.dieTextRed]}>{d}</Text>
           </View>
         ))}
       </View>
     );
   }
   const mid = (game.art.length - 1) / 2;
-  const tarot = game.id === "tarot";
-  if (game.id === "uno") {
+  const tarot = game.id === 'tarot';
+  if (game.id === 'uno') {
     return (
       <View style={styles.fan}>
         {game.art.map((c, i) => (
@@ -302,10 +265,7 @@ function Art({ game }: { game: Game }) {
             style={[
               styles.fanCard,
               {
-                transform: [
-                  { rotate: `${(i - mid) * 13}deg` },
-                  { translateY: Math.abs(i - mid) * 8 },
-                ],
+                transform: [{ rotate: `${(i - mid) * 13}deg` }, { translateY: Math.abs(i - mid) * 8 }],
               },
             ]}
           >
@@ -323,18 +283,11 @@ function Art({ game }: { game: Game }) {
           style={[
             styles.fanCard,
             {
-              transform: [
-                { rotate: `${(i - mid) * 13}deg` },
-                { translateY: Math.abs(i - mid) * 8 },
-              ],
+              transform: [{ rotate: `${(i - mid) * 13}deg` }, { translateY: Math.abs(i - mid) * 8 }],
             },
           ]}
         >
-          {tarot ? (
-            <TarotCard card={c} width={56} />
-          ) : (
-            <PlayingCard card={c} width={62} />
-          )}
+          {tarot ? <TarotCard card={c} width={56} /> : <PlayingCard card={c} width={62} />}
         </View>
       ))}
     </View>
@@ -346,15 +299,7 @@ function Art({ game }: { game: Game }) {
  * a slow phone: the cards that start out of sight draw theirs a moment later (after `wait` ms),
  * or as soon as they come into view.
  */
-function LateDecor({
-  wait,
-  ...decor
-}: {
-  id: Game["id"];
-  width: number;
-  height: number;
-  wait: number;
-}) {
+function LateDecor({ wait, ...decor }: { id: Game['id']; width: number; height: number; wait: number }) {
   const [late, setLate] = useState(wait > 0);
   useEffect(() => {
     if (!late) return;
@@ -378,6 +323,7 @@ export function GamesScreen({
   onClub,
   onTournaments,
   onQuick,
+  onRanked,
 }: Props) {
   const insets = useSafeAreaInsets();
   const [tutorial, setTutorial] = useState(tutorialPending);
@@ -415,6 +361,7 @@ export function GamesScreen({
         onClub={onClub}
         onTournaments={onTournaments}
         onQuick={onQuick}
+        onRanked={onRanked}
         tutorial={tutorial}
         onTutorialClose={() => setTutorial(false)}
       />
@@ -422,12 +369,7 @@ export function GamesScreen({
   }
 
   return (
-    <View
-      style={[
-        styles.container,
-        { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 20 },
-      ]}
-    >
+    <View style={[styles.container, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 20 }]}>
       <View style={styles.chips}>
         <ProfileChip onPress={onProfile} />
         <CoinsChip onPress={onShop} />
@@ -438,52 +380,40 @@ export function GamesScreen({
         <Pressable
           accessibilityRole="button"
           onPress={onFriends}
-          style={({ pressed }) => [
-            styles.socialButton,
-            styles.socialShort,
-            pressed && styles.pressed,
-          ]}
+          style={({ pressed }) => [styles.socialButton, styles.socialShort, pressed && styles.pressed]}
         >
-          <Text style={styles.socialText}>{t("👥 Amis")}</Text>
+          <Text style={styles.socialText}>{t('👥 Amis')}</Text>
           <UnreadBadge />
         </Pressable>
         <Pressable
           accessibilityRole="button"
           onPress={onClub}
-          style={({ pressed }) => [
-            styles.socialButton,
-            styles.socialShort,
-            pressed && styles.pressed,
-          ]}
+          style={({ pressed }) => [styles.socialButton, styles.socialShort, pressed && styles.pressed]}
         >
-          <Text style={styles.socialText}>{t("🛡️ Club")}</Text>
+          <Text style={styles.socialText}>{t('🛡️ Club')}</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={t("Personnaliser")}
+          accessibilityLabel={t('Personnaliser')}
           onPress={onCustomize}
-          style={({ pressed }) => [
-            styles.socialButton,
-            styles.socialShort,
-            pressed && styles.pressed,
-          ]}
+          style={({ pressed }) => [styles.socialButton, styles.socialShort, pressed && styles.pressed]}
         >
-          <Text style={styles.socialText}>{t("🎨 Style")}</Text>
+          <Text style={styles.socialText}>{t('🎨 Style')}</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
           onPress={onTournaments}
-          style={({ pressed }) => [
-            styles.socialButton,
-            pressed && styles.pressed,
-          ]}
+          style={({ pressed }) => [styles.socialButton, pressed && styles.pressed]}
         >
           <Text style={styles.socialText}>{tournamentsLabel()}</Text>
         </Pressable>
         <SeasonPill onPress={onShop} />
       </View>
 
-      <QuickButton onPress={onQuick} width={Math.min(viewWidth - 32, 420)} />
+      <View style={[styles.quickRow, { width: Math.min(viewWidth - 32, 420) }]}>
+        <QuickButton onPress={onQuick} />
+        <RankedButton onPress={onRanked} />
+      </View>
 
       <DailyChallenge width={Math.min(viewWidth - 32, 440)} />
 
@@ -493,9 +423,7 @@ export function GamesScreen({
           onPress={onResume}
           style={({ pressed }) => [styles.resume, pressed && styles.pressed]}
         >
-          <Text style={styles.resumeText}>
-            {t("▶ Reprendre ma table de poker")}
-          </Text>
+          <Text style={styles.resumeText}>{t('▶ Reprendre ma table de poker')}</Text>
         </Pressable>
       )}
 
@@ -508,52 +436,40 @@ export function GamesScreen({
           decelerationRate="fast"
           contentContainerStyle={{ paddingHorizontal: side, gap: GAP }}
           scrollEventThrottle={16}
-          onScroll={Animated.event(
-            [{ nativeEvent: { contentOffset: { x: scrollX } } }],
-            {
-              useNativeDriver: false,
-              listener: onScroll,
-            },
-          )}
+          onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], {
+            useNativeDriver: false,
+            listener: onScroll,
+          })}
         >
           {GAMES.map((game, i) => {
             const range = [(i - 1) * step, i * step, (i + 1) * step];
             const scale = scrollX.interpolate({
               inputRange: range,
               outputRange: [0.88, 1, 0.88],
-              extrapolate: "clamp",
+              extrapolate: 'clamp',
             });
             const opacity = scrollX.interpolate({
               inputRange: range,
               outputRange: [0.55, 1, 0.55],
-              extrapolate: "clamp",
+              extrapolate: 'clamp',
             });
             return (
-              <Animated.View
-                key={game.id}
-                style={{ width: cardWidth, transform: [{ scale }], opacity }}
-              >
+              <Animated.View key={game.id} style={{ width: cardWidth, transform: [{ scale }], opacity }}>
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel={
                     game.ready
-                      ? t("Jouer : {game}", { game: game.title })
-                      : t("{game}, bientôt", { game: game.title })
+                      ? t('Jouer : {game}', { game: game.title })
+                      : t('{game}, bientôt', { game: game.title })
                   }
-                  onPress={() =>
-                    i === index ? game.ready && onPlay(game.id) : goTo(i)
-                  }
+                  onPress={() => (i === index ? game.ready && onPlay(game.id) : goTo(i))}
                   style={[styles.card, shadow, { height: cardHeight }]}
                 >
                   <LateDecor
                     id={game.id}
                     width={cardWidth}
                     height={cardHeight}
-                    wait={
-                      Math.abs(i - index) <= 1
-                        ? 0
-                        : 200 + 100 * Math.abs(i - index)
-                    }
+                    wait={Math.abs(i - index) <= 1 ? 0 : 200 + 100 * Math.abs(i - index)}
                   />
                   <View style={styles.artBox}>
                     <Art game={game} />
@@ -563,15 +479,12 @@ export function GamesScreen({
                   <Text style={styles.cardText}>{game.tagline}</Text>
                   <View style={styles.cardFooter}>
                     {game.ready ? (
-                      <LinearGradient
-                        colors={gradients.gold}
-                        style={styles.play}
-                      >
-                        <Text style={styles.playText}>{t("Jouer")}</Text>
+                      <LinearGradient colors={gradients.gold} style={styles.play}>
+                        <Text style={styles.playText}>{t('Jouer')}</Text>
                       </LinearGradient>
                     ) : (
                       <View style={styles.soon}>
-                        <Text style={styles.soonText}>{t("Bientôt")}</Text>
+                        <Text style={styles.soonText}>{t('Bientôt')}</Text>
                       </View>
                     )}
                   </View>
@@ -618,13 +531,11 @@ function QuickButton({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={t(
-        "Partie rapide : jouer en ligne avec d’autres joueurs",
-      )}
+      accessibilityLabel={t('Partie rapide : jouer en ligne avec d’autres joueurs')}
       onPress={onPress}
       style={({ pressed, hovered }: PressState) => [
         styles.quick,
-        width !== undefined && { width },
+        width !== undefined ? { width } : !desktop && styles.quickFlex,
         desktop && styles.quickDesktop,
         HOVER_TRANSITION,
         hovered && desk.actionHover,
@@ -637,22 +548,45 @@ function QuickButton({
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
-      <Text style={styles.quickTitle}>{t("⚡ Partie rapide")}</Text>
+      <Text style={styles.quickTitle}>{t('⚡ Partie rapide')}</Text>
       <Text style={styles.quickText} numberOfLines={1}>
-        {desktop
-          ? t("Joue en ligne avec d’autres joueurs, maintenant")
-          : t("Contre d’autres joueurs ›")}
+        {desktop ? t('Joue en ligne avec d’autres joueurs, maintenant') : t('Contre d’autres joueurs ›')}
       </Text>
+    </Pressable>
+  );
+}
+
+/** "🏆 Classées": the tables classées, with a lock below level 10. */
+function RankedButton({ onPress, desktop }: { onPress: () => void; desktop?: boolean }) {
+  const progress = useMyProgress();
+  const locked = progress ? levelFromXp(progress.xp) < RANKED_LEVEL : false;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={
+        locked
+          ? t('Tables classées, niveau {n} requis', { n: RANKED_LEVEL })
+          : t('Tables classées : affronte des joueurs de ton rang')
+      }
+      onPress={onPress}
+      style={({ pressed, hovered }: PressState) => [
+        styles.ranked,
+        desktop && styles.quickDesktop,
+        HOVER_TRANSITION,
+        hovered && desk.actionHover,
+        pressed && styles.pressed,
+      ]}
+    >
+      <Text style={styles.rankedTitle}>{desktop ? t('🏆 Tables classées') : t('🏆 Classées')}</Text>
+      {locked && <Text style={styles.rankedLock}>{t('🔒 Niv. {n}', { n: RANKED_LEVEL })}</Text>}
     </Pressable>
   );
 }
 
 /** A short line for the tournaments button: live, tonight, or nothing. */
 function weeklyTeaser(now: number, startsAt: number): string | null {
-  if (now >= startsAt && now < startsAt + 2 * 3_600_000)
-    return t("🔴 Tournoi en direct");
-  if (startsAt - now > 0 && startsAt - now < 12 * 3_600_000)
-    return t("🏆 Tournoi ce soir");
+  if (now >= startsAt && now < startsAt + 2 * 3_600_000) return t('🔴 Tournoi en direct');
+  if (startsAt - now > 0 && startsAt - now < 12 * 3_600_000) return t('🏆 Tournoi ce soir');
   return null;
 }
 
@@ -660,9 +594,7 @@ function weeklyTeaser(now: number, startsAt: number): string | null {
 function tournamentsLabel(now = Date.now()): string {
   const last = weeklyStartsAt(lastWeeklyFriday(now));
   return (
-    weeklyTeaser(now, last) ??
-    weeklyTeaser(now, weeklyStartsAt(nextWeeklyFriday(now))) ??
-    t("🏆 Tournois")
+    weeklyTeaser(now, last) ?? weeklyTeaser(now, weeklyStartsAt(nextWeeklyFriday(now))) ?? t('🏆 Tournois')
   );
 }
 
@@ -676,10 +608,10 @@ type PressState = { pressed: boolean; hovered?: boolean };
 
 /** Smooth hover movement on the web (ignored elsewhere). */
 const HOVER_TRANSITION =
-  Platform.OS === "web"
+  Platform.OS === 'web'
     ? ({
-        transitionProperty: "transform, box-shadow, border-color",
-        transitionDuration: "160ms",
+        transitionProperty: 'transform, box-shadow, border-color',
+        transitionDuration: '160ms',
       } as object)
     : null;
 
@@ -701,18 +633,15 @@ function DesktopGames({
   onClub,
   onTournaments,
   onQuick,
+  onRanked,
   tutorial,
   onTutorialClose,
 }: DesktopProps) {
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const pageWidth = Math.min(screenWidth, PAGE_MAX_WIDTH) - 2 * DESK_PAD;
   const columns = pageWidth >= 1100 ? 5 : 4;
-  const cardWidth = Math.floor(
-    (pageWidth - (columns - 1) * DESK_GAP) / columns,
-  );
-  const cardHeight = Math.round(
-    Math.max(250, Math.min(cardWidth * 1.3, (screenHeight - 250) / 2)),
-  );
+  const cardWidth = Math.floor((pageWidth - (columns - 1) * DESK_GAP) / columns);
+  const cardHeight = Math.round(Math.max(250, Math.min(cardWidth * 1.3, (screenHeight - 250) / 2)));
   const hoverable =
     (extra?: object) =>
     ({ pressed, hovered }: PressState) => [
@@ -731,9 +660,7 @@ function DesktopGames({
             <View style={desk.brand}>
               <Text style={desk.logo}>La Tablée</Text>
               <Text style={desk.tagline}>
-                {t(
-                  "14 jeux de cartes, de dés et de plateau à partager entre amis",
-                )}
+                {t('14 jeux de cartes, de dés et de plateau à partager entre amis')}
               </Text>
             </View>
             <View style={desk.chips}>
@@ -744,57 +671,36 @@ function DesktopGames({
           </View>
 
           <View style={desk.strip}>
-            <DailyChallenge
-              width={Math.min(580, Math.round(pageWidth * 0.5))}
-            />
+            <DailyChallenge width={Math.min(580, Math.round(pageWidth * 0.5))} />
             <View style={desk.actions}>
               {canResume && (
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={onResume}
-                  style={hoverable(desk.resume)}
-                >
-                  <Text style={styles.resumeText}>
-                    {t("▶ Reprendre ma table de poker")}
-                  </Text>
+                <Pressable accessibilityRole="button" onPress={onResume} style={hoverable(desk.resume)}>
+                  <Text style={styles.resumeText}>{t('▶ Reprendre ma table de poker')}</Text>
                 </Pressable>
               )}
-              <Pressable
-                accessibilityRole="button"
-                onPress={onFriends}
-                style={hoverable()}
-              >
-                <Text style={desk.actionText}>{t("👥 Amis")}</Text>
+              <Pressable accessibilityRole="button" onPress={onFriends} style={hoverable()}>
+                <Text style={desk.actionText}>{t('👥 Amis')}</Text>
                 <UnreadBadge />
               </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                onPress={onClub}
-                style={hoverable()}
-              >
-                <Text style={desk.actionText}>{t("🛡️ Club")}</Text>
+              <Pressable accessibilityRole="button" onPress={onClub} style={hoverable()}>
+                <Text style={desk.actionText}>{t('🛡️ Club')}</Text>
               </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                onPress={onTournaments}
-                style={hoverable()}
-              >
+              <Pressable accessibilityRole="button" onPress={onTournaments} style={hoverable()}>
                 <Text style={desk.actionText}>{tournamentsLabel()}</Text>
               </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                onPress={onCustomize}
-                style={hoverable()}
-              >
-                <Text style={desk.actionText}>{t("🎨 Personnaliser")}</Text>
+              <Pressable accessibilityRole="button" onPress={onCustomize} style={hoverable()}>
+                <Text style={desk.actionText}>{t('🎨 Personnaliser')}</Text>
               </Pressable>
               <SeasonPill onPress={onShop} style={hoverable()} />
             </View>
           </View>
 
           <View style={desk.headingRow}>
-            <Text style={desk.heading}>{t("Choisis ton jeu")}</Text>
-            <QuickButton onPress={onQuick} desktop />
+            <Text style={desk.heading}>{t('Choisis ton jeu')}</Text>
+            <View style={desk.quickRow}>
+              <RankedButton onPress={onRanked} desktop />
+              <QuickButton onPress={onQuick} desktop />
+            </View>
           </View>
           <View style={desk.grid}>
             {GAMES.map((game, i) => (
@@ -837,18 +743,12 @@ function DesktopCard({
 }) {
   // Short cards (small windows) drop the tagline; the cards and dice shrink to the room left above the name.
   const tagline = height >= 280;
-  const artScale = Math.min(
-    1,
-    width / 290,
-    (height - (tagline ? 190 : 140)) / 125,
-  );
+  const artScale = Math.min(1, width / 290, (height - (tagline ? 190 : 140)) / 125);
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={
-        game.ready
-          ? t("Jouer : {game}", { game: game.title })
-          : t("{game}, bientôt", { game: game.title })
+        game.ready ? t('Jouer : {game}', { game: game.title }) : t('{game}, bientôt', { game: game.title })
       }
       onPress={onPress}
       style={({ pressed, hovered }: PressState) => [
@@ -864,12 +764,7 @@ function DesktopCard({
         <>
           <LateDecor id={game.id} width={width} height={height} wait={wait} />
           <View style={styles.artBox}>
-            <View
-              style={[
-                { transform: [{ scale: artScale * (hovered ? 1.06 : 1) }] },
-                HOVER_TRANSITION,
-              ]}
-            >
+            <View style={[{ transform: [{ scale: artScale * (hovered ? 1.06 : 1) }] }, HOVER_TRANSITION]}>
               <Art game={game} />
             </View>
           </View>
@@ -883,15 +778,12 @@ function DesktopCard({
             </Text>
           )}
           {game.ready ? (
-            <LinearGradient
-              colors={gradients.gold}
-              style={[desk.play, hovered && desk.playHover]}
-            >
-              <Text style={desk.playText}>{t("Jouer")}</Text>
+            <LinearGradient colors={gradients.gold} style={[desk.play, hovered && desk.playHover]}>
+              <Text style={desk.playText}>{t('Jouer')}</Text>
             </LinearGradient>
           ) : (
             <View style={[styles.soon, desk.play]}>
-              <Text style={styles.soonText}>{t("Bientôt")}</Text>
+              <Text style={styles.soonText}>{t('Bientôt')}</Text>
             </View>
           )}
         </>
@@ -911,31 +803,23 @@ function ProfileChip({ onPress }: { onPress: () => void }) {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={t("Mon profil, niveau {n}", { n: level })}
+      accessibilityLabel={t('Mon profil, niveau {n}', { n: level })}
       onPress={onPress}
       style={({ pressed }) => [styles.profile, pressed && styles.pressed]}
     >
-      <AvatarBadge
-        avatar={{ ...avatar, frame: progress?.equipped.frame }}
-        size={40}
-      />
+      <AvatarBadge avatar={{ ...avatar, frame: progress?.equipped.frame }} size={40} />
       <View style={styles.profileBody}>
         <Text style={styles.profileLevel}>
-          {t("Niveau {n}", { n: level })}
+          {t('Niveau {n}', { n: level })}
           {progress && progress.streak > 0 ? (
             <Text style={styles.profileStreak}> 🔥{progress.streak}</Text>
           ) : null}
         </Text>
         <View style={styles.profileTrack}>
-          <View
-            style={[
-              styles.profileFill,
-              { width: `${Math.max(4, ratio * 100)}%` },
-            ]}
-          />
+          <View style={[styles.profileFill, { width: `${Math.max(4, ratio * 100)}%` }]} />
         </View>
       </View>
-      <Text style={styles.profileGo}>{t("Profil ›")}</Text>
+      <Text style={styles.profileGo}>{t('Profil ›')}</Text>
     </Pressable>
   );
 }
@@ -945,9 +829,7 @@ function CoinsChip({ onPress }: { onPress: () => void }) {
   const progress = useMyProgress();
   const ready = progress
     ? questsFor(parisDay()).filter(
-        (q) =>
-          questProgress(q, progress.today) >= q.target &&
-          !progress.claimed.includes(q.id),
+        (q) => questProgress(q, progress.today) >= q.target && !progress.claimed.includes(q.id),
       ).length +
       progress.chests.length +
       achievementsReady(progress)
@@ -957,11 +839,11 @@ function CoinsChip({ onPress }: { onPress: () => void }) {
       accessibilityRole="button"
       accessibilityLabel={
         ready
-          ? t("{coins} pièces, quêtes et boutique, {n} récompenses à prendre", {
+          ? t('{coins} pièces, quêtes et boutique, {n} récompenses à prendre', {
               coins: progress?.coins ?? 0,
               n: ready,
             })
-          : t("{coins} pièces, quêtes et boutique", {
+          : t('{coins} pièces, quêtes et boutique', {
               coins: progress?.coins ?? 0,
             })
       }
@@ -986,20 +868,16 @@ function UnreadBadge() {
   return (
     <View
       style={styles.inlineBadge}
-      accessibilityLabel={tn(
-        unread,
-        "{n} message non lu",
-        "{n} messages non lus",
-      )}
+      accessibilityLabel={tn(unread, '{n} message non lu', '{n} messages non lus')}
     >
-      <Text style={styles.badgeText}>{unread > 99 ? "99+" : unread}</Text>
+      <Text style={styles.badgeText}>{unread > 99 ? '99+' : unread}</Text>
     </View>
   );
 }
 
 /** The flag of the app's language; switches to the next language (the app reloads). */
 function LangChip() {
-  if (Platform.OS !== "web") return null;
+  if (Platform.OS !== 'web') return null;
   const i = LANGS.findIndex((l) => l.id === lang);
   const next = LANGS[(i + 1) % LANGS.length];
   return (
@@ -1027,14 +905,12 @@ function SeasonPill({
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={t("Saison {name}, articles limités à la boutique", {
+      accessibilityLabel={t('Saison {name}, articles limités à la boutique', {
         name: t(season.name),
       })}
       onPress={onPress}
       style={(state: PressState) =>
-        style
-          ? (style(state) as object)
-          : [styles.socialButton, state.pressed && styles.pressed]
+        style ? (style(state) as object) : [styles.socialButton, state.pressed && styles.pressed]
       }
     >
       <LinearGradient
@@ -1044,7 +920,7 @@ function SeasonPill({
         style={[StyleSheet.absoluteFill, { borderRadius: style ? 22 : 18 }]}
       />
       <Text style={style ? desk.actionText : styles.socialText}>
-        {t("{emoji} Saison", { emoji: season.emoji })}
+        {t('{emoji} Saison', { emoji: season.emoji })}
       </Text>
     </Pressable>
   );
@@ -1053,45 +929,61 @@ function SeasonPill({
 const styles = StyleSheet.create({
   // Five buttons do not fit one phone row: the three short ones above, the two longer below.
   social: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
     gap: 8,
     marginTop: 12,
     paddingHorizontal: 16,
-    width: "100%",
+    width: '100%',
     maxWidth: 420,
   },
   socialButton: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
     gap: 6,
     flexGrow: 1,
-    flexBasis: "40%",
+    flexBasis: '40%',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 18,
-    overflow: "hidden",
+    overflow: 'hidden',
     backgroundColor: colors.glass,
     borderWidth: 1,
     borderColor: colors.glassBorder,
   },
-  socialShort: { flexBasis: "28%" },
+  socialShort: { flexBasis: '28%' },
   quick: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     gap: 10,
     marginTop: 10,
     paddingVertical: 9,
     paddingHorizontal: 14,
     borderRadius: 22,
-    overflow: "hidden",
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: colors.goldBorder,
-    boxShadow: "0 4px 14px rgba(255, 193, 7, 0.28)",
+    boxShadow: '0 4px 14px rgba(255, 193, 7, 0.28)',
   },
+  quickRow: { flexDirection: 'row', gap: 8, alignItems: 'stretch' },
+  quickFlex: { flex: 1, minWidth: 0 },
+  ranked: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 22,
+    backgroundColor: 'rgba(20, 10, 40, 0.75)',
+    borderWidth: 1.5,
+    borderColor: colors.gold,
+    boxShadow: '0 4px 14px rgba(255, 193, 7, 0.2)',
+  },
+  rankedTitle: { color: colors.gold, fontSize: 15, fontWeight: '900' },
+  rankedLock: { color: colors.muted, fontSize: 11, fontWeight: '800' },
   quickDesktop: {
     marginTop: 30,
     paddingVertical: 11,
@@ -1100,71 +992,71 @@ const styles = StyleSheet.create({
   quickTitle: {
     color: colors.onGold,
     fontSize: 16,
-    fontWeight: "900",
+    fontWeight: '900',
     flexShrink: 0,
   },
   quickText: {
     color: colors.onGoldMuted,
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: '700',
     flexShrink: 1,
   },
-  socialText: { color: colors.text, fontSize: 14, fontWeight: "800" },
+  socialText: { color: colors.text, fontSize: 14, fontWeight: '800' },
   chips: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
     marginBottom: 14,
   },
   coins: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 6,
     height: 54,
     paddingHorizontal: 14,
     borderRadius: 28,
-    backgroundColor: "rgba(255,193,7,0.14)",
+    backgroundColor: 'rgba(255,193,7,0.14)',
     borderWidth: 1,
     borderColor: colors.gold,
   },
-  coinsText: { color: colors.gold, fontSize: 16, fontWeight: "900" },
+  coinsText: { color: colors.gold, fontSize: 16, fontWeight: '900' },
   coinsGo: { fontSize: 18 },
   badge: {
-    position: "absolute",
+    position: 'absolute',
     top: -4,
     right: -4,
     minWidth: 20,
     height: 20,
     borderRadius: 10,
     paddingHorizontal: 5,
-    backgroundColor: "#e63946",
-    alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: '#e63946',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  badgeText: { color: "#fff", fontSize: 12, fontWeight: "900" },
+  badgeText: { color: '#fff', fontSize: 12, fontWeight: '900' },
   inlineBadge: {
     minWidth: 20,
     height: 20,
     borderRadius: 10,
     paddingHorizontal: 5,
-    backgroundColor: "#e63946",
-    alignItems: "center",
-    justifyContent: "center",
+    backgroundColor: '#e63946',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   lang: {
     width: 42,
     height: 42,
     borderRadius: 21,
-    alignItems: "center",
-    justifyContent: "center",
+    alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: colors.glass,
     borderWidth: 1,
     borderColor: colors.glassBorder,
   },
   langFlag: { fontSize: 20 },
   profile: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
     paddingVertical: 6,
     paddingLeft: 6,
@@ -1175,28 +1067,28 @@ const styles = StyleSheet.create({
     borderColor: colors.glassBorder,
   },
   profileBody: { width: 76, gap: 4 },
-  profileLevel: { color: colors.gold, fontSize: 14, fontWeight: "900" },
-  profileStreak: { color: "#ffb36b", fontSize: 13, fontWeight: "900" },
+  profileLevel: { color: colors.gold, fontSize: 14, fontWeight: '900' },
+  profileStreak: { color: '#ffb36b', fontSize: 13, fontWeight: '900' },
   profileTrack: {
     height: 6,
     borderRadius: 3,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    overflow: "hidden",
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    overflow: 'hidden',
   },
   profileFill: { height: 6, borderRadius: 3, backgroundColor: colors.gold },
-  profileGo: { color: colors.text, fontSize: 14, fontWeight: "800" },
-  container: { flex: 1, alignItems: "center", justifyContent: "center" },
+  profileGo: { color: colors.text, fontSize: 14, fontWeight: '800' },
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   title: {
     color: colors.gold,
     fontSize: 36,
-    fontWeight: "900",
-    textAlign: "center",
+    fontWeight: '900',
+    textAlign: 'center',
   },
   subtitle: {
     color: colors.muted,
     fontSize: 15,
     marginTop: 4,
-    textAlign: "center",
+    textAlign: 'center',
   },
   resume: {
     marginTop: 16,
@@ -1205,65 +1097,65 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: colors.gold,
   },
-  resumeText: { color: colors.onGold, fontSize: 15, fontWeight: "800" },
+  resumeText: { color: colors.onGold, fontSize: 15, fontWeight: '800' },
   pressed: { opacity: 0.8 },
   carouselWrap: { marginTop: 24 },
   card: {
     borderRadius: 24,
     padding: 20,
-    overflow: "hidden",
+    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.18)",
-    justifyContent: "flex-end",
+    borderColor: 'rgba(255,255,255,0.18)',
+    justifyContent: 'flex-end',
   },
-  artBox: { flex: 1, alignItems: "center", justifyContent: "center" },
-  fan: { flexDirection: "row", justifyContent: "center", height: 110 },
+  artBox: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  fan: { flexDirection: 'row', justifyContent: 'center', height: 110 },
   fanCard: { marginHorizontal: -9 },
-  dice: { flexDirection: "row", gap: 4 },
-  tokens: { flexDirection: "row", gap: 3 },
+  dice: { flexDirection: 'row', gap: 4 },
+  tokens: { flexDirection: 'row', gap: 3 },
   die: {
     width: 44,
     height: 44,
     borderRadius: 10,
-    backgroundColor: "#f7f3e8",
-    alignItems: "center",
-    justifyContent: "center",
-    boxShadow: "0 2px 6px rgba(0,0,0,0.4)",
+    backgroundColor: '#f7f3e8',
+    alignItems: 'center',
+    justifyContent: 'center',
+    boxShadow: '0 2px 6px rgba(0,0,0,0.4)',
   },
-  dieText: { fontSize: 40, lineHeight: 44, color: "#1b1b1b" },
-  dieRed: { backgroundColor: "#b3261e" },
-  dieTextRed: { color: "#fff4e0" },
-  cardTitle: { color: "#fff", fontSize: 32, fontWeight: "900" },
+  dieText: { fontSize: 40, lineHeight: 44, color: '#1b1b1b' },
+  dieRed: { backgroundColor: '#b3261e' },
+  dieTextRed: { color: '#fff4e0' },
+  cardTitle: { color: '#fff', fontSize: 32, fontWeight: '900' },
   cardPlayers: {
     color: colors.gold,
     fontSize: 13,
-    fontWeight: "800",
+    fontWeight: '800',
     marginTop: 2,
     letterSpacing: 0.5,
   },
   cardText: {
-    color: "rgba(255,255,255,0.8)",
+    color: 'rgba(255,255,255,0.8)',
     fontSize: 15,
     lineHeight: 20,
     marginTop: 8,
   },
   cardFooter: { marginTop: 16 },
-  play: { borderRadius: 14, paddingVertical: 13, alignItems: "center" },
-  playText: { color: colors.onGold, fontSize: 17, fontWeight: "900" },
+  play: { borderRadius: 14, paddingVertical: 13, alignItems: 'center' },
+  playText: { color: colors.onGold, fontSize: 17, fontWeight: '900' },
   soon: {
     borderRadius: 14,
     paddingVertical: 12,
-    alignItems: "center",
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.3)",
+    borderColor: 'rgba(255,255,255,0.3)',
   },
-  soonText: { color: "rgba(255,255,255,0.7)", fontSize: 16, fontWeight: "800" },
-  dots: { flexDirection: "row", gap: 8, marginTop: 18 },
+  soonText: { color: 'rgba(255,255,255,0.7)', fontSize: 16, fontWeight: '800' },
+  dots: { flexDirection: 'row', gap: 8, marginTop: 18 },
   dot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "rgba(255,255,255,0.25)",
+    backgroundColor: 'rgba(255,255,255,0.25)',
   },
   dotActive: { width: 22, backgroundColor: colors.gold },
 });
@@ -1273,41 +1165,41 @@ const desk = StyleSheet.create({
   root: { flex: 1 },
   scroll: {
     flexGrow: 1,
-    alignItems: "center",
+    alignItems: 'center',
     paddingTop: 28,
     paddingBottom: 40,
   },
   page: { gap: 0 },
   top: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 24,
   },
   brand: { flexShrink: 1 },
   logo: {
     color: colors.gold,
     fontSize: 40,
-    fontWeight: "900",
+    fontWeight: '900',
     letterSpacing: 0.5,
   },
   tagline: {
     color: colors.muted,
     fontSize: 15,
-    fontWeight: "600",
+    fontWeight: '600',
     marginTop: 2,
   },
-  chips: { flexDirection: "row", alignItems: "center", gap: 10 },
+  chips: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   strip: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 20,
     marginTop: 12,
   },
   actions: {
-    flexDirection: "row",
-    alignItems: "center",
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
     marginTop: 14,
   },
@@ -1315,48 +1207,49 @@ const desk = StyleSheet.create({
     height: 48,
     paddingHorizontal: 20,
     borderRadius: 24,
-    overflow: "hidden",
-    flexDirection: "row",
-    alignItems: "center",
+    overflow: 'hidden',
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
-    justifyContent: "center",
+    justifyContent: 'center',
     backgroundColor: colors.glass,
     borderWidth: 1,
     borderColor: colors.glassBorder,
-    cursor: "pointer",
+    cursor: 'pointer',
   },
   actionHover: { transform: [{ translateY: -2 }], borderColor: colors.gold },
-  actionText: { color: colors.text, fontSize: 16, fontWeight: "800" },
+  actionText: { color: colors.text, fontSize: 16, fontWeight: '800' },
   resume: { backgroundColor: colors.gold, borderColor: colors.goldBorder },
   heading: {
     color: colors.text,
     fontSize: 22,
-    fontWeight: "900",
+    fontWeight: '900',
     marginTop: 30,
     marginBottom: 14,
   },
+  quickRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   headingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 16,
   },
-  grid: { flexDirection: "row", flexWrap: "wrap", gap: DESK_GAP },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: DESK_GAP },
   card: {
     padding: 16,
     borderRadius: 20,
-    cursor: "pointer",
-    boxShadow: "0 6px 16px rgba(0,0,0,0.4)",
+    cursor: 'pointer',
+    boxShadow: '0 6px 16px rgba(0,0,0,0.4)',
   },
   cardHover: {
     transform: [{ translateY: -8 }],
     borderColor: colors.gold,
-    boxShadow: "0 18px 34px rgba(0,0,0,0.55)",
+    boxShadow: '0 18px 34px rgba(0,0,0,0.55)',
   },
   cardPressed: { transform: [{ translateY: -4 }, { scale: 0.98 }] },
-  cardTitle: { color: "#fff", fontSize: 26, fontWeight: "900" },
+  cardTitle: { color: '#fff', fontSize: 26, fontWeight: '900' },
   cardText: {
-    color: "rgba(255,255,255,0.8)",
+    color: 'rgba(255,255,255,0.8)',
     fontSize: 13,
     lineHeight: 18,
     marginTop: 6,
@@ -1366,9 +1259,9 @@ const desk = StyleSheet.create({
     marginTop: 12,
     borderRadius: 12,
     paddingVertical: 10,
-    alignItems: "center",
+    alignItems: 'center',
   },
-  playHover: { boxShadow: "0 0 16px rgba(255,193,7,0.55)" },
-  playText: { color: colors.onGold, fontSize: 16, fontWeight: "900" },
-  theme: { width: 440, alignSelf: "center", marginTop: 16 },
+  playHover: { boxShadow: '0 0 16px rgba(255,193,7,0.55)' },
+  playText: { color: colors.onGold, fontSize: 16, fontWeight: '900' },
+  theme: { width: 440, alignSelf: 'center', marginTop: 16 },
 });
