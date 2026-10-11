@@ -4,7 +4,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { HandView } from '@appli-poker/engine';
 import { supabase } from './supabase';
 import { t } from '../i18n';
-import { pollWhileVisible } from './poll';
+import { pollWhileVisible } from './timers';
 
 export interface Room {
   id: string;

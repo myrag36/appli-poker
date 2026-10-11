@@ -3,7 +3,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { ALL_EMOTES, type OnlineGameId, type OnlineSeat } from '@appli-poker/engine';
 import { callGames, supabase } from './supabase';
 import { t } from '../i18n';
-import { pollWhileVisible } from './poll';
+import { pollWhileVisible, useDeadlineClock } from './timers';
 
 /** What every player at an online table sees (written by the `jeux` server). */
 export interface GamePublicState {
@@ -59,7 +59,6 @@ export function useGameRoom(roomId: string, userId: string) {
   const [error, setError] = useState<string | null>(null);
   // The table disappears from what I can read once the host removes me from it.
   const [removed, setRemoved] = useState(false);
-  const [now, setNow] = useState(Date.now());
   const loaded = useRef(false);
   const latestRequest = useRef(0);
   const lastTick = useRef(0);
@@ -166,11 +165,7 @@ export function useGameRoom(roomId: string, userId: string) {
   const deadline = room?.public_state?.deadline ?? null;
 
   // A clock for the turn timers, running only while someone is waited for.
-  useEffect(() => {
-    if (!deadline) return;
-    const id = setInterval(() => setNow(Date.now()), 250);
-    return () => clearInterval(id);
-  }, [deadline]);
+  const now = useDeadlineClock(deadline, 250);
 
   // Once the wait is over, any phone at the table asks the server to move on: a robot
   // plays, a slow player is played for, or the next round starts.

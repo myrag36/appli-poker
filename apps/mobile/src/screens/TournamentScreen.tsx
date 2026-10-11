@@ -41,7 +41,7 @@ import { WeeklyCard, WeeklyScreen, useWeekly } from './WeeklyTournament';
 import { t, tn } from '../i18n';
 import { useDesktop } from '../layout';
 import { colors, gradients, shadow } from '../theme';
-import { pollWhileVisible } from '../online/poll';
+import { pollWhileVisible } from '../online/timers';
 
 const GAMES: { id: OnlineGameId; title: string; emoji: string }[] = [
   { id: 'blackjack', title: t('Blackjack'), emoji: '🂡' },
