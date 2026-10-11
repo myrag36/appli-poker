@@ -259,7 +259,8 @@ export default function App() {
             }}
             onJoinTable={(table) => {
               if (table.game === 'poker') joinFromLink('poker', table.code);
-              else setScreen({ name: 'game-online', game: table.game, joinCode: table.code, fromQuick: true });
+              else
+                setScreen({ name: 'game-online', game: table.game, joinCode: table.code, fromQuick: true });
             }}
           />
         )}

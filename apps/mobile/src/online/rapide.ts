@@ -29,7 +29,13 @@ export interface QueueState {
   code?: string;
 }
 
-export function joinQueue(req: { game: QuickGameId; size: number; variant: string; name: string; avatar: Avatar }) {
+export function joinQueue(req: {
+  game: QuickGameId;
+  size: number;
+  variant: string;
+  name: string;
+  avatar: Avatar;
+}) {
   return callGames<QueueState>({ type: 'queueJoin', ...req });
 }
 
@@ -200,7 +206,12 @@ export async function loadBlocked(): Promise<BlockedPlayer[]> {
   return (data ?? []) as BlockedPlayer[];
 }
 
-export function blockPlayer(p: { userId: string; name: string; avatar: string | null; avatarColor: string | null }) {
+export function blockPlayer(p: {
+  userId: string;
+  name: string;
+  avatar: string | null;
+  avatarColor: string | null;
+}) {
   return callGames<{ ok: true }>({ type: 'block', ...p });
 }
 

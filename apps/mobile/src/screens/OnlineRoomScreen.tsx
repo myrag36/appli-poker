@@ -750,7 +750,13 @@ function SideCard({ title, children }: { title: string; children: ReactNode }) {
 const UNLOCKABLE = ALL_AVATAR_EMOJIS;
 
 const styles = StyleSheet.create({
-  strangers: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, flexWrap: 'wrap' },
+  strangers: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
   container: { padding: 16, paddingTop: 56 },
   loading: { flex: 1, justifyContent: 'center', padding: 24 },
   codeBox: { alignItems: 'stretch', marginTop: 16, gap: 4 },

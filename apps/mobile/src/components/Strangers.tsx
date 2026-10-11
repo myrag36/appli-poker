@@ -42,7 +42,9 @@ export function VisibilityPicker({
       </View>
       <Text style={styles.hint}>
         {value === 'public'
-          ? t('Visible dans « Tables ouvertes » : n’importe qui peut s’asseoir. La partie compte pour la cote.')
+          ? t(
+              'Visible dans « Tables ouvertes » : n’importe qui peut s’asseoir. La partie compte pour la cote.',
+            )
           : t('Seuls ceux qui ont le code peuvent venir.')}
       </Text>
     </View>
@@ -166,7 +168,11 @@ export function BlockButton({ players, compact }: { players: StrangerSeat[]; com
         accessibilityRole="button"
         onPress={() => setOpen(true)}
         hitSlop={6}
-        style={({ pressed }) => [styles.blockButton, compact && styles.blockCompact, pressed && styles.pressed]}
+        style={({ pressed }) => [
+          styles.blockButton,
+          compact && styles.blockCompact,
+          pressed && styles.pressed,
+        ]}
       >
         <Text style={styles.blockButtonText}>{t('🚫 Bloquer…')}</Text>
       </Pressable>
@@ -246,7 +252,9 @@ function BlockSheet({ players, onClose }: { players: StrangerSeat[]; onClose: ()
                   <Pressable
                     accessibilityRole="button"
                     accessibilityLabel={
-                      isBlocked ? t('Débloquer {name}', { name: p.name }) : t('Bloquer {name}', { name: p.name })
+                      isBlocked
+                        ? t('Débloquer {name}', { name: p.name })
+                        : t('Bloquer {name}', { name: p.name })
                     }
                     disabled={busy !== null}
                     onPress={() => toggle(p)}
@@ -318,9 +326,7 @@ export function BlockedList() {
         </View>
       ))}
       {error && <Text style={styles.error}>{error}</Text>}
-      <Text style={styles.hint}>
-        {tn(list.length, '{n} joueur bloqué.', '{n} joueurs bloqués.')}
-      </Text>
+      <Text style={styles.hint}>{tn(list.length, '{n} joueur bloqué.', '{n} joueurs bloqués.')}</Text>
     </View>
   );
 }

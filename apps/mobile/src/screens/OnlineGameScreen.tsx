@@ -329,7 +329,11 @@ function Lobby({
             if (trimmed) saveName(trimmed);
             onQuick();
           }}
-          style={({ pressed }) => [styles.quick, desktop && styles.quickDesktop, pressed && { opacity: 0.85 }]}
+          style={({ pressed }) => [
+            styles.quick,
+            desktop && styles.quickDesktop,
+            pressed && { opacity: 0.85 },
+          ]}
         >
           <LinearGradient colors={gradients.gold} style={StyleSheet.absoluteFill} />
           <Text style={styles.quickTitle}>{t('⚡ Partie rapide')}</Text>
@@ -723,10 +727,7 @@ function WaitingRoom({
           {error && <Text style={styles.error}>{error}</Text>}
           {isPublic && (
             <View style={styles.blockRow}>
-              <BlockButton
-                players={players.filter((p) => !p.is_bot && p.user_id !== userId)}
-                compact
-              />
+              <BlockButton players={players.filter((p) => !p.is_bot && p.user_id !== userId)} compact />
             </View>
           )}
         </View>
@@ -832,7 +833,13 @@ const styles = StyleSheet.create({
   spacerSmall: { height: 10 },
   rematch: { paddingHorizontal: 10, paddingTop: 6, gap: 6 },
   blockRow: { marginTop: 12 },
-  strangers: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, flexWrap: 'wrap' },
+  strangers: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    flexWrap: 'wrap',
+  },
   publicTag: { color: colors.gold, fontSize: 13, lineHeight: 18, textAlign: 'center', marginTop: 8 },
   openTables: { width: '100%', maxWidth: 560, alignSelf: 'center', marginTop: 8 },
   quick: {

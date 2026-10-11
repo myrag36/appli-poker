@@ -154,32 +154,32 @@ export function ChatPanel({
           </Text>
         </View>
       ) : (
-      <View style={styles.inputRow}>
-        <TextInput
-          value={text}
-          onChangeText={setText}
-          placeholder={t('Écris un message…')}
-          placeholderTextColor={colors.muted}
-          maxLength={MAX_MESSAGE_LENGTH}
-          returnKeyType="send"
-          onSubmitEditing={() => send(text)}
-          blurOnSubmit={false}
-          style={styles.input}
-        />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('Envoyer')}
-          disabled={sending || !text.trim()}
-          onPress={() => send(text)}
-          style={({ pressed }) => [
-            styles.send,
-            (sending || !text.trim()) && styles.sendDisabled,
-            pressed && styles.pressed,
-          ]}
-        >
-          <Text style={styles.sendText}>➤</Text>
-        </Pressable>
-      </View>
+        <View style={styles.inputRow}>
+          <TextInput
+            value={text}
+            onChangeText={setText}
+            placeholder={t('Écris un message…')}
+            placeholderTextColor={colors.muted}
+            maxLength={MAX_MESSAGE_LENGTH}
+            returnKeyType="send"
+            onSubmitEditing={() => send(text)}
+            blurOnSubmit={false}
+            style={styles.input}
+          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('Envoyer')}
+            disabled={sending || !text.trim()}
+            onPress={() => send(text)}
+            style={({ pressed }) => [
+              styles.send,
+              (sending || !text.trim()) && styles.sendDisabled,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text style={styles.sendText}>➤</Text>
+          </Pressable>
+        </View>
       )}
     </>
   );

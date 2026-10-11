@@ -30,6 +30,7 @@ import tournoiVendredi from './tournoiVendredi';
 import dames from './dames';
 import personnalisation from './personnalisation';
 import clubs from './clubs';
+import partieRapide from './partieRapide';
 
 export const EN: Record<string, string> = {
   ...accueil,
@@ -63,4 +64,5 @@ export const EN: Record<string, string> = {
   ...dames,
   ...personnalisation,
   ...clubs,
+  ...partieRapide,
 };

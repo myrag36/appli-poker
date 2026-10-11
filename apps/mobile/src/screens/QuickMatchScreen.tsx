@@ -191,7 +191,8 @@ export function QuickMatchScreen({ initialGame, initialName, onBack, onMatched, 
     const onHide = () => phaseRef.current === 'search' && leaveQueueOnClose();
     if (Platform.OS === 'web' && typeof window !== 'undefined') window.addEventListener('pagehide', onHide);
     return () => {
-      if (Platform.OS === 'web' && typeof window !== 'undefined') window.removeEventListener('pagehide', onHide);
+      if (Platform.OS === 'web' && typeof window !== 'undefined')
+        window.removeEventListener('pagehide', onHide);
       if (phaseRef.current === 'search') leaveQueue().catch(() => {});
     };
   }, []);
@@ -223,7 +224,10 @@ export function QuickMatchScreen({ initialGame, initialName, onBack, onMatched, 
           {game === 'poker' ? ` · ${variant === 'omaha' ? 'Omaha' : "Hold'em"}` : ''}
         </Text>
 
-        <View style={styles.seats} accessibilityLabel={t('{found} sur {need} joueurs trouvés', { found, need })}>
+        <View
+          style={styles.seats}
+          accessibilityLabel={t('{found} sur {need} joueurs trouvés', { found, need })}
+        >
           <AvatarBadge avatar={avatar} size={46} />
           {Array.from({ length: need }, (_, i) => (
             <View key={i} style={[styles.seat, (i < found || phase === 'found') && styles.seatFound]}>
@@ -368,7 +372,9 @@ export function QuickMatchScreen({ initialGame, initialName, onBack, onMatched, 
         onPress={start}
       />
       <Text style={styles.hint}>
-        {t('Des joueurs de ton niveau, en quelques secondes. Seuls ton pseudo, ton avatar et ton niveau sont visibles.')}
+        {t(
+          'Des joueurs de ton niveau, en quelques secondes. Seuls ton pseudo, ton avatar et ton niveau sont visibles.',
+        )}
       </Text>
       {error && <Text style={styles.error}>{error}</Text>}
     </>
@@ -377,7 +383,9 @@ export function QuickMatchScreen({ initialGame, initialName, onBack, onMatched, 
   const open = (
     <>
       <Text style={[styles.section, desktop && styles.sectionFirst]}>{t('🌍 Tables ouvertes')}</Text>
-      <Text style={styles.subHint}>{t('Des tables publiques qui attendent des joueurs : un geste pour s’asseoir.')}</Text>
+      <Text style={styles.subHint}>
+        {t('Des tables publiques qui attendent des joueurs : un geste pour s’asseoir.')}
+      </Text>
       <OpenTablesList onJoin={joinTable} />
     </>
   );
@@ -422,7 +430,12 @@ function Radar({ emoji, found }: { emoji: string; found: boolean }) {
       Animated.loop(
         Animated.sequence([
           Animated.delay(i * 700),
-          Animated.timing(v, { toValue: 1, duration: 2100, easing: Easing.out(Easing.quad), useNativeDriver: native }),
+          Animated.timing(v, {
+            toValue: 1,
+            duration: 2100,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: native,
+          }),
           Animated.timing(v, { toValue: 0, duration: 0, useNativeDriver: native }),
         ]),
       ),
@@ -456,7 +469,11 @@ function Radar({ emoji, found }: { emoji: string; found: boolean }) {
         <Animated.View
           style={[
             styles.sweep,
-            { transform: [{ rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) }] },
+            {
+              transform: [
+                { rotate: spin.interpolate({ inputRange: [0, 1], outputRange: ['0deg', '360deg'] }) },
+              ],
+            },
           ]}
         />
       )}
@@ -583,7 +600,14 @@ const styles = StyleSheet.create({
   coreEmoji: { fontSize: 44 },
   searchTitle: { color: colors.gold, fontSize: 26, fontWeight: '800', textAlign: 'center' },
   searchGame: { color: colors.text, fontSize: 15, marginTop: 4, textAlign: 'center' },
-  seats: { flexDirection: 'row', gap: 10, alignItems: 'center', marginTop: 20, flexWrap: 'wrap', justifyContent: 'center' },
+  seats: {
+    flexDirection: 'row',
+    gap: 10,
+    alignItems: 'center',
+    marginTop: 20,
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
   seat: {
     width: 46,
     height: 46,
@@ -597,8 +621,21 @@ const styles = StyleSheet.create({
   seatFound: { borderStyle: 'solid', borderColor: colors.gold, backgroundColor: 'rgba(255, 193, 7, 0.18)' },
   seatText: { color: colors.muted, fontSize: 20, fontWeight: '700' },
   foundText: { color: colors.text, fontSize: 15, fontWeight: '700', marginTop: 10, textAlign: 'center' },
-  clock: { color: colors.muted, fontSize: 22, fontWeight: '700', marginTop: 6, fontVariant: ['tabular-nums'] },
-  searchHint: { color: colors.muted, fontSize: 13, lineHeight: 18, marginTop: 10, textAlign: 'center', maxWidth: 360 },
+  clock: {
+    color: colors.muted,
+    fontSize: 22,
+    fontWeight: '700',
+    marginTop: 6,
+    fontVariant: ['tabular-nums'],
+  },
+  searchHint: {
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 10,
+    textAlign: 'center',
+    maxWidth: 360,
+  },
   fillCard: {
     alignSelf: 'stretch',
     gap: 6,
