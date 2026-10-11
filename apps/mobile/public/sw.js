@@ -15,12 +15,8 @@ const SHELL_CACHE = `jeux-shell-${VERSION}`;
 const STATIC_CACHE = `jeux-static-${VERSION}`;
 const SCOPE = new URL(self.registration.scope);
 const SHELL_URL = SCOPE.href; // e.g. https://myrag36.github.io/appli-poker/
-const EXTRA_FILES = [
-  'manifest.webmanifest',
-  'icons/icon-192.png',
-  'icons/icon-512.png',
-  'icons/apple-touch-icon.png',
-];
+// The big 512px icon is only for installing, which needs the network anyway: not saved ahead.
+const EXTRA_FILES = ['manifest.webmanifest', 'icons/icon-192.png', 'icons/apple-touch-icon.png'];
 const NETWORK_TIMEOUT_MS = 5000;
 
 /** Same-site files linked from the page (scripts, styles, icons), as absolute URLs. */

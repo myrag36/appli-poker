@@ -91,12 +91,16 @@ export function questsFor(day: string): Quest[] {
   return [easy, focused, hard];
 }
 
+let parisDays: Intl.DateTimeFormat | undefined;
+
 /** Today's date in Paris, the day quests and daily bonuses follow. */
 export function parisDay(at: Date = new Date()): string {
-  return new Intl.DateTimeFormat('en-CA', {
+  // Building the formatter is slow (time zone data): it is made once and kept.
+  parisDays ??= new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Europe/Paris',
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
-  }).format(at);
+  });
+  return parisDays.format(at);
 }

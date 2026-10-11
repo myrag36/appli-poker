@@ -23,8 +23,18 @@ if (Platform.OS !== 'web') {
   });
 }
 
+let signingIn: Promise<string> | null = null;
+
 /** Signs in anonymously the first time; the same account is kept on this phone afterwards. */
-export async function ensureSignedIn(): Promise<string> {
+export function ensureSignedIn(): Promise<string> {
+  // Several parts of the first screen ask at once: one sign-in for all, not one account each.
+  signingIn ??= signIn().finally(() => {
+    signingIn = null;
+  });
+  return signingIn;
+}
+
+async function signIn(): Promise<string> {
   const { data } = await supabase.auth.getSession();
   if (data.session) return data.session.user.id;
   const { data: signedIn, error } = await supabase.auth.signInAnonymously();
