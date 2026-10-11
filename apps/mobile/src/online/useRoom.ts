@@ -4,6 +4,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import type { HandView } from '@appli-poker/engine';
 import { supabase } from './supabase';
 import { t } from '../i18n';
+import { pollWhileVisible } from './poll';
 
 export interface Room {
   id: string;
@@ -234,9 +235,9 @@ export function useRoom(roomId: string, userId: string) {
     channelRef.current = channel;
     // Realtime can miss events (a sleeping phone, or being removed from the table, which
     // hides the room's changes from me), so check again from time to time.
-    const poll = setInterval(refresh, POLL_MS);
+    const stopPolling = pollWhileVisible(refresh, POLL_MS);
     return () => {
-      clearInterval(poll);
+      stopPolling();
       channelRef.current = null;
       supabase.removeChannel(channel);
     };

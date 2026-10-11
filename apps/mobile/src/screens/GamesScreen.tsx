@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import {
   type Avatar,
   defaultAvatar,
@@ -35,9 +35,6 @@ import { useUnreadCount } from '../online/messagerie';
 import { loadAvatar } from '../online/supabase';
 import { PlayingCard } from '../components/PlayingCard';
 import { Token } from '../components/Token';
-import { BatailleArt } from './BatailleScreen';
-import { EchecsArt } from './EchecsScreen';
-import { DamesArt } from './DamesScreen';
 import { UnoCard } from '../components/UnoCard';
 import { TarotCard } from '../components/TarotCard';
 import { colors, gradients, shadow } from '../theme';
@@ -200,10 +197,20 @@ interface Props {
   onTournaments: () => void;
 }
 
+// These three pictures are drawn by their game's screen, a separate download (see App.tsx).
+const BatailleArt = lazy(() => import('./BatailleScreen').then((m) => ({ default: m.BatailleArt })));
+const EchecsArt = lazy(() => import('./EchecsScreen').then((m) => ({ default: m.EchecsArt })));
+const DamesArt = lazy(() => import('./DamesScreen').then((m) => ({ default: m.DamesArt })));
+
 function Art({ game }: { game: Game }) {
-  if (game.id === 'bataille') return <BatailleArt />;
-  if (game.id === 'echecs') return <EchecsArt />;
-  if (game.id === 'dames') return <DamesArt />;
+  if (game.id === 'bataille' || game.id === 'echecs' || game.id === 'dames') {
+    const Board = game.id === 'bataille' ? BatailleArt : game.id === 'echecs' ? EchecsArt : DamesArt;
+    return (
+      <Suspense fallback={null}>
+        <Board />
+      </Suspense>
+    );
+  }
   if (game.id === 'puissance4') {
     return (
       <View style={styles.tokens}>

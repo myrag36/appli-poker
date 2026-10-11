@@ -3,6 +3,7 @@ import type { RealtimeChannel } from '@supabase/supabase-js';
 import { ALL_EMOTES, type OnlineGameId, type OnlineSeat } from '@appli-poker/engine';
 import { callGames, supabase } from './supabase';
 import { t } from '../i18n';
+import { pollWhileVisible } from './poll';
 
 /** What every player at an online table sees (written by the `jeux` server). */
 export interface GamePublicState {
@@ -154,9 +155,9 @@ export function useGameRoom(roomId: string, userId: string) {
         if (status === 'SUBSCRIBED') refresh();
       });
     channelRef.current = channel;
-    const poll = setInterval(refresh, POLL_MS);
+    const stopPolling = pollWhileVisible(refresh, POLL_MS);
     return () => {
-      clearInterval(poll);
+      stopPolling();
       channelRef.current = null;
       supabase.removeChannel(channel);
     };

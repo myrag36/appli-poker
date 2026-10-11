@@ -35,8 +35,40 @@ function linkedFiles(html) {
   return [...urls];
 }
 
-/** Downloads the page and stores it, with the files it needs, so the app opens offline. */
-async function refreshShell() {
+/** Saves a file in the static cache unless it is already there; never fails. */
+async function keep(files, url) {
+  if (await files.match(url)) return;
+  try {
+    const res = await fetch(url);
+    if (res.ok) await files.put(url, res);
+  } catch {
+    // Fetched again later, when the page asks for it.
+  }
+}
+
+/**
+ * The parts of the app loaded later (each game, each theme's scenery…): the page's scripts list
+ * them by file name. Kept too, so that every game opens at once, even offline.
+ */
+async function laterFiles(files, scripts) {
+  const urls = new Set();
+  for (const url of scripts) {
+    const saved = await files.match(url);
+    if (!saved) continue;
+    const code = await saved.text();
+    for (const match of code.matchAll(/"([^"]*\/_expo\/static\/js\/[^"]+\.js)"/g)) {
+      const found = new URL(match[1], SHELL_URL);
+      if (found.origin === SCOPE.origin && found.pathname.startsWith(SCOPE.pathname)) urls.add(found.href);
+    }
+  }
+  return [...urls];
+}
+
+/**
+ * Downloads the page and stores it, with the files it needs, so the app opens offline. The
+ * files loaded later are saved in `background` (they are not needed to show the page).
+ */
+async function refreshShell(background) {
   const response = await fetch(SHELL_URL, { cache: 'no-store' });
   if (!response.ok) throw new Error(`Page indisponible (${response.status})`);
   const html = await response.clone().text();
@@ -45,23 +77,29 @@ async function refreshShell() {
 
   const needed = linkedFiles(html);
   const files = await caches.open(STATIC_CACHE);
-  await Promise.all(
-    needed.map(async (url) => {
-      if (await files.match(url)) return;
-      try {
-        const res = await fetch(url);
-        if (res.ok) await files.put(url, res);
-      } catch {
-        // Fetched again later, when the page asks for it.
+  await Promise.all(needed.map((url) => keep(files, url)));
+  const later = (async () => {
+    const parts = await laterFiles(
+      files,
+      needed.filter((url) => url.endsWith('.js')),
+    );
+    // A few at a time, so the game's own requests are not kept waiting.
+    const queue = parts.slice();
+    await Promise.all(
+      [0, 1, 2].map(async () => {
+        while (queue.length) await keep(files, queue.shift());
+      }),
+    );
+    // Drop the bundles of older deploys that the new page no longer loads.
+    const current = new Set([...needed, ...parts]);
+    for (const request of await files.keys()) {
+      if (request.url.includes('/_expo/static/') && !current.has(request.url)) {
+        await files.delete(request);
       }
-    }),
-  );
-  // Drop the bundles of older deploys that the new page no longer loads.
-  for (const request of await files.keys()) {
-    if (request.url.includes('/_expo/static/') && !needed.includes(request.url)) {
-      await files.delete(request);
     }
-  }
+  })();
+  if (background) background(later.catch(() => {}));
+  else await later;
   return response;
 }
 
@@ -108,7 +146,7 @@ function withTimeout(promise, ms) {
 async function openPage(event) {
   const network = (async () => {
     const isShell = new URL(event.request.url).pathname.replace(/index\.html$/, '') === SCOPE.pathname;
-    if (isShell) return refreshShell();
+    if (isShell) return refreshShell((work) => event.waitUntil(work));
     return fetch(event.request);
   })();
   // Keep updating the saved copy even if the timeout answers first.

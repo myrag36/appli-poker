@@ -1,8 +1,8 @@
 // The app is written in French; other languages translate each French text.
 // `t('Niveau {n}', { n: 3 })` gives "Niveau 3" in French and "Level 3" in English.
-// The language is read once at startup, like the theme, so module-level texts work too.
+// The language is read once at startup, like the theme, so module-level texts work too: the
+// English texts are a separate download, and the app only starts once they are there (index.ts).
 import { Platform } from 'react-native';
-import { EN } from './en';
 
 export type Lang = 'fr' | 'en';
 export const LANGS: { id: Lang; name: string; flag: string }[] = [
@@ -11,7 +11,7 @@ export const LANGS: { id: Lang; name: string; flag: string }[] = [
 ];
 
 const LANG_KEY = 'appli-poker-langue';
-const DICTS: Record<Lang, Record<string, string> | null> = { fr: null, en: EN };
+const DICTS: Record<Lang, Record<string, string> | null> = { fr: null, en: null };
 
 function initialLang(): Lang {
   if (Platform.OS !== 'web' || typeof window === 'undefined') return 'fr';
@@ -26,6 +26,19 @@ function initialLang(): Lang {
 }
 
 export const lang: Lang = initialLang();
+
+/** Resolves once the texts of the chosen language are loaded (at once in French). */
+export const langReady: Promise<void> =
+  lang === 'en'
+    ? import('./en').then(
+        (m) => {
+          DICTS.en = m.EN;
+        },
+        () => {
+          // Not downloaded (offline before it was ever saved): the app opens in French.
+        },
+      )
+    : Promise.resolve();
 
 /** Saves the choice and restarts the app in that language. */
 export function setLang(next: Lang) {
