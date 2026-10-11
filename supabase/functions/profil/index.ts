@@ -13,18 +13,31 @@ import {
 } from '../_shared/engine/index.ts';
 import { GameError, cleanName, makeRoomCode } from '../poker/logic.ts';
 import { levelChests, unlockedEmojis } from '../_shared/xp.ts';
-import { notify, vapidKeys } from '../_shared/push.ts';
-import { MAX_SUBSCRIPTIONS, canInviteAgain, cleanSubscription, inviteNotice } from '../_shared/notify.ts';
+import { inBackground, notify, vapidKeys } from '../_shared/push.ts';
+import {
+  MAX_SUBSCRIPTIONS,
+  canInviteAgain,
+  cleanSubscription,
+  inviteNotice,
+  messageNotice,
+} from '../_shared/notify.ts';
+import {
+  MESSAGE_HOURLY,
+  canSendMessage,
+  cleanMessage,
+  cleanUserId,
+  shouldNotifyMessage,
+} from '../_shared/messagerie.ts';
 import {
   chestContents,
   cleanFeat,
   cleanFriendCode,
-  podiumChest,
   equip,
   finishedQuest,
   finishedChallenge,
   localGame,
   reachedAchievement,
+  unlocksDue,
   shopItem,
   weeklyLeaderboard,
 } from './logic.ts';
@@ -48,7 +61,9 @@ function json(body: unknown, status = 200) {
 async function loadProgress(userId: string) {
   const { data, error } = await admin
     .from('player_progress')
-    .select('xp, equipped, owned, stats_day, day_stats, games, best_streak, quests_done, feats')
+    .select(
+      'xp, equipped, owned, stats_day, day_stats, games, best_streak, quests_done, feats, challenges_done',
+    )
     .eq('user_id', userId)
     .maybeSingle();
   if (error) throw error;
@@ -63,6 +78,7 @@ async function loadProgress(userId: string) {
       best_streak: 0,
       quests_done: 0,
       feats: [],
+      challenges_done: 0,
     }
   );
 }
@@ -143,6 +159,21 @@ async function achieve(userId: string, body: Record<string, unknown>) {
   return await rpc('claim_achievement', { p_user: userId, p_id: a.id, p_coins: a.coins });
 }
 
+/**
+ * Adds to my collection the items I earned by playing (an achievement reached, daily
+ * challenges taken), checked here from my progress. They cost nothing: buy_item at price 0.
+ */
+async function unlock(userId: string) {
+  const due = unlocksDue(await loadProgress(userId));
+  const unlocked: string[] = [];
+  for (const key of due) {
+    const { data, error } = await admin.rpc('buy_item', { p_user: userId, p_item: key, p_price: 0 });
+    if (error) throw error;
+    if (!data?.error) unlocked.push(key);
+  }
+  return { unlocked };
+}
+
 async function feat(userId: string, body: Record<string, unknown>) {
   const { error } = await admin.rpc('add_feat', { p_user: userId, p_feat: cleanFeat(body.feat) });
   if (error) throw error;
@@ -220,15 +251,14 @@ async function removeFriend(userId: string, body: Record<string, unknown>) {
   return { ok: true };
 }
 
+/** Last week's podium chest of the friends' ranking, taken once (`claim_podium` checks it). */
 async function podium(userId: string) {
-  const { data, error } = await admin.rpc('last_week_board', { p_user: userId });
-  if (error) throw error;
-  const kind = podiumChest(userId, data ?? []);
-  if (!kind) throw new GameError('Pas de podium pour toi la semaine dernière');
-  return await rpc('claim_podium', { p_user: userId, p_kind: kind });
+  const { chest } = await classement(userId);
+  if (!chest) throw new GameError('Pas de podium pour toi la semaine dernière');
+  return await rpc('claim_podium', { p_user: userId, p_kind: chest });
 }
 
-/** This week's ranking of online games between me and my friends, and last week's podium. */
+/** This week's ranking between me and my friends, last week's podium and my chest for it. */
 async function classement(userId: string) {
   const { data: friends, error } = await admin.from('friendships').select('friend_id').eq('user_id', userId);
   if (error) throw error;
@@ -236,7 +266,10 @@ async function classement(userId: string) {
   const monday = weekStart(parisDay());
   const [profiles, progress, results] = await Promise.all([
     admin.from('profiles').select('user_id, name, avatar, avatar_color').in('user_id', ids),
-    admin.from('player_progress').select('user_id, xp, equipped, owned').in('user_id', ids),
+    admin
+      .from('player_progress')
+      .select('user_id, xp, equipped, owned, week_start, week_xp, last_week_start, last_week_xp')
+      .in('user_id', ids),
     admin
       .from('online_results')
       .select('user_id, game, won, week')
@@ -360,6 +393,12 @@ async function invite(userId: string, body: Record<string, unknown>) {
     .eq('to_id', friendId)
     .lt('created_at', new Date(Date.now() - 86_400_000).toISOString());
 
+  // The invitation also shows in our conversation, with a button to join.
+  const { error: cardError } = await admin
+    .from('direct_messages')
+    .insert({ sender_id: userId, recipient_id: friendId, body: '', game, room_code: code });
+  if (cardError) console.error('invitation absente de la conversation', cardError.message);
+
   let notified = 0;
   try {
     notified = await notify(admin, [friendId], (lang) => inviteNotice(lang, name, game, code), {
@@ -370,6 +409,72 @@ async function invite(userId: string, body: Record<string, unknown>) {
     console.error('invitation non envoyée', (e as Error).message);
   }
   return { ok: true, notified: notified > 0 };
+}
+
+/** Columns of a message sent back to the app. */
+const MESSAGE_COLUMNS = 'id, sender_id, recipient_id, body, game, room_code, created_at, read_at';
+
+/** Writes to a friend: kept for both of us, and a notification on their phone if they were not told yet. */
+async function sendMessage(userId: string, body: Record<string, unknown>) {
+  const friendId = cleanUserId(body.friendId);
+  const text = cleanMessage(body.body);
+  const { data: friendship } = await admin
+    .from('friendships')
+    .select('friend_id')
+    .eq('user_id', userId)
+    .eq('friend_id', friendId)
+    .maybeSingle();
+  if (!friendship) throw new GameError('Ce joueur n’est pas dans tes amis');
+
+  const now = Date.now();
+  const { data: recent, error: recentError } = await admin
+    .from('direct_messages')
+    .select('created_at')
+    .eq('sender_id', userId)
+    .is('game', null)
+    .gt('created_at', new Date(now - 3_600_000).toISOString())
+    .order('created_at', { ascending: false })
+    .limit(MESSAGE_HOURLY);
+  if (recentError) throw recentError;
+  if (
+    !canSendMessage(
+      (recent ?? []).map((r) => r.created_at as string),
+      now,
+    )
+  ) {
+    throw new GameError('Doucement ! Attends un peu avant d’écrire encore');
+  }
+  const { data: previous } = await admin
+    .from('direct_messages')
+    .select('created_at, read_at')
+    .eq('sender_id', userId)
+    .eq('recipient_id', friendId)
+    .order('id', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  const { data: message, error } = await admin
+    .from('direct_messages')
+    .insert({ sender_id: userId, recipient_id: friendId, body: text })
+    .select(MESSAGE_COLUMNS)
+    .single();
+  // The database checks friends and limits again: its refusals are shown as they are.
+  if (error?.code === 'P0001') throw new GameError(error.message);
+  if (error) throw error;
+
+  if (shouldNotifyMessage(previous, now)) {
+    inBackground(
+      (async () => {
+        const { data: me } = await admin.from('profiles').select('name').eq('user_id', userId).maybeSingle();
+        const from = (me?.name as string | undefined) || 'Joueur';
+        await notify(admin, [friendId], (lang) => messageNotice(lang, from, text, userId), {
+          ttl: 3600,
+          urgency: 'high',
+        });
+      })(),
+    );
+  }
+  return { message };
 }
 
 Deno.serve(async (req) => {
@@ -399,6 +504,8 @@ Deno.serve(async (req) => {
         return json(await achieve(user.id, body));
       case 'feat':
         return json(await feat(user.id, body));
+      case 'unlock':
+        return json(await unlock(user.id));
       case 'me':
         return json(await me(user.id, body));
       case 'addFriend':
@@ -417,6 +524,8 @@ Deno.serve(async (req) => {
         return json(await pushUnsubscribe(user.id, body));
       case 'invite':
         return json(await invite(user.id, body));
+      case 'message':
+        return json(await sendMessage(user.id, body));
       default:
         return json({ error: 'Requête inconnue' }, 400);
     }

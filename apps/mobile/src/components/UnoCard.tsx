@@ -1,6 +1,7 @@
 import { Animated, Platform, StyleSheet, Text, View } from 'react-native';
 import type { UnoVariant } from '@appli-poker/engine';
 import { PlayingCard } from './PlayingCard';
+import { CardBackFace, useCardBack } from './cardBacks';
 import { useDealIn } from './Motion';
 import { shadow } from '../theme';
 
@@ -74,7 +75,16 @@ function UnoFace({ card, width = 56, hidden }: Props) {
   const radius = Math.max(4, w * 0.1);
   const border = Math.max(2, w * 0.06);
   const oval = w * 0.74;
+  // A chosen card back replaces the Uno back; the classic one keeps the Uno look.
+  const back = useCardBack();
 
+  if ((hidden || !card) && back !== 'classic') {
+    return (
+      <View style={styles.backSpot}>
+        <CardBackFace id={back} width={w} height={h} radius={radius} />
+      </View>
+    );
+  }
   if (hidden || !card) {
     return (
       <View style={[styles.base, shadow, { width: w, height: h, borderRadius: radius, padding: border }]}>
@@ -189,6 +199,7 @@ export function GameCard({
 }
 
 const styles = StyleSheet.create({
+  backSpot: { marginHorizontal: 2 },
   base: { marginHorizontal: 2, backgroundColor: '#fbfbf8', overflow: 'hidden' },
   inner: { flex: 1, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   oval: { position: 'absolute' },

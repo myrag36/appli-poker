@@ -163,8 +163,8 @@ self.addEventListener('fetch', (event) => {
 });
 
 /*
- * Notifications (Web Push): a friend invites me to their table, or it is my turn in an online
- * game. The server sends small JSON messages: { kind, title, body, tag, url }.
+ * Notifications (Web Push): a friend invites me to their table, writes to me, or it is my turn
+ * in an online game. The server sends small JSON messages: { kind, title, body, tag, url }.
  */
 
 // Safari and every browser on iPhone (WebKit) drop the subscription of a site that receives a
@@ -193,8 +193,9 @@ async function showPush(data) {
     badge: new URL('icons/icon-192.png', SHELL_URL).href,
     data: { url: new URL(typeof data.url === 'string' ? data.url : './', SHELL_URL).href },
   };
-  if (data.kind === 'turn') {
-    // The turn notice is for when the app is in the background: on screen, the table shows it.
+  if (data.kind === 'turn' || data.kind === 'message') {
+    // Turn and message notices are for when the app is in the background: on screen, the app
+    // shows them itself.
     const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     if (windows.some((c) => c.visibilityState === 'visible')) {
       if (!WEBKIT) return;
@@ -216,11 +217,15 @@ async function openFromNotification(href) {
   if (url.origin !== SCOPE.origin || !url.pathname.startsWith(SCOPE.pathname)) return;
   const game = url.searchParams.get('jeu');
   const code = url.searchParams.get('table');
+  const friend = url.searchParams.get('ami');
+  const weekly = url.searchParams.get('tournoi') === 'vendredi';
   const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
   const open = windows.find((c) => c.url.startsWith(SHELL_URL));
   if (open) {
     await open.focus().catch(() => {});
-    if (game && code) open.postMessage({ type: 'open-table', game, code });
+    if (weekly) open.postMessage({ type: 'open-weekly', game, code });
+    else if (game && code) open.postMessage({ type: 'open-table', game, code });
+    else if (friend) open.postMessage({ type: 'open-chat', friend });
     return;
   }
   await self.clients.openWindow(url.href);

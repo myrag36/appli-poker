@@ -37,6 +37,7 @@ import {
   supabase,
 } from '../online/supabase';
 import type { TournamentTable } from './OnlineGameScreen';
+import { WeeklyCard, WeeklyScreen, useWeekly } from './WeeklyTournament';
 import { t, tn } from '../i18n';
 import { useDesktop } from '../layout';
 import { colors, gradients, shadow } from '../theme';
@@ -48,11 +49,13 @@ const GAMES: { id: OnlineGameId; title: string; emoji: string }[] = [
   { id: 'belote', title: t('Belote'), emoji: '♠️' },
   { id: 'puissance4', title: t('Puissance 4'), emoji: '🔴' },
   { id: 'bataille', title: t('Bataille navale'), emoji: '⚓' },
+  { id: 'echecs', title: t('Échecs'), emoji: '♟️' },
   { id: 'rami', title: t('Rami'), emoji: '🀄' },
   { id: 'tarot', title: t('Tarot'), emoji: '🃏' },
   { id: 'uno', title: 'Uno', emoji: '🎨' },
   { id: 'huit', title: t('8 américain'), emoji: '🎱' },
   { id: 'perudo', title: 'Perudo', emoji: '🗣️' },
+  { id: 'dames', title: t('Dames'), emoji: '⚪' },
 ];
 const GAME = Object.fromEntries(GAMES.map((g) => [g.id, g])) as Record<OnlineGameId, (typeof GAMES)[number]>;
 const MEDALS = ['🥇', '🥈', '🥉'];
@@ -66,11 +69,27 @@ interface Props {
   initialName: string;
   onBack: () => void;
   onPlay: (game: OnlineGameId, tournament: TournamentTable) => void;
+  /** Opens the Friday tournament's page first (from a notification, or back from a match). */
+  initialWeekly?: boolean;
+  /** Goes to my match of the Friday tournament. */
+  onPlayWeekly: (game: OnlineGameId, code: string) => void;
 }
 
-/** Tournaments between friends: several online games in a row, points added up. */
-export function TournamentScreen({ initialId, initialName, onBack, onPlay }: Props) {
+/**
+ * The Friday tournament (every week, open to everyone) and tournaments between friends: several
+ * online games in a row, points added up.
+ */
+export function TournamentScreen({
+  initialId,
+  initialName,
+  onBack,
+  onPlay,
+  initialWeekly,
+  onPlayWeekly,
+}: Props) {
   const [openId, setOpenId] = useState<string | null>(initialId ?? null);
+  const [weeklyOpen, setWeeklyOpen] = useState(!!initialWeekly);
+  if (weeklyOpen) return <WeeklyScreen onBack={() => setWeeklyOpen(false)} onPlay={onPlayWeekly} />;
   if (openId) {
     return (
       <TournamentView
@@ -80,7 +99,15 @@ export function TournamentScreen({ initialId, initialName, onBack, onPlay }: Pro
       />
     );
   }
-  return <TournamentHome initialName={initialName} onBack={onBack} onOpen={setOpenId} />;
+  return (
+    <TournamentHome
+      initialName={initialName}
+      onBack={onBack}
+      onOpen={setOpenId}
+      onWeekly={() => setWeeklyOpen(true)}
+      onPlayWeekly={onPlayWeekly}
+    />
+  );
 }
 
 function avatarOf(p: TournamentPlayer, i: number): Avatar {
@@ -110,11 +137,16 @@ function TournamentHome({
   initialName,
   onBack,
   onOpen,
+  onWeekly,
+  onPlayWeekly,
 }: {
   initialName: string;
   onBack: () => void;
   onOpen: (id: string) => void;
+  onWeekly: () => void;
+  onPlayWeekly: (game: OnlineGameId, code: string) => void;
 }) {
+  const weekly = useWeekly();
   const insets = useSafeAreaInsets();
   const desktop = useDesktop();
   const [name, setName] = useState(initialName);
@@ -337,6 +369,17 @@ function TournamentHome({
       <TopBar onBack={onBack} backLabel={t('← Jeux')} />
       <Text style={styles.trophy}>🏆</Text>
       <Text style={styles.title}>{t('Tournois')}</Text>
+      <WeeklyCard
+        weekly={weekly}
+        name={name}
+        avatar={avatar}
+        onOpen={onWeekly}
+        onPlay={(game, code) => {
+          saveName(trimmed);
+          onPlayWeekly(game, code);
+        }}
+      />
+      <Text style={[styles.section, styles.friendsTitle]}>{t('Tournois entre amis')}</Text>
       <Text style={styles.subtitle}>
         {t('Plusieurs jeux à la suite entre amis : 3 points par victoire, 1 point par participation.')}
       </Text>
@@ -693,6 +736,7 @@ const styles = StyleSheet.create({
   leftColumn: { width: 420 },
   rightColumn: { flex: 1, minWidth: 0 },
   sectionFirst: { marginTop: 16 },
+  friendsTitle: { textAlign: 'center', marginTop: 26, marginBottom: 0 },
   flex: { flex: 1 },
   row: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   pressed: { opacity: 0.7 },

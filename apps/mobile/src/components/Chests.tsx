@@ -6,6 +6,7 @@ import {
   CHEST_NAMES,
   CHEST_REASONS,
   type Chest,
+  REWARD_KIND_ONE,
   type RewardKind,
   findReward,
 } from '@appli-poker/engine';
@@ -16,14 +17,7 @@ import { t } from '../i18n';
 import { colors, gradients, shadow } from '../theme';
 
 /** One item of each kind, for "Bordure : Or" when a chest gives it. */
-const KIND_NAME: Record<RewardKind, string> = {
-  frame: 'Bordure',
-  title: 'Titre',
-  avatar: 'Avatar',
-  cardBack: 'Dos de carte',
-  banner: 'Bannière',
-  emote: 'Emote',
-};
+const KIND_NAME: Record<RewardKind, string> = REWARD_KIND_ONE;
 
 /** A treasure chest drawn with shapes; the big one is gold and glows. */
 export function ChestArt({ grand, size = 64, open }: { grand?: boolean; size?: number; open?: boolean }) {

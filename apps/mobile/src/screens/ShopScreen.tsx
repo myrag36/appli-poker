@@ -38,10 +38,10 @@ import { t, tn } from '../i18n';
 import { useDesktop } from '../layout';
 import { colors, gradients, shadow } from '../theme';
 
-const KINDS: RewardKind[] = ['frame', 'title', 'avatar', 'emote', 'cardBack', 'banner'];
+const KINDS: RewardKind[] = ['frame', 'title', 'avatar', 'emote', 'cardBack', 'chip', 'felt', 'banner'];
 
 /** Coins, the quests of the day and the items they buy. */
-export function ShopScreen({ onBack }: { onBack: () => void }) {
+export function ShopScreen({ onBack, onCustomize }: { onBack: () => void; onCustomize: () => void }) {
   const progress = useMyProgress();
   const { width: screenW } = useWindowDimensions();
   const desktop = useDesktop();
@@ -266,6 +266,9 @@ export function ShopScreen({ onBack }: { onBack: () => void }) {
       <View style={styles.grid}>
         {SHOP_ITEMS.filter((x) => x.kind === kind && x.season === undefined).map((x) => tile(x, true))}
       </View>
+      <Pressable accessibilityRole="button" onPress={onCustomize} hitSlop={8}>
+        <Text style={styles.more}>{t('🎨 Essaie-les sur une table : Personnaliser ›')}</Text>
+      </Pressable>
     </>
   );
 
@@ -512,4 +515,5 @@ const styles = StyleSheet.create({
   buttonGoldText: { color: colors.onGold, fontSize: 16, fontWeight: '800' },
   buttonText: { color: colors.text, fontSize: 16, fontWeight: '700' },
   error: { color: colors.gold, marginTop: 10, textAlign: 'center' },
+  more: { color: colors.gold, fontSize: 14, fontWeight: '800', textAlign: 'center', marginTop: 14 },
 });

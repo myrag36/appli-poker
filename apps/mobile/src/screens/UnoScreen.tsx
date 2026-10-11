@@ -46,9 +46,10 @@ import { TopBar } from '../components/TopBar';
 import { GameCard, UNO_PAINT } from '../components/UnoCard';
 import { sounds } from '../feedback';
 import { deviceRng } from '../rng';
-import { colors, gradients, theme } from '../theme';
+import { colors, gradients } from '../theme';
 import { useDesktop } from '../layout';
 import { t, tn } from '../i18n';
+import { FeltFill, feltMark } from '../components/felts';
 
 /** How long a robot seems to think before playing, in ms. */
 const BOT_DELAY = 1000;
@@ -810,11 +811,11 @@ function TableView({
       <View style={styles.rail}>
         <LinearGradient colors={gradients.wood} style={StyleSheet.absoluteFill} />
         <View style={styles.felt}>
-          <LinearGradient colors={gradients.felt} style={StyleSheet.absoluteFill} />
+          <FeltFill />
           <View style={styles.feltGlow} />
           <View style={styles.feltLine} />
-          {theme.feltMark && (
-            <Text style={[styles.feltMark, { fontSize: Math.round(w * 0.3) }]}>{theme.feltMark}</Text>
+          {feltMark() && (
+            <Text style={[styles.feltMark, { fontSize: Math.round(w * 0.3) }]}>{feltMark()}</Text>
           )}
         </View>
       </View>

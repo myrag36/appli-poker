@@ -7,10 +7,11 @@ import { ChipStack, DealerButton } from './Chip';
 import { Appear, FloatUp, FlyTo } from './Motion';
 import { PlayingCard } from './PlayingCard';
 import { stripes } from './decors/classic-kit';
-import { colors, gradients, seatColors, shadow, theme } from '../theme';
+import { colors, gradients, seatColors, shadow } from '../theme';
 import { t } from '../i18n';
 import { tMessage } from '../online/messages';
 import { play } from '../sound';
+import { FeltFill, feltMark } from './felts';
 
 const RAIL_SHEEN = ['rgba(255, 240, 220, 0.16)', 'rgba(255, 240, 220, 0)', 'rgba(0, 0, 0, 0.18)'] as const;
 
@@ -119,15 +120,15 @@ export function Table({
         <LinearGradient colors={RAIL_SHEEN} locations={[0, 0.45, 1]} style={StyleSheet.absoluteFill} />
         <View style={[styles.railInlay, { borderRadius: w / 2 }]} />
         <View style={[styles.felt, { borderRadius: w / 2 }]}>
-          <LinearGradient colors={gradients.felt} style={StyleSheet.absoluteFill} />
+          <FeltFill />
           {/* Fine weave of the cloth, then a darker edge all around. */}
           <LinearGradient {...weave(h)} style={StyleSheet.absoluteFill} />
           <View style={[styles.feltVignette, { borderRadius: w / 2 }]} />
           <View style={[styles.feltGlow, { borderRadius: w / 2 }]} />
           <View style={[styles.feltLine, wide && styles.feltLineWide, { borderRadius: w / 2 }]} />
-          {theme.feltMark && (
+          {feltMark() && (
             <Text style={[styles.feltMark, { fontSize: Math.round(Math.min(w, h * 1.2) * 0.32) }]}>
-              {theme.feltMark}
+              {feltMark()}
             </Text>
           )}
         </View>

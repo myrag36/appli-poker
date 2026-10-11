@@ -22,6 +22,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { lastWeeklyFriday, nextWeeklyFriday, weeklyStartsAt } from '@appli-poker/engine';
 import { GameDecor } from '../components/GameDecor';
 import { ThemeChooser } from '../components/ThemeChooser';
 import { InstallBanner } from '../components/InstallBanner';
@@ -30,14 +31,17 @@ import { AvatarBadge } from '../components/AvatarPicker';
 import { achievementsReady } from '../components/Achievements';
 import { DailyChallenge } from '../components/DailyChallenge';
 import { useMyProgress } from '../online/progress';
+import { useUnreadCount } from '../online/messagerie';
 import { loadAvatar } from '../online/supabase';
 import { PlayingCard } from '../components/PlayingCard';
 import { Token } from '../components/Token';
 import { BatailleArt } from './BatailleScreen';
+import { EchecsArt } from './EchecsScreen';
+import { DamesArt } from './DamesScreen';
 import { UnoCard } from '../components/UnoCard';
 import { TarotCard } from '../components/TarotCard';
 import { colors, gradients, shadow } from '../theme';
-import { LANGS, lang, setLang, t } from '../i18n';
+import { LANGS, lang, setLang, t, tn } from '../i18n';
 import { PAGE_MAX_WIDTH, useDesktop } from '../layout';
 
 export type GameId =
@@ -48,11 +52,13 @@ export type GameId =
   | 'belote'
   | 'puissance4'
   | 'bataille'
+  | 'echecs'
   | 'rami'
   | 'uno'
   | 'huit'
   | 'tarot'
-  | 'perudo';
+  | 'perudo'
+  | 'dames';
 
 interface Game {
   id: GameId;
@@ -122,6 +128,14 @@ const GAMES: Game[] = [
     ready: true,
   },
   {
+    id: 'echecs',
+    title: t('Échecs'),
+    tagline: t('Le roi des jeux de stratégie : roque, promotion, et mate le roi adverse.'),
+    players: t('2 joueurs ou contre le robot'),
+    art: [],
+    ready: true,
+  },
+  {
     id: 'rami',
     title: 'Rami',
     tagline: t('Pose tes suites et tes brelans, ouvre à 51 et vide ta main le premier.'),
@@ -161,6 +175,14 @@ const GAMES: Game[] = [
     art: ['⚀', '⚃', '⚃', '⚀', '⚃'],
     ready: true,
   },
+  {
+    id: 'dames',
+    title: t('Dames'),
+    tagline: t('Pions, rafles et dames volantes : prends toutes les pièces adverses.'),
+    players: t('2 joueurs ou contre le robot'),
+    art: [],
+    ready: true,
+  },
 ];
 
 const GAP = 14;
@@ -173,12 +195,15 @@ interface Props {
   onResume: () => void;
   onProfile: () => void;
   onShop: () => void;
+  onCustomize: () => void;
   onFriends: () => void;
   onTournaments: () => void;
 }
 
 function Art({ game }: { game: Game }) {
   if (game.id === 'bataille') return <BatailleArt />;
+  if (game.id === 'echecs') return <EchecsArt />;
+  if (game.id === 'dames') return <DamesArt />;
   if (game.id === 'puissance4') {
     return (
       <View style={styles.tokens}>
@@ -251,6 +276,7 @@ export function GamesScreen({
   onResume,
   onProfile,
   onShop,
+  onCustomize,
   onFriends,
   onTournaments,
 }: Props) {
@@ -285,6 +311,7 @@ export function GamesScreen({
         onResume={onResume}
         onProfile={onProfile}
         onShop={onShop}
+        onCustomize={onCustomize}
         onFriends={onFriends}
         onTournaments={onTournaments}
         tutorial={tutorial}
@@ -308,13 +335,22 @@ export function GamesScreen({
           style={({ pressed }) => [styles.socialButton, pressed && styles.pressed]}
         >
           <Text style={styles.socialText}>{t('👥 Amis')}</Text>
+          <UnreadBadge />
         </Pressable>
         <Pressable
           accessibilityRole="button"
           onPress={onTournaments}
           style={({ pressed }) => [styles.socialButton, pressed && styles.pressed]}
         >
-          <Text style={styles.socialText}>{t('🏆 Tournois')}</Text>
+          <Text style={styles.socialText}>{tournamentsLabel()}</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={t('Personnaliser')}
+          onPress={onCustomize}
+          style={({ pressed }) => [styles.socialButton, pressed && styles.pressed]}
+        >
+          <Text style={styles.socialText}>{t('🎨 Style')}</Text>
         </Pressable>
         <SeasonPill onPress={onShop} />
       </View>
@@ -417,6 +453,21 @@ export function GamesScreen({
   );
 }
 
+/** A short line for the tournaments button: live, tonight, or nothing. */
+function weeklyTeaser(now: number, startsAt: number): string | null {
+  if (now >= startsAt && now < startsAt + 2 * 3_600_000) return t('🔴 Tournoi en direct');
+  if (startsAt - now > 0 && startsAt - now < 12 * 3_600_000) return t('🏆 Tournoi ce soir');
+  return null;
+}
+
+/** The tournaments button: says when the Friday tournament is tonight or being played. */
+function tournamentsLabel(now = Date.now()): string {
+  const last = weeklyStartsAt(lastWeeklyFriday(now));
+  return (
+    weeklyTeaser(now, last) ?? weeklyTeaser(now, weeklyStartsAt(nextWeeklyFriday(now))) ?? t('🏆 Tournois')
+  );
+}
+
 /** Props of the desktop home: the games screen's own, plus the tutorial it owns. */
 interface DesktopProps extends Props {
   tutorial: boolean;
@@ -444,6 +495,7 @@ function DesktopGames({
   onResume,
   onProfile,
   onShop,
+  onCustomize,
   onFriends,
   onTournaments,
   tutorial,
@@ -472,7 +524,7 @@ function DesktopGames({
             <View style={desk.brand}>
               <Text style={desk.logo}>La Tablée</Text>
               <Text style={desk.tagline}>
-                {t('12 jeux de cartes, de dés et de plateau à partager entre amis')}
+                {t('14 jeux de cartes, de dés et de plateau à partager entre amis')}
               </Text>
             </View>
             <View style={desk.chips}>
@@ -492,9 +544,13 @@ function DesktopGames({
               )}
               <Pressable accessibilityRole="button" onPress={onFriends} style={hoverable()}>
                 <Text style={desk.actionText}>{t('👥 Amis')}</Text>
+                <UnreadBadge />
               </Pressable>
               <Pressable accessibilityRole="button" onPress={onTournaments} style={hoverable()}>
-                <Text style={desk.actionText}>{t('🏆 Tournois')}</Text>
+                <Text style={desk.actionText}>{tournamentsLabel()}</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" onPress={onCustomize} style={hoverable()}>
+                <Text style={desk.actionText}>{t('🎨 Personnaliser')}</Text>
               </Pressable>
               <SeasonPill onPress={onShop} style={hoverable()} />
             </View>
@@ -654,6 +710,20 @@ function CoinsChip({ onPress }: { onPress: () => void }) {
   );
 }
 
+/** Messages from friends not read yet, on the friends button. */
+function UnreadBadge() {
+  const unread = useUnreadCount();
+  if (unread <= 0) return null;
+  return (
+    <View
+      style={styles.inlineBadge}
+      accessibilityLabel={tn(unread, '{n} message non lu', '{n} messages non lus')}
+    >
+      <Text style={styles.badgeText}>{unread > 99 ? '99+' : unread}</Text>
+    </View>
+  );
+}
+
 /** The flag of the app's language; switches to the next language (the app reloads). */
 function LangChip() {
   if (Platform.OS !== 'web') return null;
@@ -704,9 +774,25 @@ function SeasonPill({
 }
 
 const styles = StyleSheet.create({
-  social: { flexDirection: 'row', gap: 8, marginTop: 12 },
+  // Four buttons do not fit one phone row: two by two, the same width.
+  social: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 12,
+    paddingHorizontal: 16,
+    width: '100%',
+    maxWidth: 420,
+  },
   socialButton: {
-    paddingHorizontal: 14,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    flexGrow: 1,
+    flexBasis: '40%',
+    paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 18,
     overflow: 'hidden',
@@ -742,6 +828,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   badgeText: { color: '#fff', fontSize: 12, fontWeight: '900' },
+  inlineBadge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 5,
+    backgroundColor: '#e63946',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   lang: {
     width: 42,
     height: 42,
@@ -851,6 +946,9 @@ const desk = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 24,
     overflow: 'hidden',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     justifyContent: 'center',
     backgroundColor: colors.glass,
     borderWidth: 1,

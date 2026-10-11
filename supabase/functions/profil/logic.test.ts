@@ -6,13 +6,14 @@ import {
   chestContents,
   cleanFeat,
   cleanFriendCode,
-  podiumChest,
   equip,
   finishedQuest,
   finishedChallenge,
   localGame,
   reachedAchievement,
   shopItem,
+  weekXpOf,
+  unlocksDue,
   weeklyLeaderboard,
 } from './logic.ts';
 
@@ -21,7 +22,14 @@ test('only unlocked rewards can be worn, the rest of the outfit stays', () => {
   assert.throws(() => equip(0, {}, 'hat', 'gold'), GameError);
   const at10 = xpForLevel(10);
   const worn = equip(at10, { title: 'habitue', frame: 'legend' }, 'frame', 'gold');
-  assert.deepEqual(worn, { frame: 'gold', title: 'habitue', cardBack: 'classic', banner: 'felt' });
+  assert.deepEqual(worn, {
+    frame: 'gold',
+    title: 'habitue',
+    cardBack: 'classic',
+    banner: 'felt',
+    chip: 'classic',
+    felt: 'ambiance',
+  });
 });
 
 test('a game on one phone pays like a game online', () => {
@@ -84,19 +92,29 @@ test('friend codes are 6 letters or digits', () => {
   assert.throws(() => cleanFriendCode('abc'), /6 caractères/);
 });
 
-test('last week podium among friends', () => {
-  const board = [
-    { user_id: 'a', xp: 500 },
-    { user_id: 'b', xp: 300 },
-    { user_id: 'c', xp: 200 },
-    { user_id: 'd', xp: 100 },
-    { user_id: 'e', xp: 0 },
-  ];
-  assert.equal(podiumChest('a', board), 'grand');
-  assert.equal(podiumChest('c', board), 'normal');
-  assert.equal(podiumChest('d', board), null);
-  assert.equal(podiumChest('e', board), null);
-  assert.equal(podiumChest('a', [{ user_id: 'a', xp: 900 }]), null);
+test('experience of this week and last week, as the database keeps it', () => {
+  const monday = '2026-10-05';
+  assert.deepEqual(
+    weekXpOf(
+      { user_id: 'a', week_start: monday, week_xp: 120, last_week_start: '2026-09-28', last_week_xp: 80 },
+      monday,
+    ),
+    { week: 120, lastWeek: 80 },
+  );
+  // No experience since last week: the database has not moved the weeks on yet.
+  assert.deepEqual(weekXpOf({ user_id: 'a', week_start: '2026-09-28', week_xp: 70 }, monday), {
+    week: 0,
+    lastWeek: 70,
+  });
+  // Nothing for two weeks.
+  assert.deepEqual(
+    weekXpOf(
+      { user_id: 'a', week_start: '2026-09-21', week_xp: 70, last_week_start: '2026-09-14', last_week_xp: 9 },
+      monday,
+    ),
+    { week: 0, lastWeek: 0 },
+  );
+  assert.deepEqual(weekXpOf({ user_id: 'a' }, monday), { week: 0, lastWeek: 0 });
 });
 
 test('the daily challenge is paid only once done, with today’s stats', () => {
@@ -115,9 +133,23 @@ test('weekly ranking between friends: online games of this week, and last week�
   const board = weeklyLeaderboard(
     'moi',
     [
-      { user_id: 'moi', name: 'Simon', xp: 1200, equipped: { frame: 'gold' } },
-      { user_id: 'lea', name: 'Léa', avatar: '🦄', avatar_color: '#8e7dbe' },
-      { user_id: 'tom' },
+      {
+        user_id: 'moi',
+        name: 'Simon',
+        xp: 1200,
+        equipped: { frame: 'gold' },
+        week_start: monday,
+        week_xp: 90,
+      },
+      {
+        user_id: 'lea',
+        name: 'Léa',
+        avatar: '🦄',
+        avatar_color: '#8e7dbe',
+        week_start: '2026-09-28',
+        week_xp: 40,
+      },
+      { user_id: 'tom', week_start: monday, week_xp: 300, last_week_start: '2026-09-28', last_week_xp: 10 },
     ],
     [
       r('moi', 'uno', true),
@@ -137,9 +169,9 @@ test('weekly ranking between friends: online games of this week, and last week�
   assert.equal(board.endsAt, Date.UTC(2026, 9, 11, 22));
   assert.ok(board.games.includes('poker') && board.games.includes('uno'));
   assert.deepEqual(board.ranking, [
-    { user_id: 'lea', place: 1, played: 3, won: 2, points: 7, best: 'uno' },
-    { user_id: 'moi', place: 2, played: 2, won: 1, points: 4, best: 'uno' },
-    { user_id: 'tom', place: 3, played: 0, won: 0, points: 0, best: null },
+    { user_id: 'lea', place: 1, played: 3, won: 2, points: 7, xp: 0, best: 'uno' },
+    { user_id: 'moi', place: 2, played: 2, won: 1, points: 4, xp: 90, best: 'uno' },
+    { user_id: 'tom', place: 3, played: 0, won: 0, points: 0, xp: 300, best: null },
   ]);
   assert.deepEqual(
     board.podium.map((p) => [p.user_id, p.place, p.points]),
@@ -148,8 +180,44 @@ test('weekly ranking between friends: online games of this week, and last week�
       ['moi', 2, 1],
     ],
   );
+  // I was second last week, with Tom: a chest (taken once, see `claim_podium`).
+  assert.equal(board.chest, 'normal');
   const tom = board.players.find((p) => p.user_id === 'tom')!;
+  assert.equal(tom.lastWeekXp, 10);
+  assert.equal(board.players.find((p) => p.user_id === 'lea')!.lastWeekXp, 40);
   assert.equal(tom.name, 'Joueur');
   assert.equal(tom.me, false);
   assert.equal(board.players.find((p) => p.user_id === 'moi')!.me, true);
+});
+
+test('chips and felts: level ones with the level, shop ones once bought', () => {
+  assert.throws(() => equip(xpForLevel(27), {}, 'chip', 'neon'), /Pas encore/);
+  assert.equal(equip(xpForLevel(28), {}, 'chip', 'neon').chip, 'neon');
+  assert.throws(() => equip(xpForLevel(50), {}, 'felt', 'brocart', []), /Pas encore/);
+  assert.equal(equip(0, { chip: 'neon' }, 'felt', 'brocart', ['felt:brocart']).felt, 'brocart');
+  // What can no longer be worn goes back to the default.
+  assert.equal(equip(0, { chip: 'neon' }, 'felt', 'brocart', ['felt:brocart']).chip, 'classic');
+  assert.deepEqual(shopItem('chip', 'cristal', 3), { key: 'chip:cristal', price: 800 });
+  assert.deepEqual(shopItem('cardBack', 'araignee', 10), { key: 'cardBack:araignee', price: 500 });
+  assert.throws(() => shopItem('cardBack', 'araignee', 11), /plus en vente/);
+});
+
+test('items earned by playing are granted by the server once their condition is met', () => {
+  assert.deepEqual(unlocksDue({ challenges_done: 2 }), []);
+  assert.deepEqual(unlocksDue({ challenges_done: 3 }), ['felt:defi']);
+  assert.deepEqual(unlocksDue({ challenges_done: 3, owned: ['felt:defi'] }), []);
+  assert.deepEqual(unlocksDue({ games: { poker: { played: 10, won: 10 } } }), ['chip:requin']);
+  // Cannot be bought, and cannot be worn before being granted.
+  assert.throws(() => shopItem('chip', 'requin'), /introuvable/);
+  assert.throws(() => equip(xpForLevel(50), {}, 'chip', 'requin', []), /Pas encore/);
+  assert.equal(equip(0, {}, 'chip', 'requin', ['chip:requin']).chip, 'requin');
+});
+
+test('earned items do not count toward the shopping achievements', () => {
+  const earned = ['felt:defi', 'chip:defi', 'chip:requin'];
+  assert.throws(() => reachedAchievement('shop-3', { owned: earned }), /pas encore/);
+  assert.equal(
+    reachedAchievement('shop-3', { owned: [...earned, 'frame:sakura', 'frame:lagoon', 'emote:🐔'] }).id,
+    'shop-3',
+  );
 });

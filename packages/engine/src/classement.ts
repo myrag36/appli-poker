@@ -1,5 +1,8 @@
 // Weekly ranking between friends, made of the online games they finished (Monday to Sunday,
-// Paris time). Games played on one phone are not counted: nobody can check them.
+// Paris time). Games played on one phone are not counted: nobody can check them. Points come
+// from online games only (3 a win, 1 any other game); between players with the same points
+// and wins, the experience earned that week (any game, on one phone too) decides. Last week's
+// podium wins a chest: a grand one for the first.
 import { ONLINE_GAMES } from './online.ts';
 import { parisDay } from './quests.ts';
 import { weekStart } from './seasons.ts';
@@ -43,15 +46,20 @@ export interface LeaderboardPlayer {
   me: boolean;
   week: WeekTally;
   lastWeek: WeekTally;
+  /** Experience earned this week and last week (every game): breaks ties. */
+  weekXp: number;
+  lastWeekXp: number;
 }
 
 export interface LeaderboardLine {
   player: LeaderboardPlayer;
-  /** 1 for the first; players with the same points and wins share a place. */
+  /** 1 for the first; players with the same points, wins and experience share a place. */
   place: number;
   played: number;
   won: number;
   points: number;
+  /** Experience earned that week. */
+  xp: number;
   /** The game that gave the most points, or null without any game. */
   best: string | null;
 }
@@ -86,8 +94,9 @@ export function tallyResults(
 }
 
 /**
- * Ranks the players for one week (all games, or one), most points first, then most wins.
- * Players without a game stay at the bottom, so every friend is listed.
+ * Ranks the players for one week (all games, or one), most points first, then most wins, then
+ * (all games only) most experience earned that week. Players without an online game stay at
+ * the bottom, so every friend is listed.
  */
 export function rankLeaderboard(
   players: LeaderboardPlayer[],
@@ -110,18 +119,23 @@ export function rankLeaderboard(
         bestScore = score;
       }
     }
-    return { player, place: 0, played, won, points: leaderboardPoints({ played, won }), best };
+    const xp = Math.max(0, (which === 'week' ? player.weekXp : player.lastWeekXp) ?? 0);
+    return { player, place: 0, played, won, points: leaderboardPoints({ played, won }), xp, best };
   });
+  // Experience is earned in every game: it only decides between players of the whole ranking.
+  const tie = (l: LeaderboardLine) => (game === null ? l.xp : 0);
   lines.sort(
     (a, b) =>
       b.points - a.points ||
       b.won - a.won ||
+      tie(b) - tie(a) ||
       Number(b.player.me) - Number(a.player.me) ||
       a.player.name.localeCompare(b.player.name),
   );
   lines.forEach((l, i) => {
     const prev = lines[i - 1];
-    l.place = prev && prev.points === l.points && prev.won === l.won ? prev.place : i + 1;
+    const same = prev && prev.points === l.points && prev.won === l.won && tie(prev) === tie(l);
+    l.place = same ? prev.place : i + 1;
   });
   return lines;
 }
@@ -134,8 +148,21 @@ export function leaderboardPodium(
   return rankLeaderboard(players, 'lastWeek', game).filter((l) => l.played > 0 && l.place <= 3);
 }
 
+/**
+ * My chest for last week's podium of the whole ranking: a grand one for the first place, a
+ * chest for the second and third, null otherwise. Nobody wins alone: at least two players
+ * must have finished an online game last week.
+ */
+export function leaderboardChest(players: LeaderboardPlayer[]): 'grand' | 'normal' | null {
+  const lines = rankLeaderboard(players, 'lastWeek').filter((l) => l.played > 0);
+  if (lines.length < 2) return null;
+  const mine = lines.find((l) => l.player.me);
+  if (!mine || mine.place > 3) return null;
+  return mine.place === 1 ? 'grand' : 'normal';
+}
+
 /** Minutes Paris is ahead of UTC at this moment. */
-function parisOffset(at: number): number {
+export function parisOffset(at: number): number {
   const parts = Object.fromEntries(
     new Intl.DateTimeFormat('en-GB', {
       timeZone: 'Europe/Paris',

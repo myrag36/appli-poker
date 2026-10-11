@@ -58,6 +58,15 @@ function tierFor(level: number): Tier {
 
 /** Titles bought in the shop have their own look, whatever their level. */
 const SHOP_TIERS: Record<string, Tier> = {
+  // The trophy of the Friday tournament champions.
+  vendredi: {
+    fill: ['#fff2b0', '#f5c542', '#a8740c'],
+    border: '#fff6cc',
+    text: '#3d2600',
+    icon: '🏆',
+    glow: '0 0 12px rgba(255, 210, 80, 0.9)',
+    shimmer: true,
+  },
   chanceux: {
     fill: ['#b6f5a0', '#3fbf4f', '#1b7a2c'],
     border: 'rgba(210, 255, 200, 0.85)',

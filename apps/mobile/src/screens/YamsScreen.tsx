@@ -38,9 +38,10 @@ import { TurnTimer } from '../components/TurnTimer';
 import type { OnlineBoardProps } from '../online-games/types';
 import { sounds } from '../feedback';
 import { deviceRng } from '../rng';
-import { colors, gradients, shadow, theme } from '../theme';
+import { colors, gradients, shadow } from '../theme';
 import { COLUMN_MAX_WIDTH, useDesktop } from '../layout';
 import { t, tn } from '../i18n';
+import { FeltFill, feltMark } from '../components/felts';
 
 /** How long a robot seems to think before each step (roll, keep a die, score), in ms. */
 const BOT_DELAY = 750;
@@ -610,10 +611,10 @@ function Tray({
     <View style={[styles.rail, { width: w, height: h }]}>
       <LinearGradient colors={gradients.wood} style={StyleSheet.absoluteFill} />
       <View style={styles.felt}>
-        <LinearGradient colors={gradients.felt} style={StyleSheet.absoluteFill} />
+        <FeltFill />
         <View style={styles.feltGlow} />
         <View style={styles.feltLine} />
-        {theme.feltMark && <Text style={[styles.feltMark, { fontSize: h * 0.5 }]}>{theme.feltMark}</Text>}
+        {feltMark() && <Text style={[styles.feltMark, { fontSize: h * 0.5 }]}>{feltMark()}</Text>}
         <View style={[styles.rolls, large && styles.rollsLarge]}>
           {Array.from({ length: YAMS_ROLLS }, (_, i) => (
             <View

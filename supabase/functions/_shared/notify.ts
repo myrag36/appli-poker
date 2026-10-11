@@ -7,7 +7,7 @@ export type NoticeLang = 'fr' | 'en';
 
 /** A notification as the service worker shows it. */
 export interface Notice {
-  kind: 'invite' | 'turn';
+  kind: 'invite' | 'turn' | 'message' | 'tournament';
   title: string;
   body: string;
   /** Notifications with the same tag replace each other on the phone. */
@@ -93,11 +93,13 @@ const GAME_NAMES: Record<string, { fr: string; en: string }> = {
   belote: { fr: 'Belote', en: 'Belote' },
   puissance4: { fr: 'Puissance 4', en: 'Connect 4' },
   bataille: { fr: 'Bataille navale', en: 'Battleship' },
+  echecs: { fr: 'Échecs', en: 'Chess' },
   uno: { fr: 'Uno', en: 'Uno' },
   huit: { fr: '8 américain', en: 'Crazy Eights' },
   rami: { fr: 'Rami', en: 'Rummy' },
   tarot: { fr: 'Tarot', en: 'Tarot' },
   perudo: { fr: 'Perudo', en: 'Liar’s Dice' },
+  dames: { fr: 'Dames', en: 'Draughts' },
 };
 
 export function gameName(game: string, lang: NoticeLang): string {
@@ -136,6 +138,70 @@ export function turnNotice(lang: NoticeLang, game: string, code: string): Notice
         : `Tes amis t’attendent à la table de ${name}.`,
     tag: `turn-${code}`,
     url: tableUrl(game, code),
+  };
+}
+
+/** The page that opens my conversation with a friend. */
+export function chatUrl(friendId: string): string {
+  return `./?ami=${encodeURIComponent(friendId)}`;
+}
+
+/** A friend wrote to me: their name and the start of the message. */
+export function messageNotice(lang: NoticeLang, from: string, body: string, fromId: string): Notice {
+  const chars = Array.from(body.replace(/\s+/g, ' ').trim());
+  const preview = chars.length > 120 ? `${chars.slice(0, 119).join('')}…` : chars.join('');
+  return {
+    kind: 'message',
+    title: `💬 ${from}`,
+    body: preview || (lang === 'en' ? 'New message' : 'Nouveau message'),
+    tag: `message-${fromId}`,
+    url: chatUrl(fromId),
+  };
+}
+
+/** The page of the Friday tournament. */
+export const WEEKLY_URL = './?tournoi=vendredi';
+
+/** The Friday tournament starts in 10 minutes (to the people signed up). */
+export function weeklySoonNotice(lang: NoticeLang, game: string): Notice {
+  const name = gameName(game, lang);
+  return {
+    kind: 'tournament',
+    title:
+      lang === 'en'
+        ? 'The Friday tournament starts in 10 min'
+        : 'Le tournoi du vendredi commence dans 10 min',
+    body: lang === 'en' ? `${name} tonight: get ready!` : `Ce soir c’est ${name} : prépare-toi !`,
+    tag: 'tournoi-vendredi',
+    url: WEEKLY_URL,
+  };
+}
+
+/** My next match of the Friday tournament is ready (the first one: the tournament starts now). */
+export function weeklyMatchNotice(
+  lang: NoticeLang,
+  game: string,
+  code: string,
+  opponent: string,
+  first: boolean,
+): Notice {
+  const name = gameName(game, lang);
+  const title = first
+    ? lang === 'en'
+      ? 'The Friday tournament starts now!'
+      : 'Le tournoi du vendredi commence !'
+    : lang === 'en'
+      ? 'Your next match is ready'
+      : 'Ton prochain match est prêt';
+  return {
+    kind: 'tournament',
+    title,
+    body:
+      lang === 'en'
+        ? `${name} against ${opponent}: join the table (code ${code}).`
+        : `${name} contre ${opponent} : rejoins la table (code ${code}).`,
+    tag: `tournoi-${code}`,
+    url: `${tableUrl(game, code)}&tournoi=vendredi`,
   };
 }
 

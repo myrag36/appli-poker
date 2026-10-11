@@ -6,6 +6,7 @@ import { beloteOnline } from './online-belote.ts';
 import { presidentOnline } from './online-president.ts';
 import { puissance4Online } from './online-puissance4.ts';
 import { batailleOnline } from './online-bataille.ts';
+import { echecsOnline } from './online-echecs.ts';
 import { yamsOnline } from './online-yams.ts';
 import { tarotOnline } from './online-tarot.ts';
 
@@ -13,6 +14,7 @@ import { ramiOnline } from './online-rami.ts';
 
 import { huitOnlineGame, unoOnlineGame } from './online-uno.ts';
 import { perudoOnline } from './online-perudo.ts';
+import { damesOnline } from './online-dames.ts';
 
 export type OnlineGameId =
   | 'blackjack'
@@ -21,11 +23,13 @@ export type OnlineGameId =
   | 'belote'
   | 'puissance4'
   | 'bataille'
+  | 'echecs'
   | 'rami'
   | 'tarot'
   | 'uno'
   | 'huit'
-  | 'perudo';
+  | 'perudo'
+  | 'dames';
 
 /** A seat at an online table, in seat order. Robots are played by the server. */
 export interface OnlineSeat {
@@ -70,11 +74,13 @@ export const ONLINE_GAMES: Record<OnlineGameId, OnlineGame> = {
   belote: beloteOnline,
   puissance4: puissance4Online,
   bataille: batailleOnline,
+  echecs: echecsOnline,
   rami: ramiOnline,
   tarot: tarotOnline,
   uno: unoOnlineGame,
   huit: huitOnlineGame,
   perudo: perudoOnline,
+  dames: damesOnline,
 };
 
 export function isOnlineGame(id: unknown): id is OnlineGameId {
@@ -86,6 +92,13 @@ export {
   P4_ONLINE_DEFAULT_ROUNDS,
   P4_ONLINE_ROUND_CHOICES,
 } from './online-puissance4.ts';
+
+export {
+  type BjOnlineView,
+  BJ_ONLINE_DEFAULT_ROUNDS,
+  BJ_ONLINE_ROUND_CHOICES,
+  BJ_ONLINE_STACKS,
+} from './online-blackjack.ts';
 
 /** Robot names for the seats the server fills itself. */
 export const ONLINE_BOT_NAMES = ['Robby', 'Bip', 'Zorg', 'Tina', 'Max', 'Nova', 'Pixel'];

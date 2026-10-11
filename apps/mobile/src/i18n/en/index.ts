@@ -10,6 +10,7 @@ import divers from './divers';
 import tutoriel from './tutoriel';
 import puissance4 from './puissance4';
 import bataille from './bataille';
+import echecs from './echecs';
 import ramiEnLigne from './ramiEnLigne';
 import defi from './defi';
 import tarotEnLigne from './tarotEnLigne';
@@ -23,6 +24,11 @@ import classement from './classement';
 import sons from './sons';
 import perudo from './perudo';
 import ambiances from './ambiances';
+import finitions from './finitions';
+import messagerie from './messagerie';
+import tournoiVendredi from './tournoiVendredi';
+import dames from './dames';
+import personnalisation from './personnalisation';
 
 export const EN: Record<string, string> = {
   ...accueil,
@@ -36,6 +42,7 @@ export const EN: Record<string, string> = {
   ...tutoriel,
   ...puissance4,
   ...bataille,
+  ...echecs,
   ...ramiEnLigne,
   ...defi,
   ...tarotEnLigne,
@@ -49,4 +56,9 @@ export const EN: Record<string, string> = {
   ...sons,
   ...perudo,
   ...ambiances,
+  ...finitions,
+  ...messagerie,
+  ...tournoiVendredi,
+  ...dames,
+  ...personnalisation,
 };

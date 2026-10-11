@@ -46,11 +46,13 @@ const NAMES: Record<ProgressGame, { label: string; emoji: string }> = {
   belote: { label: 'de belote', emoji: '♥️' },
   puissance4: { label: 'de Puissance 4', emoji: '🔴' },
   bataille: { label: 'de bataille navale', emoji: '🚢' },
+  echecs: { label: 'd’échecs', emoji: '♟️' },
   rami: { label: 'de rami', emoji: '🎴' },
   uno: { label: 'de Uno', emoji: '🌈' },
   huit: { label: 'de 8 américain', emoji: '🎱' },
   tarot: { label: 'de tarot', emoji: '🔮' },
   perudo: { label: 'de Perudo', emoji: '🎲' },
+  dames: { label: 'de dames', emoji: '⚪' },
 };
 
 /** Days since 1970-01-01 for a "YYYY-MM-DD" day. */

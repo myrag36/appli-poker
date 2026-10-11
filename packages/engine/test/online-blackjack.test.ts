@@ -28,8 +28,11 @@ function rigged(cards: Card[], s: OnlineSeat[] = seats('h', 'h')): BjOnlineState
 }
 
 test('options: starting chips are checked, 1000 by default', () => {
-  assert.deepEqual(game.options({}), { stack: 1000 });
-  assert.deepEqual(game.options({ stack: 500 }), { stack: 500 });
+  assert.deepEqual(game.options({}), { stack: 1000, rounds: 10 });
+  assert.deepEqual(game.options({ stack: 500 }), { stack: 500, rounds: 10 });
+  assert.deepEqual(game.options({ stack: 500, rounds: 20 }), { stack: 500, rounds: 20 });
+  assert.throws(() => game.options({ rounds: 7 }), /manches/);
+  assert.throws(() => game.options({ rounds: '5' }), /manches/);
   assert.throws(() => game.options({ stack: 123 }), /Jetons/);
   assert.throws(() => game.options({ stack: '1000' }), /Jetons/);
   const s = game.start(seats('h', 'b'), { stack: 2000 }, rng);
@@ -121,7 +124,7 @@ test('view: the shoe and the hole card stay hidden, everything on the felt is sh
 test('auto() always gives a move apply() accepts, over many rounds', () => {
   for (const seed of [1, 2, 3, 4, 5]) {
     const r = seeded(seed);
-    let s = game.start(seats('h', 'b', 'h', 'b', 'b', 'h', 'b'), { stack: 500 }, r);
+    let s = game.start(seats('h', 'b', 'h', 'b', 'b', 'h', 'b'), { stack: 500, rounds: 20 }, r);
     let rounds = 0;
     for (let steps = 0; steps < 20000 && !game.over(s) && rounds < 40; steps++) {
       if (game.betweenRounds(s)) {
@@ -176,4 +179,52 @@ test('a player without chips sits out the next rounds', () => {
   assert.equal(game.over(s), false);
   s = game.nextRound(s, rng);
   assert.deepEqual(game.actors(s), [1]);
+});
+
+/** Plays one round where everyone bets the minimum and stands. */
+function playRound(s: BjOnlineState): BjOnlineState {
+  while (!game.betweenRounds(s) && !game.over(s)) {
+    const seat = game.actors(s)[0];
+    s = game.apply(s, seat, game.auto(s, seat, rng), rng);
+  }
+  return s;
+}
+
+test('the game ends once the rounds chosen are played; the most chips win', () => {
+  let s = game.start(seats('h', 'b', 'h'), { stack: 500, rounds: 5 }, seeded(3));
+  assert.equal(s.rounds, 5);
+  assert.equal((game.view(s, 0) as { rounds: number }).rounds, 5);
+  for (let round = 1; round < 5; round++) {
+    s = playRound(s);
+    assert.equal(s.round, round);
+    assert.equal(game.over(s), false, `over after ${round} rounds`);
+    assert.equal(game.betweenRounds(s), true);
+    s = game.nextRound(s, rng);
+    assert.equal(s.rounds, 5, 'the number of rounds is kept');
+  }
+  s = playRound(s);
+  assert.equal(s.round, 5);
+  assert.equal(game.over(s), true);
+  assert.equal(game.betweenRounds(s), false);
+  assert.deepEqual(game.actors(s), []);
+  assert.throws(() => game.nextRound(s, rng), /finie/);
+  assert.throws(() => game.apply(s, 0, { type: 'bet', amount: 10 }, rng), /finie/);
+  const most = Math.max(...s.players.map((p) => p.stack));
+  assert.deepEqual(
+    game.winners(s),
+    s.players.map((p, i) => (p.stack === most ? i : -1)).filter((i) => i >= 0),
+  );
+});
+
+test('a table started before rounds existed keeps playing until the chips run out', () => {
+  const { rounds: _, ...old } = game.start(seats('h', 'h'), {}, seeded(5));
+  let s: BjOnlineState = old;
+  for (let i = 0; i < 12; i++) {
+    s = playRound(s);
+    if (game.over(s)) break;
+    s = game.nextRound(s, rng);
+    assert.equal('rounds' in s, false);
+  }
+  assert.equal((game.view(s, 0) as { rounds: number | null }).rounds, null);
+  assert.ok(s.round > 10, 'no limit on an old table');
 });

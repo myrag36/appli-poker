@@ -19,6 +19,7 @@ import {
   type ProgressGame,
   REWARDS,
   REWARD_KIND_NAMES,
+  REWARD_KIND_ONE,
   type Reward,
   XP_DAILY,
   XP_PLAY,
@@ -52,23 +53,33 @@ const GAME_NAMES: Record<ProgressGame, string> = {
   belote: '♠️ Belote',
   puissance4: t('🔴 Puissance 4'),
   bataille: t('⚓ Bataille navale'),
+  echecs: t('♟️ Échecs'),
   rami: '🃏 Rami',
   uno: '🌈 Uno',
   huit: t('🎱 8 américain'),
   tarot: '🌙 Tarot',
   perudo: '🗣️ Perudo',
+  dames: t('⚪ Dames'),
 };
 
 /** One reward of a kind ("Bordures" gives "Bordure"), in the app's language. */
 function kindName(kind: Reward['kind']) {
-  return t(REWARD_KIND_NAMES[kind].replace(/s$/, ''));
+  return t(REWARD_KIND_ONE[kind]);
 }
 
 type Tab = keyof Equipped | 'avatar';
 const TABS: Tab[] = ['frame', 'title', 'avatar', 'cardBack', 'banner'];
 
 /** My level, my rewards to wear, my name and avatar, and my games. */
-export function ProfileScreen({ onBack, onShop }: { onBack: () => void; onShop: () => void }) {
+export function ProfileScreen({
+  onBack,
+  onShop,
+  onCustomize,
+}: {
+  onBack: () => void;
+  onShop: () => void;
+  onCustomize: () => void;
+}) {
   const progress = useMyProgress();
   const { width: screenW } = useWindowDimensions();
   const desktop = useDesktop();
@@ -129,9 +140,11 @@ export function ProfileScreen({ onBack, onShop }: { onBack: () => void; onShop: 
     saveAvatar({ emoji: a.emoji, color: a.color });
   }
 
-  // Level rewards, and shop items only once bought.
+  // Level rewards, and shop items or items earned by playing only once mine.
   const items = REWARDS.filter(
-    (r) => r.kind === tab && (r.price === undefined || isUnlocked(r.kind, r.id, level, owned)),
+    (r) =>
+      r.kind === tab &&
+      ((r.price === undefined && !r.trophy && !r.unlock) || isUnlocked(r.kind, r.id, level, owned)),
   );
   const identity = (
     <>
@@ -270,6 +283,9 @@ export function ProfileScreen({ onBack, onShop }: { onBack: () => void; onShop: 
       )}
       <Pressable accessibilityRole="button" onPress={onShop} hitSlop={8}>
         <Text style={styles.more}>{t('Encore plus de choix à la boutique ›')}</Text>
+      </Pressable>
+      <Pressable accessibilityRole="button" onPress={onCustomize} hitSlop={8}>
+        <Text style={styles.more}>{t('🎨 Dos de cartes, jetons et tapis : Personnaliser ›')}</Text>
       </Pressable>
       {error && <Text style={styles.error}>{error}</Text>}
     </>

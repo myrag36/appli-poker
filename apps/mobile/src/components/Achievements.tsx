@@ -1,7 +1,13 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ACHIEVEMENTS, type AchievementStats, achievementProgress, streakCoins } from '@appli-poker/engine';
+import {
+  ACHIEVEMENTS,
+  type AchievementStats,
+  achievementProgress,
+  boughtCount,
+  streakCoins,
+} from '@appli-poker/engine';
 import { type MyProgress, claimAchievement } from '../online/progress';
 import { sounds } from '../feedback';
 import { t, tn } from '../i18n';
@@ -12,7 +18,7 @@ export function statsOf(p: MyProgress): AchievementStats {
     games: p.games,
     xp: p.xp,
     bestStreak: p.bestStreak,
-    owned: p.owned.length,
+    owned: boughtCount(p.owned),
     questsDone: p.questsDone,
     feats: p.feats,
   };

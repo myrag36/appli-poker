@@ -4,10 +4,12 @@ import { BlackjackOnlineBoard, BlackjackOnlineOptions } from '../screens/Blackja
 import { PresidentOnlineBoard, PresidentOnlineOptions } from '../screens/PresidentScreen';
 import { Puissance4OnlineBoard, Puissance4OnlineOptions } from '../screens/Puissance4Screen';
 import { BatailleOnlineBoard } from '../screens/BatailleScreen';
+import { EchecsOnlineBoard } from '../screens/EchecsScreen';
 import { RamiOnlineBoard, RamiOnlineOptions } from '../screens/RamiScreen';
 import { YamsOnlineBoard } from '../screens/YamsScreen';
 import { TarotOnlineBoard, TarotOnlineOptions } from '../screens/TarotScreen';
 import { PerudoOnlineBoard, PerudoOnlineOptions } from '../screens/PerudoScreen';
+import { DamesOnlineBoard } from '../screens/DamesScreen';
 import { HuitOnlineBoard, HuitOnlineOptions, UnoOnlineBoard, UnoOnlineOptions } from '../screens/UnoScreen';
 import { t } from '../i18n';
 import type { OnlineGameUi } from './types';
@@ -20,7 +22,7 @@ export const ONLINE_UI: Record<OnlineGameId, OnlineGameUi> = {
     players: '1 à 7 joueurs contre la banque',
     Board: BlackjackOnlineBoard,
     Options: BlackjackOnlineOptions,
-    defaultOptions: { stack: 1000 },
+    defaultOptions: { stack: 1000, rounds: 10 },
   },
   president: {
     title: 'Président',
@@ -58,6 +60,13 @@ export const ONLINE_UI: Record<OnlineGameId, OnlineGameUi> = {
     emoji: '⚓',
     players: t('2 joueurs, un robot prend la place libre'),
     Board: BatailleOnlineBoard,
+    defaultOptions: {},
+  },
+  echecs: {
+    title: t('Échecs'),
+    emoji: '♟️',
+    players: t('2 joueurs, un robot prend la place libre'),
+    Board: EchecsOnlineBoard,
     defaultOptions: {},
   },
   rami: {
@@ -99,5 +108,12 @@ export const ONLINE_UI: Record<OnlineGameId, OnlineGameUi> = {
     Board: PerudoOnlineBoard,
     Options: PerudoOnlineOptions,
     defaultOptions: { calza: true },
+  },
+  dames: {
+    title: t('Dames'),
+    emoji: '⚪',
+    players: t('2 joueurs, un robot prend la place libre'),
+    Board: DamesOnlineBoard,
+    defaultOptions: {},
   },
 };

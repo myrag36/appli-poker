@@ -10,10 +10,12 @@ import {
   findAchievement,
   forSale,
   monthOf,
-  podiumChest,
   rollChest,
   COINS_WIN,
   DEFAULT_EQUIPPED,
+  EQUIP_SLOTS,
+  pendingUnlocks,
+  unlockStats,
   type DayStats,
   type Equipped,
   PROGRESS_GAMES,
@@ -36,6 +38,7 @@ import {
   type LeaderboardLine,
   type LeaderboardPlayer,
   type OnlineResult,
+  leaderboardChest,
   leaderboardGames,
   leaderboardPodium,
   previousWeek,
@@ -45,8 +48,6 @@ import {
 } from '../_shared/engine/index.ts';
 import { GameError } from '../poker/logic.ts';
 
-const SLOTS: (keyof Equipped)[] = ['frame', 'title', 'cardBack', 'banner'];
-
 /** Puts on a reward the player has unlocked or bought, keeping the rest of what they wear. */
 export function equip(
   xp: number,
@@ -55,7 +56,7 @@ export function equip(
   id: unknown,
   owned: unknown = [],
 ): Equipped {
-  if (!SLOTS.includes(slot as keyof Equipped)) throw new GameError('Emplacement inconnu');
+  if (!EQUIP_SLOTS.includes(slot as keyof Equipped)) throw new GameError('Emplacement inconnu');
   const level = levelFromXp(xp);
   const kind = slot as keyof Equipped;
   const mine = cleanOwned(owned);
@@ -128,22 +129,21 @@ interface ProgressRow {
   owned?: unknown;
   quests_done?: number;
   feats?: unknown;
+  challenges_done?: number;
 }
 
-/** An achievement the player has reached, to take its coins. */
+/** An achievement the player has reached, to take its coins. Earned items are not purchases. */
 export function reachedAchievement(id: unknown, row: ProgressRow) {
   const a = findAchievement(id);
   if (!a) throw new GameError('Succès inconnu');
-  const stats: AchievementStats = {
-    games: (row.games ?? {}) as GameCounters,
-    xp: row.xp ?? 0,
-    bestStreak: row.best_streak ?? 0,
-    owned: cleanOwned(row.owned).length,
-    questsDone: row.quests_done ?? 0,
-    feats: cleanOwned(row.feats),
-  };
+  const stats: AchievementStats = unlockStats(row);
   if (achievementProgress(a.id, stats) < a.target) throw new GameError('Succès pas encore atteint');
   return a;
+}
+
+/** Items earned by playing (achievement reached, daily challenges) not yet in the collection, as "kind:id". */
+export function unlocksDue(row: ProgressRow): string[] {
+  return pendingUnlocks(unlockStats(row), cleanOwned(row.owned)).map((r) => ownedKey(r.kind, r.id));
 }
 
 /** A rare moment a phone reports. */
@@ -162,8 +162,6 @@ export function cleanFriendCode(raw: unknown): string {
   return code;
 }
 
-export { podiumChest };
-
 /** A person in my weekly ranking, as read from the profiles and progress tables. */
 export interface LeaderboardPerson {
   user_id: string;
@@ -173,11 +171,31 @@ export interface LeaderboardPerson {
   xp?: number | null;
   equipped?: unknown;
   owned?: unknown;
+  /** Experience of the week counted by the database (see `count_week`), and of the week before. */
+  week_start?: string | null;
+  week_xp?: number | null;
+  last_week_start?: string | null;
+  last_week_xp?: number | null;
 }
 
 /**
- * This week's ranking between me and my friends (online games only), and last week's
- * podium. `players` lets the phone rank again for one game without asking the server.
+ * Experience a player earned this week and last week. The database only moves the weeks on
+ * when experience is earned, so a week that does not match is a week without experience.
+ */
+export function weekXpOf(p: LeaderboardPerson, monday: string): { week: number; lastWeek: number } {
+  const before = previousWeek(monday);
+  const xp = Math.max(0, p.week_xp ?? 0);
+  return {
+    week: p.week_start === monday ? xp : 0,
+    lastWeek:
+      p.week_start === before ? xp : p.last_week_start === before ? Math.max(0, p.last_week_xp ?? 0) : 0,
+  };
+}
+
+/**
+ * This week's ranking between me and my friends (online games, experience breaking ties),
+ * last week's podium and my chest for it. `players` lets the phone rank again for one game
+ * without asking the server.
  */
 export function weeklyLeaderboard(
   meId: string,
@@ -187,24 +205,30 @@ export function weeklyLeaderboard(
   now: number,
 ) {
   const tallies = tallyResults(results, monday);
-  const players: LeaderboardPlayer[] = people.map((p) => ({
-    user_id: p.user_id,
-    name: p.name || 'Joueur',
-    avatar: p.avatar ?? null,
-    avatar_color: p.avatar_color ?? null,
-    xp: p.xp ?? 0,
-    equipped: p.equipped ?? {},
-    owned: p.owned ?? [],
-    me: p.user_id === meId,
-    week: tallies.get(p.user_id)?.week ?? {},
-    lastWeek: tallies.get(p.user_id)?.lastWeek ?? {},
-  }));
+  const players: LeaderboardPlayer[] = people.map((p) => {
+    const xp = weekXpOf(p, monday);
+    return {
+      user_id: p.user_id,
+      name: p.name || 'Joueur',
+      avatar: p.avatar ?? null,
+      avatar_color: p.avatar_color ?? null,
+      xp: p.xp ?? 0,
+      equipped: p.equipped ?? {},
+      owned: p.owned ?? [],
+      me: p.user_id === meId,
+      week: tallies.get(p.user_id)?.week ?? {},
+      lastWeek: tallies.get(p.user_id)?.lastWeek ?? {},
+      weekXp: xp.week,
+      lastWeekXp: xp.lastWeek,
+    };
+  });
   const short = (l: LeaderboardLine) => ({
     user_id: l.player.user_id,
     place: l.place,
     played: l.played,
     won: l.won,
     points: l.points,
+    xp: l.xp,
     best: l.best,
   });
   return {
@@ -215,5 +239,7 @@ export function weeklyLeaderboard(
     players,
     ranking: rankLeaderboard(players, 'week').map(short),
     podium: leaderboardPodium(players).map(short),
+    /** My chest for last week's podium (taken or not: the progress row says). */
+    chest: leaderboardChest(players),
   };
 }
