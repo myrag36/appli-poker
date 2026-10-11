@@ -29,6 +29,8 @@ export interface GameRoom {
   public_state: GamePublicState | null;
   /** The table opened for a rematch once this game is over, and who asked for it. */
   rematch?: { roomId: string; code: string; byId: string; by: string } | null;
+  /** private (friends with the code), public ("Tables ouvertes") or quick (found by Partie rapide). */
+  visibility?: 'private' | 'public' | 'quick';
 }
 
 export interface GamePlayer {

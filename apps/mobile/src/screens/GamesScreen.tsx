@@ -197,6 +197,8 @@ interface Props {
   /** The club tab of the friends screen. */
   onClub: () => void;
   onTournaments: () => void;
+  /** ⚡ Partie rapide: play online with strangers right away. */
+  onQuick: () => void;
 }
 
 // These three pictures are drawn by their game's screen, a separate download (see App.tsx).
@@ -306,12 +308,13 @@ export function GamesScreen({
   onFriends,
   onClub,
   onTournaments,
+  onQuick,
 }: Props) {
   const insets = useSafeAreaInsets();
   const [tutorial, setTutorial] = useState(tutorialPending);
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const desktop = useDesktop();
-  const cardHeight = Math.max(300, Math.min(CARD_HEIGHT, screenHeight - 520));
+  const cardHeight = Math.max(300, Math.min(CARD_HEIGHT, screenHeight - 570));
   const viewWidth = Math.min(screenWidth, 520);
   const cardWidth = Math.round(viewWidth * 0.76);
   const step = cardWidth + GAP;
@@ -342,6 +345,7 @@ export function GamesScreen({
         onFriends={onFriends}
         onClub={onClub}
         onTournaments={onTournaments}
+        onQuick={onQuick}
         tutorial={tutorial}
         onTutorialClose={() => setTutorial(false)}
       />
@@ -389,6 +393,8 @@ export function GamesScreen({
         </Pressable>
         <SeasonPill onPress={onShop} />
       </View>
+
+      <QuickButton onPress={onQuick} />
 
       <DailyChallenge width={Math.min(viewWidth - 32, 440)} />
 
@@ -493,6 +499,35 @@ export function GamesScreen({
   );
 }
 
+/** The big "⚡ Partie rapide" button: straight to a game with strangers. */
+function QuickButton({ onPress, desktop }: { onPress: () => void; desktop?: boolean }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={t('Partie rapide : jouer en ligne avec d’autres joueurs')}
+      onPress={onPress}
+      style={({ pressed, hovered }: PressState) => [
+        styles.quick,
+        desktop && styles.quickDesktop,
+        HOVER_TRANSITION,
+        hovered && desk.actionHover,
+        pressed && styles.pressed,
+      ]}
+    >
+      <LinearGradient
+        colors={gradients.gold}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={StyleSheet.absoluteFill}
+      />
+      <Text style={styles.quickTitle}>{t('⚡ Partie rapide')}</Text>
+      <Text style={styles.quickText} numberOfLines={1}>
+        {t('Joue en ligne avec d’autres joueurs, maintenant')}
+      </Text>
+    </Pressable>
+  );
+}
+
 /** A short line for the tournaments button: live, tonight, or nothing. */
 function weeklyTeaser(now: number, startsAt: number): string | null {
   if (now >= startsAt && now < startsAt + 2 * 3_600_000) return t('🔴 Tournoi en direct');
@@ -539,6 +574,7 @@ function DesktopGames({
   onFriends,
   onClub,
   onTournaments,
+  onQuick,
   tutorial,
   onTutorialClose,
 }: DesktopProps) {
@@ -600,7 +636,10 @@ function DesktopGames({
             </View>
           </View>
 
-          <Text style={desk.heading}>{t('Choisis ton jeu')}</Text>
+          <View style={desk.headingRow}>
+            <Text style={desk.heading}>{t('Choisis ton jeu')}</Text>
+            <QuickButton onPress={onQuick} desktop />
+          </View>
           <View style={desk.grid}>
             {GAMES.map((game, i) => (
               <DesktopCard
@@ -849,6 +888,25 @@ const styles = StyleSheet.create({
     borderColor: colors.glassBorder,
   },
   socialShort: { flexBasis: '28%' },
+  quick: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    width: '100%',
+    maxWidth: 388,
+    marginTop: 10,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
+    borderRadius: 22,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.goldBorder,
+    boxShadow: '0 4px 14px rgba(255, 193, 7, 0.28)',
+  },
+  quickDesktop: { width: 'auto', maxWidth: undefined, marginTop: 30, paddingVertical: 11, paddingHorizontal: 22 },
+  quickTitle: { color: colors.onGold, fontSize: 16, fontWeight: '900' },
+  quickText: { color: colors.onGoldMuted, fontSize: 13, fontWeight: '700', flexShrink: 1 },
   socialText: { color: colors.text, fontSize: 14, fontWeight: '800' },
   chips: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 },
   coins: {
@@ -1008,6 +1066,7 @@ const desk = StyleSheet.create({
   actionText: { color: colors.text, fontSize: 16, fontWeight: '800' },
   resume: { backgroundColor: colors.gold, borderColor: colors.goldBorder },
   heading: { color: colors.text, fontSize: 22, fontWeight: '900', marginTop: 30, marginBottom: 14 },
+  headingRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16 },
   grid: { flexDirection: 'row', flexWrap: 'wrap', gap: DESK_GAP },
   card: {
     padding: 16,

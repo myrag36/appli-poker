@@ -31,6 +31,7 @@ import {
   loadLastGameRoom,
   loadName,
   saveAvatar,
+  saveName,
   saveLastGameRoom,
 } from '../online/supabase';
 import { type GamePlayer, useGameRoom } from '../online/useGameRoom';
@@ -40,8 +41,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TitleBadge } from '../components/TitleBadge';
 import { InviteFriends } from '../components/InviteFriends';
 import { NotifyPrompt } from '../components/Notifications';
-import { colors } from '../theme';
+import { BlockButton, OpenTablesList, RatingResult, VisibilityPicker } from '../components/Strangers';
+import { colors, gradients } from '../theme';
 import { COLUMN_MAX_WIDTH, useDesktop } from '../layout';
+import { LinearGradient } from 'expo-linear-gradient';
 import { t, tn } from '../i18n';
 import { tMessage } from '../online/messages';
 
@@ -61,15 +64,33 @@ interface Props {
   joinCode?: string;
   /** A match of the Friday tournament: no rematch, and leaving goes back to the bracket. */
   weekly?: boolean;
+  /** A table a quick game already seated me at. */
+  roomId?: string;
+  /** ⚡ Partie rapide for this game. */
+  onQuick?: () => void;
 }
 
 /** Blackjack, Président, Yams or Belote with friends, each on their own phone. */
-export function OnlineGameScreen({ game, initialName, onBack, tournament, joinCode, weekly }: Props) {
+export function OnlineGameScreen({
+  game,
+  initialName,
+  onBack,
+  tournament,
+  joinCode,
+  weekly,
+  roomId,
+  onQuick,
+}: Props) {
   const [table, setTable] = useState<{ roomId: string; userId: string } | null>(null);
   // The game's board is a separate download: start it now, while the table gets ready.
   useEffect(() => {
     ONLINE_UI[game].load().catch(() => {});
   }, [game]);
+  // Seated by a quick game: straight to the table.
+  useEffect(() => {
+    if (roomId) loadName().then((n) => enter(roomId, (n || initialName).trim()));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [roomId]);
 
   async function enter(roomId: string, name: string) {
     const userId = await ensureSignedIn();
@@ -77,9 +98,11 @@ export function OnlineGameScreen({ game, initialName, onBack, tournament, joinCo
     setTable({ roomId, userId });
   }
 
+  if (!table && roomId) return <ActivityIndicator style={styles.flex} color={colors.gold} />;
   if (!table) {
     return (
       <Lobby
+        onQuick={onQuick}
         game={game}
         initialName={initialName}
         tournament={tournament}
@@ -119,6 +142,7 @@ function Lobby({
   joinCode,
   onEnter,
   onBack,
+  onQuick,
 }: {
   game: OnlineGameId;
   initialName: string;
@@ -126,11 +150,13 @@ function Lobby({
   joinCode?: string;
   onEnter: (roomId: string, name: string) => Promise<void>;
   onBack: () => void;
+  onQuick?: () => void;
 }) {
   const ui = ONLINE_UI[game];
   const [name, setName] = useState(initialName);
   const [code, setCode] = useState(joinCode ?? '');
   const [options, setOptions] = useState(ui.defaultOptions);
+  const [visibility, setVisibility] = useState<'private' | 'public'>('private');
   const [avatar, setAvatar] = useState<Avatar>(() => defaultAvatar(Math.floor(Math.random() * 8)));
   const [pickingAvatar, setPickingAvatar] = useState(false);
   const [last, setLast] = useState<SavedRoom | null>(null);
@@ -191,7 +217,15 @@ function Lobby({
     run(() => callGames({ type: 'join', game, name: trimmed, code: tournament?.join ?? code, avatar }));
   const create = () =>
     run(() =>
-      callGames({ type: 'create', game, name: trimmed, avatar, options, tournamentId: tournament?.id }),
+      callGames({
+        type: 'create',
+        game,
+        name: trimmed,
+        avatar,
+        options,
+        tournamentId: tournament?.id,
+        visibility: tournament ? 'private' : visibility,
+      }),
     );
 
   const Options = ui.Options;
@@ -288,6 +322,21 @@ function Lobby({
         </View>
       )}
 
+      {onQuick && (
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => {
+            if (trimmed) saveName(trimmed);
+            onQuick();
+          }}
+          style={({ pressed }) => [styles.quick, desktop && styles.quickDesktop, pressed && { opacity: 0.85 }]}
+        >
+          <LinearGradient colors={gradients.gold} style={StyleSheet.absoluteFill} />
+          <Text style={styles.quickTitle}>{t('⚡ Partie rapide')}</Text>
+          <Text style={styles.quickText}>{t('Joue tout de suite avec d’autres joueurs de ton niveau.')}</Text>
+        </Pressable>
+      )}
+
       <Text style={styles.label}>{t('Ton prénom et ton avatar')}</Text>
       <View style={[styles.row, desktop && styles.identity]}>
         <Pressable
@@ -351,6 +400,7 @@ function Lobby({
                 <Options value={options} onChange={setOptions} />
               </Suspense>
             )}
+            <VisibilityPicker value={visibility} onChange={setVisibility} />
           </View>
           <View>
             <Button
@@ -364,6 +414,19 @@ function Lobby({
       </View>
 
       {error && <Text style={styles.error}>{error}</Text>}
+
+      <View style={desktop && styles.openTables}>
+        <OpenTablesList
+          game={game}
+          title={t('🌍 Tables ouvertes')}
+          hideWhenEmpty
+          limit={5}
+          onJoin={(table) =>
+            run(() => callGames({ type: 'join', game, name: trimmed, code: table.code, avatar }))
+          }
+        />
+      </View>
+
       <View style={styles.spacer} />
       <View style={desktop && styles.back}>
         <Button label={t('Retour')} variant="secondary" onPress={onBack} />
@@ -453,6 +516,7 @@ function Room({
         isHost={room.host_id === userId}
         userId={userId}
         game={game}
+        isPublic={room.visibility === 'public'}
         busy={busy}
         error={moveError ?? error}
         onAddBot={() => send({ type: 'addBot', roomId })}
@@ -473,6 +537,8 @@ function Room({
   }));
   const mySeat = state.seats.findIndex((s) => s.id === userId);
   const Board = ui.Board;
+  const rated = room.visibility === 'public' || room.visibility === 'quick';
+  const strangers = players.filter((p) => !p.is_bot && p.user_id !== userId);
   const rematch = async () => {
     const { roomId: next } = await callGames<{ roomId: string }>({ type: 'rematch', roomId });
     await onSwitch(next, byId.get(userId)?.name ?? '');
@@ -501,6 +567,12 @@ function Room({
         <View
           style={[styles.rematch, desktop && styles.rematchDesktop, { paddingBottom: insets.bottom + 10 }]}
         >
+          {rated && (
+            <View style={styles.strangers}>
+              <RatingResult roomId={roomId} game={game} />
+              <BlockButton players={strangers} compact />
+            </View>
+          )}
           <RematchPanel rematch={room.rematch} meId={userId} onRematch={rematch} />
         </View>
       )}
@@ -533,6 +605,7 @@ function WaitingRoom({
   isHost,
   userId,
   game,
+  isPublic,
   busy,
   error,
   onAddBot,
@@ -540,6 +613,7 @@ function WaitingRoom({
   onStart,
   onLeave,
 }: {
+  isPublic: boolean;
   code: string;
   title: string;
   inTournament: boolean;
@@ -582,6 +656,11 @@ function WaitingRoom({
               ? t('Les joueurs du tournoi la rejoignent depuis l’écran du tournoi.')
               : t('Donne ce code à tes amis : ils choisissent {game} puis « Rejoindre ».', { game: title })}
           </Text>
+          {isPublic && (
+            <Text style={styles.publicTag}>
+              {t('🌍 Table publique : visible dans « Tables ouvertes », n’importe qui peut s’asseoir.')}
+            </Text>
+          )}
           <View style={styles.spacerSmall} />
           <Button label={t('Inviter des amis')} variant="secondary" onPress={invite} />
           {!inTournament && <InviteFriends game={game} code={code} />}
@@ -642,6 +721,14 @@ function WaitingRoom({
             <Text style={styles.hint}>{t('En attente du lancement par le créateur de la table…')}</Text>
           )}
           {error && <Text style={styles.error}>{error}</Text>}
+          {isPublic && (
+            <View style={styles.blockRow}>
+              <BlockButton
+                players={players.filter((p) => !p.is_bot && p.user_id !== userId)}
+                compact
+              />
+            </View>
+          )}
         </View>
       </View>
       <View style={styles.spacer} />
@@ -743,6 +830,25 @@ const styles = StyleSheet.create({
   error: { color: colors.gold, marginTop: 12, textAlign: 'center' },
   spacer: { height: 24 },
   spacerSmall: { height: 10 },
-  rematch: { paddingHorizontal: 10, paddingTop: 6 },
+  rematch: { paddingHorizontal: 10, paddingTop: 6, gap: 6 },
+  blockRow: { marginTop: 12 },
+  strangers: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, flexWrap: 'wrap' },
+  publicTag: { color: colors.gold, fontSize: 13, lineHeight: 18, textAlign: 'center', marginTop: 8 },
+  openTables: { width: '100%', maxWidth: 560, alignSelf: 'center', marginTop: 8 },
+  quick: {
+    alignItems: 'center',
+    gap: 2,
+    marginTop: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.goldBorder,
+    boxShadow: '0 4px 14px rgba(255, 193, 7, 0.25)',
+  },
+  quickDesktop: { width: '100%', maxWidth: 440, alignSelf: 'center' },
+  quickTitle: { color: colors.onGold, fontSize: 18, fontWeight: '900' },
+  quickText: { color: colors.onGoldMuted, fontSize: 13, fontWeight: '700', textAlign: 'center' },
   react: { left: 0, right: 0, alignItems: 'center' },
 });

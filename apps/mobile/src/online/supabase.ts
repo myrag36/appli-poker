@@ -53,6 +53,7 @@ type Request =
       levelMinutes: number | null;
       avatar: Avatar;
       variant: Variant;
+      visibility?: 'private' | 'public';
     }
   | { type: 'join'; name: string; code: string; avatar: Avatar }
   | { type: 'deal'; roomId: string }
@@ -77,6 +78,8 @@ type GamesRequest =
       avatar: Avatar;
       options: Record<string, unknown>;
       tournamentId?: string;
+      /** 'public': listed in "Tables ouvertes" for strangers. */
+      visibility?: 'private' | 'public';
     }
   | { type: 'tournamentCreate'; title: string; games: OnlineGameId[]; name: string; avatar: Avatar }
   | { type: 'tournamentJoin'; code: string; name: string; avatar: Avatar }
@@ -85,7 +88,12 @@ type GamesRequest =
   | { type: 'remove'; roomId: string; userId: string }
   | { type: 'move'; roomId: string; move: unknown }
   | { type: 'weekly' | 'weeklyUnregister' }
-  | { type: 'weeklyRegister'; name: string; avatar: Avatar };
+  | { type: 'weeklyRegister'; name: string; avatar: Avatar }
+  | { type: 'queueJoin'; game: string; size: number; variant: string; name: string; avatar: Avatar }
+  | { type: 'queuePing' | 'queueFill' | 'queueLeave' }
+  | { type: 'openTables'; game?: string }
+  | { type: 'block'; userId: string; name?: string; avatar?: string | null; avatarColor?: string | null }
+  | { type: 'unblock'; userId: string };
 
 /** Calls the server of the other games (Blackjack, Président, Yams, Belote). */
 export function callGames<T>(body: GamesRequest): Promise<T> {
