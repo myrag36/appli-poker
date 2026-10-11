@@ -37,7 +37,12 @@ interface Props {
   onSend: (text: string) => Promise<void>;
   /** On a computer: drawn in place, in a side panel next to the table, instead of a sheet. */
   inline?: boolean;
+  /** A table open to strangers: ready-made lines and emoji only, no free text. */
+  quickOnly?: boolean;
 }
+
+/** Emoji sent in one tap at a table with strangers. */
+const EMOJI = ['👍', '😂', '😮', '😅', '🔥', '👏', '🤝', '😎'];
 
 function time(iso: string) {
   const d = new Date(iso);
@@ -45,7 +50,17 @@ function time(iso: string) {
 }
 
 /** The table's conversation, in a sheet that slides over the game (or in place, with `inline`). */
-export function ChatPanel({ visible, onClose, messages, meId, names, avatars, onSend, inline }: Props) {
+export function ChatPanel({
+  visible,
+  onClose,
+  messages,
+  meId,
+  names,
+  avatars,
+  onSend,
+  inline,
+  quickOnly,
+}: Props) {
   const insets = useSafeAreaInsets();
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -118,32 +133,54 @@ export function ChatPanel({ visible, onClose, messages, meId, names, avatars, on
       </ScrollView>
 
       {error && <Text style={styles.error}>{error}</Text>}
-      <View style={styles.inputRow}>
-        <TextInput
-          value={text}
-          onChangeText={setText}
-          placeholder={t('Écris un message…')}
-          placeholderTextColor={colors.muted}
-          maxLength={MAX_MESSAGE_LENGTH}
-          returnKeyType="send"
-          onSubmitEditing={() => send(text)}
-          blurOnSubmit={false}
-          style={styles.input}
-        />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('Envoyer')}
-          disabled={sending || !text.trim()}
-          onPress={() => send(text)}
-          style={({ pressed }) => [
-            styles.send,
-            (sending || !text.trim()) && styles.sendDisabled,
-            pressed && styles.pressed,
-          ]}
-        >
-          <Text style={styles.sendText}>➤</Text>
-        </Pressable>
-      </View>
+      {quickOnly ? (
+        <View style={styles.emojiBox}>
+          <View style={styles.emojiRow}>
+            {EMOJI.map((e) => (
+              <Pressable
+                key={e}
+                accessibilityRole="button"
+                accessibilityLabel={t('Envoyer {emoji}', { emoji: e })}
+                disabled={sending}
+                onPress={() => send(e)}
+                style={({ pressed }) => [styles.emoji, pressed && styles.pressed]}
+              >
+                <Text style={styles.emojiText}>{e}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <Text style={styles.strangers}>
+            {t('Table avec des inconnus : phrases rapides et emojis seulement.')}
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.inputRow}>
+          <TextInput
+            value={text}
+            onChangeText={setText}
+            placeholder={t('Écris un message…')}
+            placeholderTextColor={colors.muted}
+            maxLength={MAX_MESSAGE_LENGTH}
+            returnKeyType="send"
+            onSubmitEditing={() => send(text)}
+            blurOnSubmit={false}
+            style={styles.input}
+          />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('Envoyer')}
+            disabled={sending || !text.trim()}
+            onPress={() => send(text)}
+            style={({ pressed }) => [
+              styles.send,
+              (sending || !text.trim()) && styles.sendDisabled,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text style={styles.sendText}>➤</Text>
+          </Pressable>
+        </View>
+      )}
     </>
   );
 
@@ -177,6 +214,18 @@ export function ChatPanel({ visible, onClose, messages, meId, names, avatars, on
 const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end' },
   inline: { flex: 1, minHeight: 0, paddingBottom: 12 },
+  emojiBox: { gap: 4, paddingHorizontal: 12, paddingTop: 4 },
+  emojiRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 6 },
+  emoji: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  emojiText: { fontSize: 22 },
+  strangers: { color: colors.muted, fontSize: 12, textAlign: 'center' },
   quickWrap: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' },
   backdrop: {
     position: 'absolute',

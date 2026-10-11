@@ -2,19 +2,31 @@
 // allowed to write these tables, deal cards and apply moves.
 import { createClient } from 'npm:@supabase/supabase-js@2';
 import {
+  ELO_START,
   WEEKLY_COINS,
   WEEKLY_FEAT,
   WEEKLY_TITLE,
   type WeeklyMatch,
   cleanAvatar,
   defaultAvatar,
+  isQuickGame,
+  levelFromXp,
   matchKey,
   nextWeeklyFriday,
   ownedKey,
   secureRng,
   weeklyMatchesToOpen,
 } from '../_shared/engine/index.ts';
-import { GameError, cleanName, makeRoomCode } from '../poker/logic.ts';
+import {
+  GameError,
+  type PlayerRow as PokerPlayerRow,
+  type RoomRow as PokerRoomRow,
+  type SaveParams as PokerSaveParams,
+  cleanName,
+  dealNextHand,
+  makeRoomCode,
+  newBot as newPokerBot,
+} from '../poker/logic.ts';
 import {
   type GamePlayerRow,
   type GameRoomRow,
@@ -41,7 +53,36 @@ import {
 } from './logic.ts';
 import { awardXp, unlockedEmojis } from '../_shared/xp.ts';
 import { inBackground, notify } from '../_shared/push.ts';
-import { newTurns, turnNotice, weeklyMatchNotice, weeklySoonNotice } from '../_shared/notify.ts';
+import {
+  matchNotice,
+  newTurns,
+  pokerToAct,
+  turnNotice,
+  weeklyMatchNotice,
+  weeklySoonNotice,
+} from '../_shared/notify.ts';
+import { loadBlocks, loadRatings, rateTable } from '../_shared/rapide.ts';
+import {
+  OPEN_TABLE_MS,
+  QUEUE_PAIR_GAP_MS,
+  QUEUE_STALE_MS,
+  type OpenRoomRow,
+  type QueueRow,
+  blockRow,
+  blockedAtTable,
+  cleanVisibility,
+  expiryCutoffs,
+  fillGroup,
+  freeName,
+  isRated,
+  isWaiting,
+  newQueueRow,
+  openTables,
+  pairQueue,
+  queueStatus,
+  quickGameRoom,
+  quickPokerRoom,
+} from './rapide.ts';
 import {
   type WeeklyRegistration,
   type WeeklyRow,
@@ -145,6 +186,8 @@ async function createRoom(userId: string, body: Record<string, unknown>) {
         game: body.game,
         host_id: userId,
         options,
+        // A tournament table is for the tournament's players only.
+        visibility: tournament ? 'private' : cleanVisibility(body.visibility),
         ...(tournament ? { tournament_id: tournament.id, tournament_round: tournament.round } : {}),
       })
       .select('id, code')
@@ -241,7 +284,7 @@ async function joinTournament(userId: string, body: Record<string, unknown>) {
 }
 
 async function joinRoom(userId: string, body: Record<string, unknown>) {
-  const name = cleanName(body.name);
+  let name = cleanName(body.name);
   const code = String(body.code ?? '')
     .trim()
     .toUpperCase();
@@ -253,6 +296,16 @@ async function joinRoom(userId: string, body: Record<string, unknown>) {
   }
   const players = await loadPlayers(room.id);
   if (players.some((p) => p.user_id === userId)) return { roomId: room.id, game: room.game };
+  if (room.visibility !== 'private') {
+    // A table open to strangers: never with someone blocked, and a name already taken gets a number.
+    if (blockedAtTable(userId, players, await loadBlocks(admin, [userId]))) {
+      throw new GameError('Cette table n’est pas disponible');
+    }
+    name = freeName(
+      players.map((p) => p.name),
+      name,
+    );
+  }
   checkJoin(room as GameRoomRow, players, userId, name);
   const seat = firstFreeGameSeat(players);
   const { error: insertError } = await admin.from('game_players').insert({
@@ -313,7 +366,10 @@ function notifyTurns(room: GameRoomRow, before: GameSecret | null, after: GameSn
   const ids = newTurns(before ? humanActors(before) : [], humanActors(after.secret));
   if (ids.length === 0) return;
   inBackground(
-    notify(admin, ids, (lang) => turnNotice(lang, room.game, room.code), { ttl: 300, urgency: 'high' }),
+    notify(admin, ids, (lang) => turnNotice(lang, room.game, room.code, isRated(room.visibility)), {
+      ttl: 300,
+      urgency: 'high',
+    }),
   );
 }
 
@@ -343,12 +399,21 @@ async function saveAndAward(room: GameRoomRow, before: GameSecret, after: GameSn
   return saved;
 }
 
-/** A table just ended: keeps each person's result for the weekly ranking between friends. */
+/**
+ * A table just ended: keeps each person's result for the weekly ranking between friends and, at
+ * a table open to strangers, moves their rating in this game.
+ */
 async function recordResults(room: GameRoomRow, before: GameSecret, after: GameSnapshot) {
   const rows = onlineResults(room.id, before, after);
   if (rows.length === 0) return;
   const { error } = await admin.from('online_results').upsert(rows, { ignoreDuplicates: true });
   if (error) console.error('résultats non enregistrés', error);
+  await rateTable(
+    admin,
+    room,
+    room.game,
+    rows.map((r) => ({ userId: r.user_id, place: r.placement })),
+  );
 }
 
 async function tick(userId: string, roomId: string) {
@@ -734,6 +799,359 @@ async function weeklyUnregister(userId: string) {
   return await weekly(userId);
 }
 
+// ---------------------------------------------------------------------------
+// Partie rapide: the queue, and the tables it makes. No timer runs on the server: each search and
+// each ping of a waiting phone seats whoever can be seated (see rapide.ts).
+
+const iso = (ms: number) => new Date(ms).toISOString();
+
+async function loadQueueRow(userId: string) {
+  const { data, error } = await admin.from('match_queue').select('*').eq('user_id', userId).maybeSingle();
+  if (error) throw error;
+  return data as QueueRow | null;
+}
+
+/** Players waiting for the same game, table size and variant, heard from recently. */
+async function loadQueue(key: Pick<QueueRow, 'game' | 'size' | 'variant'>, now: number) {
+  const { data, error } = await admin
+    .from('match_queue')
+    .select('*')
+    .eq('status', 'waiting')
+    .eq('game', key.game)
+    .eq('size', key.size)
+    .eq('variant', key.variant)
+    .gte('last_seen', iso(now - QUEUE_STALE_MS))
+    .order('joined_at')
+    .limit(200);
+  if (error) throw error;
+  return (data ?? []) as QueueRow[];
+}
+
+/** Forgets ghosts, old tables found and old searches. */
+async function cleanQueue(now: number) {
+  for (const cut of expiryCutoffs(now)) {
+    const { error } = await admin
+      .from('match_queue')
+      .delete()
+      .eq('status', cut.status)
+      .lt(cut.column, cut.before);
+    if (error) console.error('file d’attente non nettoyée', error);
+  }
+}
+
+/** What the waiting screen shows: my search, the players found, or my table. */
+async function queueState(userId: string, now: number) {
+  const me = await loadQueueRow(userId);
+  const waiting = me?.status === 'waiting';
+  const [rows, blocks] = waiting
+    ? await Promise.all([loadQueue(me!, now), loadBlocks(admin, [userId])])
+    : [[], []];
+  return { now, ...queueStatus(me, rows, blocks, now) };
+}
+
+async function queueJoin(userId: string, body: Record<string, unknown>) {
+  const now = Date.now();
+  if (!isQuickGame(body.game)) throw new GameError('Jeu inconnu');
+  const name = cleanName(body.name);
+  const [prev, ratings, progress, emojis] = await Promise.all([
+    loadQueueRow(userId),
+    loadRatings(admin, body.game, [userId]),
+    admin.from('player_progress').select('xp').eq('user_id', userId).maybeSingle(),
+    unlockedEmojis(admin, userId),
+  ]);
+  const look = { name, ...avatarColumns(body.avatar, 0, emojis) };
+  const row = newQueueRow(
+    userId,
+    body,
+    look,
+    ratings[0]?.rating ?? ELO_START,
+    (progress.data?.xp as number | undefined) ?? 0,
+    prev,
+    now,
+  );
+  const { error } = await admin.from('match_queue').upsert(row);
+  if (error) throw error;
+  inBackground(cleanQueue(now));
+  await matchmake(row, now);
+  return await queueState(userId, Date.now());
+}
+
+/** A waiting phone is still there: keeps its place, and seats whoever can be seated. */
+async function queuePing(userId: string) {
+  const now = Date.now();
+  const me = await loadQueueRow(userId);
+  if (me && isWaiting(me, now)) {
+    const { error } = await admin
+      .from('match_queue')
+      .update({ last_seen: iso(now) })
+      .eq('user_id', userId)
+      .eq('status', 'waiting');
+    if (error) throw error;
+    if (now - Date.parse(me.last_seen) >= QUEUE_PAIR_GAP_MS) await matchmake(me, now);
+  }
+  return await queueState(userId, now);
+}
+
+/** "Compléter avec des robots": me and the players found so far, robots in the other seats. */
+async function queueFill(userId: string) {
+  const now = Date.now();
+  const me = await loadQueueRow(userId);
+  if (!me) throw new GameError('Tu ne cherches plus de partie');
+  const rows = await loadQueue(me, now);
+  const all = rows.some((r) => r.user_id === userId) ? rows : [me, ...rows];
+  const ids = fillGroup(
+    me,
+    all,
+    await loadBlocks(
+      admin,
+      all.map((r) => r.user_id),
+    ),
+    now,
+  );
+  const byId = new Map(all.map((r) => [r.user_id, r]));
+  if (!(await seatGroup(ids.map((id) => byId.get(id)!)))) {
+    throw new GameError('Quelqu’un a joué en même temps, réessaie');
+  }
+  return await queueState(userId, Date.now());
+}
+
+async function queueLeave(userId: string) {
+  const { error } = await admin
+    .from('match_queue')
+    .update({ status: 'left', room_id: null, room_code: null })
+    .eq('user_id', userId);
+  if (error) throw error;
+  return { ok: true };
+}
+
+/** Seats the full tables that can be made among the players waiting like this one. */
+async function matchmake(key: QueueRow, now: number) {
+  const rows = await loadQueue(key, now);
+  if (rows.length < key.size) return;
+  const blocks = await loadBlocks(
+    admin,
+    rows.map((r) => r.user_id),
+  );
+  const byId = new Map(rows.map((r) => [r.user_id, r]));
+  for (const ids of pairQueue(rows, blocks, now, 3)) {
+    await seatGroup(ids.map((id) => byId.get(id)!)).catch((e) => console.error('table rapide non créée', e));
+  }
+}
+
+/**
+ * Takes a group out of the queue, opens their table and starts it, then tells them. Returns null
+ * when one of them was seated elsewhere or stopped searching meanwhile (nobody is taken then).
+ * Robots fill the seats nobody took.
+ */
+async function seatGroup(group: QueueRow[]) {
+  const roomId = crypto.randomUUID();
+  const { error } = await admin.rpc('quick_claim', {
+    p_users: group.map((g) => g.user_id),
+    p_room: roomId,
+    p_stale_seconds: Math.round(QUEUE_STALE_MS / 1000),
+  });
+  if (error) {
+    if (error.message.includes('conflict')) return null;
+    throw error;
+  }
+  const game = group[0].game;
+  try {
+    const code = game === 'poker' ? await openQuickPoker(roomId, group) : await openQuickGame(roomId, group);
+    const { error: readyError } = await admin
+      .from('match_queue')
+      .update({ room_code: code, last_seen: iso(Date.now()) })
+      .eq('room_id', roomId)
+      .eq('status', 'matched');
+    if (readyError) throw readyError;
+    // Shown only by phones where the app is in the background (see sw.js).
+    inBackground(
+      notify(
+        admin,
+        group.map((g) => g.user_id),
+        (lang) => matchNotice(lang, game, code),
+        { ttl: 120, urgency: 'high' },
+      ),
+    );
+    return { roomId, code };
+  } catch (e) {
+    // Everyone keeps their place in the queue.
+    await admin
+      .from('match_queue')
+      .update({ status: 'waiting', room_id: null, room_code: null })
+      .eq('room_id', roomId);
+    await admin
+      .from(game === 'poker' ? 'rooms' : 'game_rooms')
+      .delete()
+      .eq('id', roomId);
+    throw e;
+  }
+}
+
+/** The table of an online game for a group: seated, robots added, dealt. Returns its code. */
+async function openQuickGame(roomId: string, group: QueueRow[]) {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const { room, players } = quickGameRoom(roomId, makeRoomCode(), group);
+    const { data, error } = await admin.from('game_rooms').insert(room).select('*').single();
+    if (error?.code === '23505') continue; // code already used, draw another
+    if (error) throw error;
+    const row = data as GameRoomRow;
+    const all: GamePlayerRow[] = [...players];
+    const bots: ReturnType<typeof newGameBot>[] = [];
+    while (all.length < group[0].size) {
+      const bot = newGameBot(row, all, row.host_id, crypto.randomUUID());
+      bots.push(bot);
+      all.push(bot);
+    }
+    const { error: seatError } = await admin.from('game_players').insert([...players, ...bots]);
+    if (seatError) throw seatError;
+    const started = startGame(row, all, row.host_id, () => crypto.randomUUID(), secureRng, Date.now());
+    if (started.bots.length > 0) {
+      const { error: botError } = await admin.from('game_players').insert(started.bots);
+      if (botError) throw botError;
+    }
+    await save(row, started.snapshot);
+    notifyTurns(row, null, started.snapshot);
+    return row.code;
+  }
+  throw new GameError('Impossible de créer la table, réessaie');
+}
+
+/** A quick poker table (sit-and-go) for a group: seated, robots added, first hand dealt. */
+async function openQuickPoker(roomId: string, group: QueueRow[]) {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const { room, players } = quickPokerRoom(roomId, makeRoomCode(), group);
+    const { data, error } = await admin.from('rooms').insert(room).select('*').single();
+    if (error?.code === '23505') continue;
+    if (error) throw error;
+    const row = data as PokerRoomRow;
+    const all: PokerPlayerRow[] = players.map((p) => ({ ...p }));
+    const bots: ReturnType<typeof newPokerBot>[] = [];
+    while (all.length < Math.max(2, group[0].size)) {
+      const bot = newPokerBot(row, all, row.host_id, crypto.randomUUID());
+      bots.push(bot);
+      all.push(bot);
+    }
+    const { error: seatError } = await admin.from('room_players').insert([...players, ...bots]);
+    if (seatError) throw seatError;
+    // The rankings and statistics show the name and avatar each person last played with.
+    await admin.from('profiles').upsert(
+      group.map((g, i) => ({
+        user_id: g.user_id,
+        name: players[i].name,
+        avatar: g.avatar,
+        avatar_color: g.avatar_color,
+        updated_at: iso(Date.now()),
+      })),
+    );
+    const saved: PokerSaveParams = dealNextHand(row, all, null, Date.now());
+    const { error: saveError } = await admin.rpc('save_room_state', saved);
+    if (saveError) throw saveError;
+    const ids = newTurns([], pokerToAct(saved.p_secret), saved.p_public.bots ?? []);
+    if (ids.length > 0) {
+      inBackground(
+        notify(admin, ids, (lang) => turnNotice(lang, 'poker', row.code!, true), {
+          ttl: 300,
+          urgency: 'high',
+        }),
+      );
+    }
+    return row.code!;
+  }
+  throw new GameError('Impossible de créer la table, réessaie');
+}
+
+/** "Tables ouvertes": public tables still waiting for players, of one game or of all. */
+async function openTablesList(userId: string, body: Record<string, unknown>) {
+  const now = Date.now();
+  const since = iso(now - OPEN_TABLE_MS);
+  const game = isQuickGame(body.game) ? body.game : null;
+  const games = async () => {
+    if (game === 'poker') return [];
+    let q = admin
+      .from('game_rooms')
+      .select('id, code, game, host_id, created_at')
+      .eq('visibility', 'public')
+      .eq('status', 'lobby')
+      .gte('created_at', since);
+    if (game) q = q.eq('game', game);
+    const { data, error } = await q.order('created_at', { ascending: false }).limit(60);
+    if (error) throw error;
+    return (data ?? []) as OpenRoomRow[];
+  };
+  const poker = async () => {
+    if (game && game !== 'poker') return [];
+    const { data, error } = await admin
+      .from('rooms')
+      .select('id, code, host_id, created_at')
+      .eq('visibility', 'public')
+      .eq('status', 'lobby')
+      .gte('created_at', since)
+      .order('created_at', { ascending: false })
+      .limit(30);
+    if (error) throw error;
+    return (data ?? []).map((r) => ({ ...r, game: 'poker' })) as OpenRoomRow[];
+  };
+  const [gameRooms, pokerRooms] = await Promise.all([games(), poker()]);
+  const seatsOf = async (table: string, ids: string[]) => {
+    if (ids.length === 0) return [];
+    const { data, error } = await admin
+      .from(table)
+      .select('room_id, user_id, name, avatar, avatar_color, is_bot')
+      .in('room_id', ids);
+    if (error) throw error;
+    return data ?? [];
+  };
+  const [seatedGames, seatedPoker, blocks] = await Promise.all([
+    seatsOf(
+      'game_players',
+      gameRooms.map((r) => r.id),
+    ),
+    seatsOf(
+      'room_players',
+      pokerRooms.map((r) => r.id),
+    ),
+    loadBlocks(admin, [userId]),
+  ]);
+  const rooms = [...gameRooms, ...pokerRooms];
+  const hosts = [...new Set(rooms.map((r) => r.host_id))];
+  const levels: Record<string, number> = {};
+  if (hosts.length > 0) {
+    const { data } = await admin.from('player_progress').select('user_id, xp').in('user_id', hosts);
+    for (const p of data ?? []) levels[p.user_id as string] = levelFromXp((p.xp as number) ?? 0);
+  }
+  return {
+    tables: openTables(
+      rooms,
+      [...seatedGames, ...seatedPoker] as Parameters<typeof openTables>[1],
+      levels,
+      blocks,
+      userId,
+      now,
+    ),
+  };
+}
+
+async function block(userId: string, body: Record<string, unknown>) {
+  const { count, error: countError } = await admin
+    .from('player_blocks')
+    .select('blocked_id', { count: 'exact', head: true })
+    .eq('user_id', userId);
+  if (countError) throw countError;
+  const { error } = await admin.from('player_blocks').upsert(blockRow(userId, body, count ?? 0));
+  if (error) throw error;
+  return { ok: true };
+}
+
+async function unblock(userId: string, body: Record<string, unknown>) {
+  const { error } = await admin
+    .from('player_blocks')
+    .delete()
+    .eq('user_id', userId)
+    .eq('blocked_id', String(body.userId ?? ''));
+  if (error) throw error;
+  return { ok: true };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
 
@@ -773,6 +1191,20 @@ Deno.serve(async (req) => {
         return json(await weeklyRegister(user.id, body));
       case 'weeklyUnregister':
         return json(await weeklyUnregister(user.id));
+      case 'queueJoin':
+        return json(await queueJoin(user.id, body));
+      case 'queuePing':
+        return json(await queuePing(user.id));
+      case 'queueFill':
+        return json(await queueFill(user.id));
+      case 'queueLeave':
+        return json(await queueLeave(user.id));
+      case 'openTables':
+        return json(await openTablesList(user.id, body));
+      case 'block':
+        return json(await block(user.id, body));
+      case 'unblock':
+        return json(await unblock(user.id, body));
       default:
         return json({ error: 'Requête inconnue' }, 400);
     }

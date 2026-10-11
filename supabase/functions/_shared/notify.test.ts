@@ -12,6 +12,7 @@ import {
   pokerToAct,
   subscriptionGone,
   tableUrl,
+  matchNotice,
   turnNotice,
   weeklyMatchNotice,
   weeklySoonNotice,
@@ -106,6 +107,25 @@ test('a turn notice replaces the previous one of the same table', () => {
     turnNotice('en', 'puissance4', 'ABC123').body,
     'Your friends are waiting for you at the Connect 4 table.',
   );
+  assert.equal(
+    turnNotice('fr', 'uno', 'ABC123', true).body,
+    'Les autres joueurs t’attendent à la table de Uno.',
+  );
+  assert.equal(
+    turnNotice('en', 'uno', 'ABC123', true).body,
+    'The other players are waiting for you at the Uno table.',
+  );
+});
+
+test('a quick game found tells the player in their language and opens the table', () => {
+  const fr = matchNotice('fr', 'echecs', 'ABC123');
+  assert.equal(fr.kind, 'match');
+  assert.equal(fr.title, 'Adversaire trouvé !');
+  assert.equal(fr.body, 'Échecs : ta partie commence, viens jouer.');
+  assert.equal(fr.url, './?jeu=echecs&table=ABC123');
+  assert.equal(matchNotice('en', 'echecs', 'ABC123').title, 'Opponent found!');
+  assert.equal(matchNotice('en', 'echecs', 'ABC123').body, 'Chess: your game is starting, come and play.');
+  assert.notEqual(fr.tag, matchNotice('fr', 'echecs', 'XYZ789').tag);
 });
 
 test('the payload is small JSON the service worker can read', () => {

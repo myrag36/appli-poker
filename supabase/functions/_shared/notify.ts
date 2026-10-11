@@ -7,7 +7,7 @@ export type NoticeLang = 'fr' | 'en';
 
 /** A notification as the service worker shows it. */
 export interface Notice {
-  kind: 'invite' | 'turn' | 'message' | 'tournament' | 'club';
+  kind: 'invite' | 'turn' | 'message' | 'tournament' | 'club' | 'match';
   title: string;
   body: string;
   /** Notifications with the same tag replace each other on the phone. */
@@ -126,17 +126,36 @@ export function inviteNotice(lang: NoticeLang, from: string, game: string, code:
   };
 }
 
-/** It is my turn at an online table. */
-export function turnNotice(lang: NoticeLang, game: string, code: string): Notice {
+/** It is my turn at an online table (with friends, or with strangers met by a quick game). */
+export function turnNotice(lang: NoticeLang, game: string, code: string, strangers = false): Notice {
   const name = gameName(game, lang);
+  const who = strangers ? (lang === 'en' ? 'The other players are' : 'Les autres joueurs t’attendent') : '';
   return {
     kind: 'turn',
     title: lang === 'en' ? 'Your turn!' : 'À toi de jouer !',
-    body:
-      lang === 'en'
+    body: strangers
+      ? lang === 'en'
+        ? `${who} waiting for you at the ${name} table.`
+        : `${who} à la table de ${name}.`
+      : lang === 'en'
         ? `Your friends are waiting for you at the ${name} table.`
         : `Tes amis t’attendent à la table de ${name}.`,
     tag: `turn-${code}`,
+    url: tableUrl(game, code),
+  };
+}
+
+/** Partie rapide: the server found my opponents and the game starts. */
+export function matchNotice(lang: NoticeLang, game: string, code: string): Notice {
+  const name = gameName(game, lang);
+  return {
+    kind: 'match',
+    title: lang === 'en' ? 'Opponent found!' : 'Adversaire trouvé !',
+    body:
+      lang === 'en'
+        ? `${name}: your game is starting, come and play.`
+        : `${name} : ta partie commence, viens jouer.`,
+    tag: `match-${code}`,
     url: tableUrl(game, code),
   };
 }

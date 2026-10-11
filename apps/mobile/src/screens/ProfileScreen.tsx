@@ -25,6 +25,7 @@ import {
   XP_PLAY,
   XP_WIN,
   cleanAvatar,
+  isQuickGame,
   isUnlocked,
   defaultAvatar,
   levelProgress,
@@ -39,6 +40,8 @@ import { TitleBadge } from '../components/TitleBadge';
 import { ClubTag } from '../components/ClubBadge';
 import { useMyClubBadge } from '../online/clubs';
 import { TopBar } from '../components/TopBar';
+import { BlockedList, quickGameLook } from '../components/Strangers';
+import { useMyRatings } from '../online/rapide';
 import { Tutorial } from '../components/Tutorial';
 import { equipReward, syncMe, useMyProgress } from '../online/progress';
 import { loadAvatar, loadName, saveAvatar, saveName } from '../online/supabase';
@@ -127,6 +130,7 @@ export function ProfileScreen({
   const coming = nextReward(level);
   const me: Avatar = { ...avatar, frame: equipped.frame, level };
   const club = useMyClubBadge();
+  const ratings = Object.values(useMyRatings());
 
   async function wear(slot: keyof Equipped, reward: Reward) {
     if (!isUnlocked(reward.kind, reward.id, level, owned)) return;
@@ -322,6 +326,45 @@ export function ProfileScreen({
     </>
   );
 
+  const strangers = (
+    <>
+      <Text style={styles.section}>{t('Ma cote en ligne')}</Text>
+      <View style={styles.card}>
+        {ratings.length === 0 ? (
+          <Text style={styles.how}>
+            {t(
+              'Une cote par jeu, qui part de 1000 : elle bouge après chaque partie rapide ou à une table publique, selon ton classement et le niveau des autres.',
+            )}
+          </Text>
+        ) : (
+          <>
+            {ratings.map((r) => {
+              const look = isQuickGame(r.game) ? quickGameLook(r.game) : { title: r.game, emoji: '🎮' };
+              return (
+                <View key={r.game} style={styles.statRow}>
+                  <Text style={styles.statGame}>
+                    {look.emoji} {look.title}
+                  </Text>
+                  <Text style={styles.statValue}>
+                    <Text style={styles.rating}>{r.rating}</Text> · {tn(r.games, '{n} partie', '{n} parties')}{' '}
+                    · {tn(r.wins, '{n} gagnée', '{n} gagnées')}
+                  </Text>
+                </View>
+              );
+            })}
+            <Text style={styles.how}>
+              {t('Elle bouge après les parties rapides et aux tables publiques, jamais entre amis.')}
+            </Text>
+          </>
+        )}
+      </View>
+      <Text style={styles.section}>{t('Joueurs bloqués')}</Text>
+      <View style={styles.card}>
+        <BlockedList />
+      </View>
+    </>
+  );
+
   const settings = (
     <>
       {Platform.OS === 'web' && (
@@ -377,6 +420,7 @@ export function ProfileScreen({
           <View style={{ width: DESK_LEFT }}>
             {identity}
             {games}
+            {strangers}
             {settings}
           </View>
           <View style={styles.right}>
@@ -390,6 +434,7 @@ export function ProfileScreen({
           {rewards}
           {achievements}
           {games}
+          {strangers}
           {settings}
         </>
       )}
@@ -497,6 +542,7 @@ const styles = StyleSheet.create({
   statRow: { flexDirection: 'row', justifyContent: 'space-between' },
   statGame: { color: colors.text, fontSize: 15, fontWeight: '700' },
   statValue: { color: colors.muted, fontSize: 14 },
+  rating: { color: colors.gold, fontWeight: '900' },
   error: { color: colors.gold, marginTop: 10, textAlign: 'center' },
   langs: { flexDirection: 'row', gap: 10, marginTop: 10 },
   lang: {

@@ -75,7 +75,7 @@ export function NotificationSettings() {
  * A gentle offer when sitting down at an online table: shown until answered once, and only
  * where notifications can work (or could, once the app is installed).
  */
-export function NotifyPrompt() {
+export function NotifyPrompt({ title, text }: { title?: string; text?: string } = {}) {
   const { status, busy, error, enable } = useNotifications();
   const [hidden, setHidden] = useState(() => Platform.OS !== 'web' || promptDismissed());
   if (hidden || (status !== 'off' && status !== 'needs-install')) return null;
@@ -89,11 +89,11 @@ export function NotifyPrompt() {
     <View style={styles.prompt}>
       <Text style={styles.bell}>🔔</Text>
       <View style={styles.flex}>
-        <Text style={styles.promptTitle}>{t('Être prévenu quand c’est ton tour ?')}</Text>
+        <Text style={styles.promptTitle}>{title ?? t('Être prévenu quand c’est ton tour ?')}</Text>
         <Text style={styles.toggleText}>
           {status === 'needs-install'
             ? t('Installe La Tablée sur l’écran d’accueil pour recevoir une notification quand c’est à toi.')
-            : t('Une notification si l’appli est en arrière-plan quand c’est à toi de jouer.')}
+            : (text ?? t('Une notification si l’appli est en arrière-plan quand c’est à toi de jouer.'))}
         </Text>
         {error && <Text style={styles.error}>{error}</Text>}
         <View style={styles.promptRow}>

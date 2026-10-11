@@ -12,6 +12,8 @@ interface Props {
   canResume: boolean;
   playerName?: string;
   onOnline: () => void;
+  /** Partie rapide: a sit-and-go with strangers, found in a few seconds. */
+  onQuick: () => void;
   onResume: () => void;
   onLocal: () => void;
   onStats: () => void;
@@ -64,7 +66,16 @@ function Choice({
   );
 }
 
-export function HomeScreen({ canResume, playerName, onOnline, onResume, onLocal, onStats, onBack }: Props) {
+export function HomeScreen({
+  canResume,
+  playerName,
+  onOnline,
+  onQuick,
+  onResume,
+  onLocal,
+  onStats,
+  onBack,
+}: Props) {
   const insets = useSafeAreaInsets();
   const desktop = useDesktop();
 
@@ -117,6 +128,12 @@ export function HomeScreen({ canResume, playerName, onOnline, onResume, onLocal,
           text={t("Chacun sur son téléphone. Crée une table et partage le code, ou rejoins celle d'un ami.")}
           highlight={!canResume}
           onPress={onOnline}
+        />
+        <Choice
+          icon="⚡"
+          title={t('Partie rapide')}
+          text={t('Une table avec d’autres joueurs de ton niveau, en quelques secondes.')}
+          onPress={onQuick}
         />
         <Choice
           icon="📱"

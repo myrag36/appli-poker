@@ -2,7 +2,13 @@ import { type ComponentType, Suspense, lazy, useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { type OnlineGameId, cleanAvatar, defaultAvatar, isOnlineGame } from '@appli-poker/engine';
+import {
+  type OnlineGameId,
+  type QuickGameId,
+  cleanAvatar,
+  defaultAvatar,
+  isOnlineGame,
+} from '@appli-poker/engine';
 import {
   type SavedRoom,
   callServer,
@@ -61,6 +67,9 @@ const ProfileScreen = screen(() => import('./src/screens/ProfileScreen').then((m
 const Puissance4Screen = screen(() =>
   import('./src/screens/Puissance4Screen').then((m) => m.Puissance4Screen),
 );
+const QuickMatchScreen = screen(() =>
+  import('./src/screens/QuickMatchScreen').then((m) => m.QuickMatchScreen),
+);
 const RamiScreen = screen(() => import('./src/screens/RamiScreen').then((m) => m.RamiScreen));
 const SetupScreen = screen(() => import('./src/screens/SetupScreen').then((m) => m.SetupScreen));
 const ShopScreen = screen(() => import('./src/screens/ShopScreen').then((m) => m.ShopScreen));
@@ -84,7 +93,12 @@ type Screen =
       joinCode?: string;
       /** A match of the Friday tournament. */
       weekly?: boolean;
+      /** A table already found by a quick game: sit straight down. */
+      roomId?: string;
+      /** Opened from the quick game screen, which leaving goes back to. */
+      fromQuick?: boolean;
     }
+  | { name: 'quick'; game?: QuickGameId }
   | { name: 'home' }
   | { name: 'local-setup' }
   | { name: 'local-game'; settings: GameSettings }
@@ -203,6 +217,7 @@ export default function App() {
   const home = () => setScreen({ name: 'home' });
   const games = () => setScreen({ name: 'games' });
   const online = (game: OnlineGameId) => () => setScreen({ name: 'game-online', game });
+  const quick = (game?: QuickGameId) => setScreen({ name: 'quick', game });
 
   return (
     <SafeAreaProvider>
@@ -219,6 +234,34 @@ export default function App() {
             onFriends={() => setScreen({ name: 'friends' })}
             onClub={() => setScreen({ name: 'friends', club: '' })}
             onTournaments={() => setScreen({ name: 'tournaments' })}
+            onQuick={() => quick()}
+          />
+        )}
+        {screen.name === 'quick' && (
+          <QuickMatchScreen
+            key={screen.game ?? 'tous'}
+            initialGame={screen.game}
+            initialName={savedName ?? lastRoom?.name ?? ''}
+            onBack={() =>
+              setScreen(
+                !screen.game
+                  ? { name: 'games' }
+                  : screen.game === 'poker'
+                    ? { name: 'home' }
+                    : { name: 'game-online', game: screen.game },
+              )
+            }
+            onMatched={async (game, roomId, _code, name) => {
+              if (game === 'poker') {
+                await saveLastRoom({ roomId, name });
+                await openRoom(roomId);
+              } else setScreen({ name: 'game-online', game, roomId, fromQuick: true });
+            }}
+            onJoinTable={(table) => {
+              if (table.game === 'poker') joinFromLink('poker', table.code);
+              else
+                setScreen({ name: 'game-online', game: table.game, joinCode: table.code, fromQuick: true });
+            }}
           />
         )}
         {screen.name === 'profile' && (
@@ -315,19 +358,23 @@ export default function App() {
         )}
         {screen.name === 'game-online' && (
           <OnlineGameScreen
-            key={`${screen.game}-${screen.joinCode ?? ''}`}
+            key={`${screen.game}-${screen.joinCode ?? ''}-${screen.roomId ?? ''}`}
             game={screen.game}
             initialName={savedName ?? lastRoom?.name ?? ''}
             tournament={screen.tournament}
             joinCode={screen.joinCode}
+            roomId={screen.roomId}
             weekly={screen.weekly}
+            onQuick={() => quick(screen.game)}
             onBack={() =>
               setScreen(
                 screen.weekly
                   ? { name: 'tournaments', weekly: true }
                   : screen.tournament
                     ? { name: 'tournaments', id: screen.tournament.id }
-                    : { name: 'game', game: screen.game },
+                    : screen.fromQuick
+                      ? { name: 'quick', game: screen.game }
+                      : { name: 'game', game: screen.game },
               )
             }
           />
@@ -338,6 +385,7 @@ export default function App() {
             canResume={lastRoom !== null}
             playerName={lastRoom?.name}
             onOnline={() => setScreen({ name: 'online-lobby' })}
+            onQuick={() => quick('poker')}
             onResume={() => lastRoom && openRoom(lastRoom.roomId)}
             onLocal={() => setScreen({ name: 'local-setup' })}
             onStats={() => setScreen({ name: 'stats' })}
