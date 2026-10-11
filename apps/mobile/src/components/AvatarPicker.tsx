@@ -272,6 +272,53 @@ const FRAMES: Record<string, FrameLook> = {
     lights: ['#ff3b3b', '#ffd23f', '#3bb2ff', '#ff7be5', '#7dff6b'],
     ornaments: [{ e: '🎀', a: -90, k: 0.34, d: 1.02 }],
   },
+  // ---- Won at the end of a ranked season (tables classées) ----
+  'classe-or': {
+    ring: ['#fff3b8', '#f2bf3a', '#9a6a08', '#ffe07a', '#b8860b'],
+    glow: 'rgba(255, 200, 60, 0.6)',
+    ornaments: [{ e: '👑', a: -90, k: 0.32, d: 1.06 }],
+  },
+  'classe-platine': {
+    ring: ['#e6fffb', '#4fd1c5', '#11706a', '#a6f0e6', '#0b5450'],
+    glow: 'rgba(80, 220, 200, 0.7)',
+    facets: true,
+    ornaments: [
+      { e: '💠', a: -90, k: 0.3, d: 1.06 },
+      { e: '✦', a: 150, k: 0.16, color: '#e6fffb', glow: 'rgba(80, 220, 200, 1)' },
+      { e: '✦', a: 30, k: 0.16, color: '#e6fffb', glow: 'rgba(80, 220, 200, 1)' },
+    ],
+  },
+  'classe-diamant': {
+    ring: ['#e6f4ff', '#62a8ff', '#1f3f9e', '#b9dcff', '#ffffff', '#3b6fd8'],
+    glow: 'rgba(100, 170, 255, 0.9)',
+    motion: 'pulse',
+    facets: true,
+    gems: '#e6f4ff',
+    ornaments: [{ e: '💎', a: -90, k: 0.34, d: 1.06 }],
+  },
+  'classe-maitre': {
+    ring: ['#f4dcff', '#b05cf0', '#4a1475', '#e2b5ff', '#7b2cbf', '#f4dcff'],
+    glow: 'rgba(180, 90, 255, 0.95)',
+    motion: 'spin',
+    sparkles: 'rgba(200, 140, 255, 1)',
+    ornaments: [
+      { e: '🔮', a: -90, k: 0.32, d: 1.06 },
+      { e: '🌿', a: 160, k: 0.26, r: 70 },
+      { e: '🌿', a: 20, k: 0.26, r: -70 },
+    ],
+  },
+  'classe-legende': {
+    ring: ['#fff6c9', '#ff8a3d', '#b3122e', '#ffd27a', '#ff3d6e', '#fff6c9'],
+    glow: 'rgba(255, 140, 60, 1)',
+    motion: 'spin',
+    sparkles: true,
+    flames: true,
+    ornaments: [
+      { e: '👑', a: -90, k: 0.36, d: 1.08 },
+      { e: '🌟', a: 135, k: 0.22, d: 1.04 },
+      { e: '🌟', a: 45, k: 0.22, d: 1.04 },
+    ],
+  },
   // ---- Earned by playing ----
   trefle: {
     ring: ['#d7ffd0', '#4cc35a', '#16752a', '#8ee68f', '#0c5420'],

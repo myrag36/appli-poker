@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Platform, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { findReward } from '@appli-poker/engine';
+import { type RankTierId, findReward, rankTier } from '@appli-poker/engine';
 import { t } from '../i18n';
 
 const native = Platform.OS !== 'web';
@@ -200,10 +200,24 @@ const SHOP_TIERS: Record<string, Tier> = {
   },
 };
 
+/** The titles of the ranked seasons ("Or — Saison Automne") wear their tier's colors. */
+function rankedTier(rank: RankTierId): Tier {
+  const tier = rankTier(rank);
+  const high = rank === 'diamant' || rank === 'maitre' || rank === 'legende';
+  return {
+    fill: tier.colors,
+    border: tier.rim,
+    text: rank === 'argent' || rank === 'or' || rank === 'bronze' ? '#2a1a05' : '#ffffff',
+    icon: tier.glyph,
+    glow: `0 0 ${high ? 12 : 7}px ${tier.colors[1]}`,
+    shimmer: high,
+  };
+}
+
 /** A player's title in a pill; the rarer the title, the fancier the pill. */
 export function TitleBadge({ id, small }: { id: string; small?: boolean }) {
   const reward = findReward('title', id) ?? findReward('title', 'debutant')!;
-  const tier = SHOP_TIERS[reward.id] ?? tierFor(reward.level);
+  const tier = reward.rank ? rankedTier(reward.rank) : (SHOP_TIERS[reward.id] ?? tierFor(reward.level));
   const font = small ? 10.5 : 13;
   return (
     <View

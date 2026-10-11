@@ -67,6 +67,8 @@ export interface ProgressEvent {
   gained: number;
   coins: number;
   level: number;
+  /** The level before this experience. */
+  from: number;
   levelUp: boolean;
   rewards: Reward[];
 }
@@ -147,7 +149,7 @@ function apply(row: Row | null) {
     const rewards: Reward[] = [];
     for (let l = mine.level + 1; l <= level; l++) rewards.push(...rewardsAtLevel(l));
     const coins = Math.max(0, next.coins - mine.coins);
-    event = { key: Date.now(), gained: xp - mine.xp, coins, level, levelUp, rewards };
+    event = { key: Date.now(), gained: xp - mine.xp, coins, level, from: mine.level, levelUp, rewards };
   }
   // Items earned by playing that just joined the collection: a toast for them.
   if (mine) {

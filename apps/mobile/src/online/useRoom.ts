@@ -23,6 +23,8 @@ export interface Room {
   variant?: 'holdem' | 'omaha';
   /** private (friends with the code), public ("Tables ouvertes") or quick (found by Partie rapide). */
   visibility?: 'private' | 'public' | 'quick';
+  /** A table of the ranked queue (tables classées). */
+  ranked?: boolean;
   /**
    * `deadline` is when the player to act runs out of time, in epoch ms.
    * `tournament` is the blind level of this hand and when the next level starts.

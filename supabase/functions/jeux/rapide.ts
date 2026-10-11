@@ -8,10 +8,14 @@ import {
   type OnlineGameId,
   QUICK_GAMES,
   type QuickGameId,
+  RANKED_GAMES,
+  RANKED_LEVEL,
   eloDeltas,
   isQuickGame,
+  isRankedGame,
   levelFromXp,
   quickRequest,
+  rankedWindow,
 } from '../_shared/engine/index.ts';
 import { GameError } from '../poker/logic.ts';
 
@@ -45,7 +49,9 @@ export interface QueueRow {
   game: QuickGameId;
   size: number;
   variant: string;
-  /** The player's rating in this game when they started searching. */
+  /** A ranked search (tables classées): only seated with other ranked searches, never with robots. */
+  ranked: boolean;
+  /** The player's rating in this game when they started searching (ranked points when ranked). */
   rating: number;
   level: number;
   name: string;
@@ -82,9 +88,9 @@ export function isExpired(row: QueueRow, now: number): boolean {
   return now - ms(row.last_seen) > QUEUE_STALE_MS;
 }
 
-/** Players seated together asked for the same game, table size and variant. */
-export function queueKey(row: Pick<QueueRow, 'game' | 'size' | 'variant'>): string {
-  return `${row.game}|${row.size}|${row.variant}`;
+/** Players seated together asked for the same game, table size and variant, ranked or not. */
+export function queueKey(row: Pick<QueueRow, 'game' | 'size' | 'variant' | 'ranked'>): string {
+  return `${row.game}|${row.size}|${row.variant}|${row.ranked ? 'classee' : 'normale'}`;
 }
 
 /**
@@ -109,8 +115,9 @@ export function blockedPairs(blocks: BlockRow[]): Set<string> {
 function compatible(a: QueueRow, b: QueueRow, blocked: Set<string>, now: number): boolean {
   if (a.user_id === b.user_id || queueKey(a) !== queueKey(b)) return false;
   if (blocked.has(`${a.user_id}|${b.user_id}`)) return false;
-  // The one who waited longer widens the search for both.
-  const window = Math.max(ratingWindow(now - ms(a.joined_at)), ratingWindow(now - ms(b.joined_at)));
+  // The one who waited longer widens the search for both; ranked searches widen slowly, and only so far.
+  const widen = a.ranked ? rankedWindow : ratingWindow;
+  const window = Math.max(widen(now - ms(a.joined_at)), widen(now - ms(b.joined_at)));
   return Math.abs(a.rating - b.rating) <= window;
 }
 
@@ -176,6 +183,7 @@ export function pairQueue(rows: QueueRow[], blocks: BlockRow[], now: number, max
  */
 export function fillGroup(me: QueueRow, rows: QueueRow[], blocks: BlockRow[], now: number): string[] {
   if (!isWaiting(me, now)) throw new GameError('Tu ne cherches plus de partie');
+  if (me.ranked) throw new GameError('Pas de robots en partie classée');
   if (now - ms(me.joined_at) < QUEUE_FILL_AFTER_MS - 5_000) {
     throw new GameError('Attends encore un peu, on cherche des joueurs');
   }
@@ -192,6 +200,7 @@ export interface QueueStatus {
   game?: QuickGameId;
   size?: number;
   variant?: string;
+  ranked?: boolean;
   /** Other players found so far, who would sit with me now. */
   found: number;
   /** How long I have been searching (ms). */
@@ -214,6 +223,7 @@ export function queueStatus(
       game: me.game,
       size: me.size,
       variant: me.variant,
+      ranked: !!me.ranked,
       found: me.size - 1,
       waited: Math.max(0, now - ms(me.joined_at)),
       canFill: false,
@@ -240,9 +250,10 @@ export function queueStatus(
     game: me.game,
     size: me.size,
     variant: me.variant,
+    ranked: !!me.ranked,
     found,
     waited,
-    canFill: me.status === 'waiting' && waited >= QUEUE_FILL_AFTER_MS,
+    canFill: me.status === 'waiting' && !me.ranked && waited >= QUEUE_FILL_AFTER_MS,
     rating: me.rating,
   };
 }
@@ -264,7 +275,23 @@ export function checkQueueJoin(
   return { joins, joins_since: new Date(fresh ? now : ms(prev!.joins_since)).toISOString() };
 }
 
-/** The queue row of a new search, checked. */
+/**
+ * What a search asks for: a ranked search must be for a ranked game, at level 10 or more, and
+ * gets that game's ranked table (size and variant are not chosen).
+ */
+export function searchRequest(body: Record<string, unknown>, xp: number) {
+  if (!isQuickGame(body.game)) throw new GameError('Jeu inconnu');
+  if (body.ranked !== true) {
+    return { ranked: false, ...quickRequest(body.game, { size: body.size, variant: body.variant }) };
+  }
+  if (!isRankedGame(body.game)) throw new GameError('Ce jeu ne se joue pas en partie classée');
+  if (levelFromXp(xp) < RANKED_LEVEL) {
+    throw new GameError('Les tables classées s’ouvrent au niveau 10');
+  }
+  return { ranked: true, game: body.game, ...RANKED_GAMES[body.game] };
+}
+
+/** The queue row of a new search, checked (`rating`: the ranked points for a ranked search). */
 export function newQueueRow(
   userId: string,
   body: Record<string, unknown>,
@@ -274,8 +301,7 @@ export function newQueueRow(
   prev: QueueRow | null,
   now: number,
 ): QueueRow {
-  if (!isQuickGame(body.game)) throw new GameError('Jeu inconnu');
-  const req = quickRequest(body.game, { size: body.size, variant: body.variant });
+  const req = searchRequest(body, xp);
   const at = new Date(now).toISOString();
   return {
     user_id: userId,
@@ -328,6 +354,7 @@ export function quickGameRoom(roomId: string, code: string, group: QueueRow[]) {
       host_id: group[0].user_id,
       options: ONLINE_GAMES[game].options(QUICK_GAMES[game].options),
       visibility: 'quick' as Visibility,
+      ranked: !!group[0].ranked,
     },
     players: quickSeats(group).map((p) => ({ ...p, room_id: roomId })),
   };
@@ -346,6 +373,7 @@ export function quickPokerRoom(roomId: string, code: string, group: QueueRow[]) 
       level_minutes: o.levelMinutes,
       variant: group[0].variant || 'holdem',
       visibility: 'quick' as Visibility,
+      ranked: !!group[0].ranked,
     },
     players: quickSeats(group).map((p) => ({ ...p, room_id: roomId, stack: o.stack })),
   };

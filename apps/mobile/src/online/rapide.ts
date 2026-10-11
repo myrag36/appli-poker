@@ -18,6 +18,8 @@ export interface QueueState {
   game?: QuickGameId;
   size?: number;
   variant?: string;
+  /** A ranked search (tables classées). */
+  ranked?: boolean;
   /** Other players found so far, who would sit with me now. */
   found: number;
   /** How long I have been searching (ms). */
@@ -35,6 +37,7 @@ export function joinQueue(req: {
   variant: string;
   name: string;
   avatar: Avatar;
+  ranked?: boolean;
 }) {
   return callGames<QueueState>({ type: 'queueJoin', ...req });
 }

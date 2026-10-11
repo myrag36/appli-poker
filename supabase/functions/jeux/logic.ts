@@ -39,6 +39,8 @@ export interface GameRoomRow {
   rematch?: Rematch | null;
   /** private (the default), public (listed in "Tables ouvertes") or quick (made by the matchmaker). */
   visibility?: string;
+  /** Made by the ranked queue: changes ranks instead of the casual rating. */
+  ranked?: boolean;
 }
 
 export interface GamePlayerRow {
@@ -170,6 +172,7 @@ export function playGameMove(secret: GameSecret, userId: string, move: unknown, 
   const def = gameDef(secret.game);
   const seat = seatOf(secret, userId);
   if (def.over(secret.state)) throw new GameError('La partie est finie');
+  if (secret.seats[seat].left) throw new GameError('Tu as quitté cette partie');
   if ((move as { type?: unknown } | null)?.type === 'next') {
     if (!def.betweenRounds(secret.state)) throw new GameError('La manche n’est pas finie');
     return snapshot({ ...secret, state: rule(() => def.nextRound(secret.state, rng)) }, now);
@@ -191,6 +194,19 @@ export function playGameTimeout(secret: GameSecret, rng: Rng, now: number) {
   const seat = actors.find((s) => secret.seats[s].bot) ?? actors[0];
   const state = rule(() => def.apply(secret.state, seat, def.auto(secret.state, seat, rng), rng));
   return snapshot({ ...secret, state }, now);
+}
+
+/**
+ * Someone abandons a ranked table: a robot plays their seat until the end, so the others are not
+ * kept waiting for a whole turn each time.
+ */
+export function forfeitSeat(secret: GameSecret, userId: string, now: number) {
+  const def = gameDef(secret.game);
+  const seat = seatOf(secret, userId);
+  if (def.over(secret.state)) throw new GameError('La partie est finie');
+  if (secret.seats[seat].bot) throw new GameError('Tu as déjà quitté cette partie');
+  const seats = secret.seats.map((s, i) => (i === seat ? { ...s, bot: true, left: true } : s));
+  return snapshot({ ...secret, seats }, now);
 }
 
 /** Public state, private views and the next deadline after a change. */

@@ -43,6 +43,7 @@ function row(id: string, over: Partial<QueueRow> = {}): QueueRow {
     game: 'uno',
     size: 2,
     variant: '',
+    ranked: false,
     rating: 1000,
     level: 5,
     name: id,

@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import {
   type OnlineGameId,
   type QuickGameId,
+  type RankedGameId,
   cleanAvatar,
   defaultAvatar,
   isOnlineGame,
@@ -70,6 +71,9 @@ const Puissance4Screen = screen(() =>
 const QuickMatchScreen = screen(() =>
   import('./src/screens/QuickMatchScreen').then((m) => m.QuickMatchScreen),
 );
+const RankedBoardScreen = screen(() =>
+  import('./src/screens/RankedBoardScreen').then((m) => m.RankedBoardScreen),
+);
 const RamiScreen = screen(() => import('./src/screens/RamiScreen').then((m) => m.RamiScreen));
 const SetupScreen = screen(() => import('./src/screens/SetupScreen').then((m) => m.SetupScreen));
 const ShopScreen = screen(() => import('./src/screens/ShopScreen').then((m) => m.ShopScreen));
@@ -98,7 +102,8 @@ type Screen =
       /** Opened from the quick game screen, which leaving goes back to. */
       fromQuick?: boolean;
     }
-  | { name: 'quick'; game?: QuickGameId }
+  | { name: 'quick'; game?: QuickGameId; ranked?: boolean }
+  | { name: 'ranked-board'; game?: RankedGameId; from?: Screen }
   | { name: 'home' }
   | { name: 'local-setup' }
   | { name: 'local-game'; settings: GameSettings }
@@ -218,6 +223,7 @@ export default function App() {
   const games = () => setScreen({ name: 'games' });
   const online = (game: OnlineGameId) => () => setScreen({ name: 'game-online', game });
   const quick = (game?: QuickGameId) => setScreen({ name: 'quick', game });
+  const rankedTables = () => setScreen({ name: 'quick', ranked: true });
 
   return (
     <SafeAreaProvider>
@@ -235,12 +241,15 @@ export default function App() {
             onClub={() => setScreen({ name: 'friends', club: '' })}
             onTournaments={() => setScreen({ name: 'tournaments' })}
             onQuick={() => quick()}
+            onRanked={rankedTables}
           />
         )}
         {screen.name === 'quick' && (
           <QuickMatchScreen
-            key={screen.game ?? 'tous'}
+            key={`${screen.game ?? 'tous'}-${screen.ranked ? 'classee' : 'normale'}`}
             initialGame={screen.game}
+            initialRanked={screen.ranked}
+            onBoard={(game) => setScreen({ name: 'ranked-board', game, from: screen })}
             initialName={savedName ?? lastRoom?.name ?? ''}
             onBack={() =>
               setScreen(
@@ -264,8 +273,16 @@ export default function App() {
             }}
           />
         )}
+        {screen.name === 'ranked-board' && (
+          <RankedBoardScreen
+            initialGame={screen.game}
+            onBack={() => setScreen(screen.from ?? { name: 'quick', ranked: true })}
+          />
+        )}
         {screen.name === 'profile' && (
           <ProfileScreen
+            onRanked={rankedTables}
+            onBoard={(game) => setScreen({ name: 'ranked-board', game, from: { name: 'profile' } })}
             onBack={games}
             onShop={() => setScreen({ name: 'shop', from: 'profile' })}
             onCustomize={() => setScreen({ name: 'customize', from: 'profile' })}
@@ -414,7 +431,7 @@ export default function App() {
           />
         )}
         {screen.name === 'stats' && <StatsScreen onBack={home} />}
-        <ProgressToast />
+        <ProgressToast onRanked={rankedTables} />
         <StatusBar style="light" />
       </View>
     </SafeAreaProvider>

@@ -47,6 +47,8 @@ export interface RoomRow {
   rematch?: Rematch | null;
   /** private (the default), public (listed in "Tables ouvertes") or quick (made by the matchmaker). */
   visibility?: string;
+  /** Made by the ranked queue: changes ranks instead of the casual rating. */
+  ranked?: boolean;
 }
 
 /** Tournament level of the hand being played and when the next one starts (epoch ms). */

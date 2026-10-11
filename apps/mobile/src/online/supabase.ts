@@ -63,7 +63,8 @@ type Request =
   | { type: 'remove'; roomId: string; userId: string }
   | { type: 'addBot'; roomId: string }
   | { type: 'watch'; name: string; code: string }
-  | { type: 'rematch'; roomId: string };
+  | { type: 'rematch'; roomId: string }
+  | { type: 'forfeit'; roomId: string };
 
 /** Calls the poker server and turns its error replies into readable messages. */
 export function callServer<T>(body: Request): Promise<T> {
@@ -89,7 +90,19 @@ type GamesRequest =
   | { type: 'move'; roomId: string; move: unknown }
   | { type: 'weekly' | 'weeklyUnregister' }
   | { type: 'weeklyRegister'; name: string; avatar: Avatar }
-  | { type: 'queueJoin'; game: string; size: number; variant: string; name: string; avatar: Avatar }
+  | {
+      type: 'queueJoin';
+      game: string;
+      size: number;
+      variant: string;
+      name: string;
+      avatar: Avatar;
+      /** Tables classées: level 10 and up, ranks instead of the casual rating. */
+      ranked?: boolean;
+    }
+  | { type: 'forfeit'; roomId: string }
+  | { type: 'ranked' }
+  | { type: 'rankedBoard'; game: string; scope: 'all' | 'friends' }
   | { type: 'queuePing' | 'queueFill' | 'queueLeave' }
   | { type: 'openTables'; game?: string }
   | { type: 'block'; userId: string; name?: string; avatar?: string | null; avatarColor?: string | null }

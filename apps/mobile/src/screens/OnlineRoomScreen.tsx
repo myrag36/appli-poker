@@ -33,6 +33,8 @@ import { PlayingCard } from '../components/PlayingCard';
 import { Ranking } from '../components/Ranking';
 import { RematchPanel } from '../components/RematchPanel';
 import { BlockButton, RatingResult } from '../components/Strangers';
+import { ForfeitConfirm, RankedResult, rankTag } from '../components/Ranked';
+import { forfeitRanked, useRanksOf } from '../online/classees';
 import { Table } from '../components/Table';
 import { TopBar } from '../components/TopBar';
 import { TurnTimer } from '../components/TurnTimer';
@@ -72,6 +74,14 @@ export function OnlineRoomScreen({ roomId, userId, onLeave, onSwitch }: Props) {
   } = useRoom(roomId, userId);
   const [trayOpen, setTrayOpen] = useState(false);
   const myEmotes = emotesFor(useMyProgress()?.owned ?? []);
+  const ranked = !!room?.ranked;
+  const ranks = useRanksOf(
+    'poker',
+    players.filter((p) => !p.is_bot).map((p) => p.user_id),
+    ranked,
+  );
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const [forfeiting, setForfeiting] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const desktop = useDesktop();
@@ -189,13 +199,39 @@ export function OnlineRoomScreen({ roomId, userId, onLeave, onSwitch }: Props) {
     .map((p) => ({ user_id: p.user_id, name: p.name, avatar: p.avatar, avatar_color: p.avatar_color }));
   const omaha = room.variant === 'omaha';
   const host = players.find((p) => p.user_id === room.host_id);
-  const hand = room.public_state;
+  // At a ranked table, each name shows its rank.
+  const hand =
+    ranked && room.public_state
+      ? {
+          ...room.public_state,
+          players: room.public_state.players.map((p) => ({
+            ...p,
+            name: [p.name, rankTag(ranks[p.id])].filter(Boolean).join(' '),
+          })),
+        }
+      : room.public_state;
   const actor = hand && hand.toAct >= 0 ? hand.players[hand.toAct] : null;
   const myTurn = actor?.id === userId;
   const botTurn = actor !== null && (hand?.bots?.includes(actor.id) ?? false);
   const inHand = hand?.players.some((p) => p.id === userId) ?? false;
   const withChips = players.filter((p) => p.stack > 0);
   const waiting = hand ? players.filter((p) => !hand.players.some((h) => h.id === p.user_id)) : [];
+  const gameOver = hand?.street === 'finished' && withChips.length < 2;
+  // Leaving a ranked sit-and-go before the end is an abandon: asked first.
+  const leaveTable = () => (ranked && !isSpectator && hand && !gameOver ? setConfirmLeave(true) : onLeave());
+  async function forfeitAndLeave() {
+    setForfeiting(true);
+    try {
+      await forfeitRanked('poker', roomId);
+      await saveLastRoom(null);
+      setConfirmLeave(false);
+      onLeave();
+    } catch {
+      setConfirmLeave(false);
+    } finally {
+      setForfeiting(false);
+    }
+  }
 
   const avatars: Record<string, Avatar> = Object.fromEntries(
     players.map((p) => [
@@ -498,9 +534,10 @@ export function OnlineRoomScreen({ roomId, userId, onLeave, onSwitch }: Props) {
                   .filter((p) => p.stack > 0 || p.place !== null)
                   .map((p) => ({ name: p.name, place: p.stack > 0 ? 1 : (p.place ?? players.length) }))}
               />
+              {ranked && !isSpectator && <RankedResult roomId={roomId} />}
               {rated && !isSpectator && (
                 <View style={styles.strangers}>
-                  <RatingResult roomId={roomId} game="poker" />
+                  {!ranked && <RatingResult roomId={roomId} game="poker" />}
                   <BlockButton players={strangers} compact />
                 </View>
               )}
@@ -552,7 +589,13 @@ export function OnlineRoomScreen({ roomId, userId, onLeave, onSwitch }: Props) {
       top={
         <View style={styles.topWrap}>
           {/* Only an arrow here: the bar also holds the history, chat, reactions and table code. */}
-          <TopBar onBack={onLeave} backLabel="←" backHint={t("Retour à l'accueil")}>
+          <ForfeitConfirm
+            visible={confirmLeave}
+            busy={forfeiting}
+            onCancel={() => setConfirmLeave(false)}
+            onConfirm={forfeitAndLeave}
+          />
+          <TopBar onBack={leaveTable} backLabel="←" backHint={t("Retour à l'accueil")}>
             {isHost && !quickTable && (
               <Pressable
                 accessibilityRole="button"

@@ -38,6 +38,7 @@ import { awardXp, unlockedEmojis } from '../_shared/xp.ts';
 import { inBackground, notify } from '../_shared/push.ts';
 import { newTurns, pokerToAct, turnNotice } from '../_shared/notify.ts';
 import { loadBlocks, rateTable } from '../_shared/rapide.ts';
+import { forfeitRanked } from '../_shared/classees.ts';
 import { blockedAtTable, cleanVisibility, freeName, isRated } from '../jeux/rapide.ts';
 
 const cors = {
@@ -350,6 +351,20 @@ async function setPaused(userId: string, roomId: string, paused: boolean) {
   return { version: data.version };
 }
 
+/**
+ * "Quitter" during a ranked sit-and-go: an abandon, counted as a loss now (and a win for the last
+ * opponent). The seat stays: the timer folds it until the blinds take its chips.
+ */
+async function forfeit(userId: string, roomId: string) {
+  const room = await loadRoom(admin, roomId);
+  const players = await loadPlayers(admin, roomId);
+  if (!players.some((p) => p.user_id === userId && !p.is_bot))
+    throw new GameError("Tu n'es pas à cette table");
+  const humans = players.filter((p) => !p.is_bot).map((p) => p.user_id);
+  const lost = await forfeitRanked(admin, room, 'poker', userId, humans, 'room_players');
+  return { ok: true, lost };
+}
+
 async function addBot(userId: string, roomId: string) {
   const room = await loadRoom(admin, roomId);
   const bot = newBot(room, await loadPlayers(admin, roomId), userId, crypto.randomUUID());
@@ -467,6 +482,8 @@ Deno.serve(async (req) => {
         return json(await removePlayer(user.id, roomId, String(body.userId ?? '')));
       case 'rematch':
         return json(await rematch(user.id, roomId));
+      case 'forfeit':
+        return json(await forfeit(user.id, roomId));
       default:
         return json({ error: 'Requête inconnue' }, 400);
     }
