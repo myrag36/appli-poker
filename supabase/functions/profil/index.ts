@@ -14,6 +14,7 @@ import {
 import { GameError, cleanName, makeRoomCode } from '../poker/logic.ts';
 import { levelChests, unlockedEmojis } from '../_shared/xp.ts';
 import { inBackground, notify, vapidKeys } from '../_shared/push.ts';
+import { myTable } from '../_shared/tables.ts';
 import {
   MAX_SUBSCRIPTIONS,
   canInviteAgain,
@@ -318,37 +319,6 @@ async function pushUnsubscribe(userId: string, body: Record<string, unknown>) {
   return { ok: true };
 }
 
-/** My seat at the table with this code: my name there and the table's game. */
-async function myTable(userId: string, game: string, code: string) {
-  if (game === 'poker') {
-    const { data: room } = await admin.from('rooms').select('id').eq('code', code).maybeSingle();
-    if (!room) throw new GameError('Aucune table avec ce code');
-    const { data: me } = await admin
-      .from('room_players')
-      .select('name')
-      .eq('room_id', room.id)
-      .eq('user_id', userId)
-      .maybeSingle();
-    if (!me) throw new GameError('Tu n’es pas à cette table');
-    return { name: me.name as string };
-  }
-  const { data: room } = await admin
-    .from('game_rooms')
-    .select('id, game, status')
-    .eq('code', code)
-    .maybeSingle();
-  if (!room || room.game !== game) throw new GameError('Aucune table avec ce code');
-  if (room.status !== 'lobby') throw new GameError('La partie a déjà commencé');
-  const { data: me } = await admin
-    .from('game_players')
-    .select('name')
-    .eq('room_id', room.id)
-    .eq('user_id', userId)
-    .maybeSingle();
-  if (!me) throw new GameError('Tu n’es pas à cette table');
-  return { name: me.name as string };
-}
-
 /** Invites a friend to my table: a notification on their phone and a line in their friends screen. */
 async function invite(userId: string, body: Record<string, unknown>) {
   const friendId = String(body.friendId ?? '');
@@ -367,7 +337,7 @@ async function invite(userId: string, body: Record<string, unknown>) {
     .eq('friend_id', friendId)
     .maybeSingle();
   if (!friendship) throw new GameError('Ce joueur n’est pas dans tes amis');
-  const { name } = await myTable(userId, game, code);
+  const { name } = await myTable(admin, userId, game, code);
 
   const { data: last } = await admin
     .from('table_invites')

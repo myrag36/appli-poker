@@ -161,21 +161,20 @@ export function leaderboardChest(players: LeaderboardPlayer[]): 'grand' | 'norma
   return mine.place === 1 ? 'grand' : 'normal';
 }
 
+let parisClock: Intl.DateTimeFormat | undefined;
+
 /** Minutes Paris is ahead of UTC at this moment. */
 export function parisOffset(at: number): number {
-  const parts = Object.fromEntries(
-    new Intl.DateTimeFormat('en-GB', {
-      timeZone: 'Europe/Paris',
-      hourCycle: 'h23',
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-      .formatToParts(new Date(at))
-      .map((p) => [p.type, p.value]),
-  );
+  parisClock ??= new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Europe/Paris',
+    hourCycle: 'h23',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  const parts = Object.fromEntries(parisClock.formatToParts(new Date(at)).map((p) => [p.type, p.value]));
   const asUtc = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute);
   return Math.round((asUtc - Math.floor(at / 60_000) * 60_000) / 60_000);
 }

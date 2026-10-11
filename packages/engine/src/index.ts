@@ -31,3 +31,4 @@ export * from './online-perudo.ts';
 export * from './weekly.ts';
 export * from './dames.ts';
 export * from './online-dames.ts';
+export * from './clubs.ts';

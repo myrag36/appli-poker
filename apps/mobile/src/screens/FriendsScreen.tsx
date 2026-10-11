@@ -16,6 +16,9 @@ import { MessagesPanel, PresenceAvatar, friendAvatar } from '../components/Messa
 import { TitleBadge } from '../components/TitleBadge';
 import { TopBar } from '../components/TopBar';
 import { ClassementPanel } from './ClassementPanel';
+import { ClubPanel } from './ClubPanel';
+import { ClubTag } from '../components/ClubBadge';
+import { type ClubBadgeInfo, useClubBadges } from '../online/clubs';
 import { type FriendRow, addFriend, loadFriends, removeFriend, syncMe } from '../online/progress';
 import { type TableInvite, dismissInvite, loadInvites } from '../online/invites';
 import { useOnline, useUnreadCount } from '../online/messagerie';
@@ -35,8 +38,11 @@ export function FriendsScreen({
   onJoin,
   initialTab = 'amis',
   initialFriend,
+  initialClubCode,
 }: {
   onBack: () => void;
+  /** A club code from a link: opens the club tab and offers to join it. */
+  initialClubCode?: string;
   /** Opens straight on the weekly ranking of online games, or on my messages. */
   initialTab?: Tab;
   /** Opens this friend's conversation (from a notification). */
@@ -56,7 +62,9 @@ export function FriendsScreen({
   const [error, setError] = useState<string | null>(null);
   const [removing, setRemoving] = useState<string | null>(null);
   const [invites, setInvites] = useState<TableInvite[]>([]);
-  const [tab, setTab] = useState<Tab>(initialFriend ? 'messages' : initialTab);
+  const [tab, setTab] = useState<Tab>(
+    initialFriend ? 'messages' : initialClubCode !== undefined ? 'club' : initialTab,
+  );
   const unread = useUnreadCount();
   const online = useOnline();
 
@@ -111,6 +119,7 @@ export function FriendsScreen({
 
   // Friends by name: who is ahead this week is the ranking tab's business.
   const friends = (rows ?? []).filter((r) => !r.me).sort((a, b) => a.name.localeCompare(b.name));
+  const clubs = useClubBadges(friends.map((f) => f.user_id));
 
   const mine = (
     <>
@@ -232,6 +241,7 @@ export function FriendsScreen({
               row={r}
               index={i + 1}
               online={online.has(r.user_id)}
+              club={clubs[r.user_id]}
               onLongPress={() => setRemoving(r.user_id)}
             />
           ))}
@@ -286,23 +296,24 @@ export function FriendsScreen({
             onPress={() => setTab(id)}
             style={[styles.tab, tab === id && styles.tabOn]}
           >
-            <Text
-              style={[styles.tabText, !desktop && styles.tabTextPhone, tab === id && styles.tabTextOn]}
-              numberOfLines={1}
-            >
-              {id === 'amis'
-                ? desktop
-                  ? t('👥 Mes amis')
-                  : t('👥 Amis')
-                : id === 'messages'
-                  ? // On a phone the unread badge needs the room of the emoji.
-                    desktop || unread === 0
-                    ? t('💬 Messages')
-                    : t('Messages')
-                  : t('🏆 Classement')}
-            </Text>
+            {desktop ? (
+              <Text style={[styles.tabText, tab === id && styles.tabTextOn]} numberOfLines={1}>
+                {t(TAB_LABELS[id].desktop)}
+              </Text>
+            ) : (
+              // On a phone the four tabs stack their emoji over a short name.
+              <View style={styles.tabStack}>
+                <Text style={styles.tabEmoji}>{TAB_LABELS[id].emoji}</Text>
+                <Text
+                  style={[styles.tabText, styles.tabTextPhone, tab === id && styles.tabTextOn]}
+                  numberOfLines={1}
+                >
+                  {t(TAB_LABELS[id].phone, { onglet: '' })}
+                </Text>
+              </View>
+            )}
             {id === 'messages' && unread > 0 && (
-              <View style={styles.tabBadge}>
+              <View style={[styles.tabBadge, !desktop && styles.tabBadgePhone]}>
                 <Text style={styles.tabBadgeText}>{unread > 99 ? '99+' : unread}</Text>
               </View>
             )}
@@ -341,7 +352,9 @@ export function FriendsScreen({
       keyboardShouldPersistTaps="handled"
     >
       {header}
-      {tab === 'classement' ? (
+      {tab === 'club' ? (
+        <ClubPanel desktop={desktop} friends={rows} onJoin={onJoin} initialCode={initialClubCode || null} />
+      ) : tab === 'classement' ? (
         <ClassementPanel desktop={desktop} />
       ) : desktop ? (
         <View style={styles.columns}>
@@ -358,8 +371,15 @@ export function FriendsScreen({
   );
 }
 
-type Tab = 'amis' | 'messages' | 'classement';
-const TABS: Tab[] = ['amis', 'messages', 'classement'];
+export type Tab = 'amis' | 'messages' | 'classement' | 'club';
+const TABS: Tab[] = ['amis', 'messages', 'classement', 'club'];
+
+const TAB_LABELS: Record<Tab, { desktop: string; emoji: string; phone: string }> = {
+  amis: { desktop: '👥 Mes amis', emoji: '👥', phone: 'Amis' },
+  messages: { desktop: '💬 Messages', emoji: '💬', phone: 'Messages' },
+  classement: { desktop: '🏆 Classement', emoji: '🏆', phone: 'Classement' },
+  club: { desktop: '🛡️ Club', emoji: '🛡️', phone: 'Club' },
+};
 
 /** Desktop page width and its left column. */
 const DESK_WIDTH = 1040;
@@ -370,11 +390,13 @@ function Row({
   row,
   index,
   online,
+  club,
   onLongPress,
 }: {
   row: FriendRow;
   index: number;
   online: boolean;
+  club?: ClubBadgeInfo | null;
   onLongPress: () => void;
 }) {
   const level = levelFromXp(row.xp);
@@ -392,7 +414,10 @@ function Row({
           {online ? <Text style={styles.rowOnline}>{t(' · en ligne')}</Text> : null}
           {row.streak > 0 ? <Text style={styles.rowStreak}> 🔥{row.streak}</Text> : null}
         </Text>
-        <TitleBadge id={equipped.title} small />
+        <View style={styles.rowTags}>
+          <TitleBadge id={equipped.title} small />
+          <ClubTag club={club} />
+        </View>
       </View>
       <View style={styles.rowScore}>
         <Text style={styles.rowLevel}>{t('Niv. {n}', { n: level })}</Text>
@@ -418,7 +443,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.glassBorder,
   },
-  tabsDesktop: { alignSelf: 'flex-start', minWidth: 560 },
+  tabsDesktop: { alignSelf: 'flex-start', minWidth: 700 },
   tab: {
     flex: 1,
     flexDirection: 'row',
@@ -443,7 +468,11 @@ const styles = StyleSheet.create({
   rowOnline: { color: '#3ddc84', fontSize: 12, fontWeight: '700' },
   tabOn: { backgroundColor: colors.gold },
   tabText: { color: colors.muted, fontSize: 14, fontWeight: '800' },
-  tabTextPhone: { fontSize: 13 },
+  tabTextPhone: { fontSize: 12 },
+  tabStack: { alignItems: 'center', gap: 1 },
+  tabEmoji: { fontSize: 17 },
+  tabBadgePhone: { position: 'absolute', top: 2, right: 6 },
+  rowTags: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
   tabTextOn: { color: colors.onGold, fontWeight: '900' },
   codeCard: {
     marginTop: 8,
