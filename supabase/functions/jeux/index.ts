@@ -9,7 +9,9 @@ import {
   type WeeklyMatch,
   cleanAvatar,
   defaultAvatar,
+  RANKED_LEVEL,
   isQuickGame,
+  isRankedGame,
   levelFromXp,
   matchKey,
   nextWeeklyFriday,
@@ -45,6 +47,7 @@ import {
   humanActors,
   newGameBot,
   onlineResults,
+  forfeitSeat,
   playGameMove,
   playGameTimeout,
   progressAwards,
@@ -62,6 +65,7 @@ import {
   weeklySoonNotice,
 } from '../_shared/notify.ts';
 import { loadBlocks, loadRatings, rateTable } from '../_shared/rapide.ts';
+import { forfeitRanked, rankedBoard, rankedOverview, rankedPoints } from '../_shared/classees.ts';
 import {
   OPEN_TABLE_MS,
   QUEUE_PAIR_GAP_MS,
@@ -811,8 +815,8 @@ async function loadQueueRow(userId: string) {
   return data as QueueRow | null;
 }
 
-/** Players waiting for the same game, table size and variant, heard from recently. */
-async function loadQueue(key: Pick<QueueRow, 'game' | 'size' | 'variant'>, now: number) {
+/** Players waiting for the same game, table size and variant (ranked or not), heard from recently. */
+async function loadQueue(key: Pick<QueueRow, 'game' | 'size' | 'variant' | 'ranked'>, now: number) {
   const { data, error } = await admin
     .from('match_queue')
     .select('*')
@@ -820,6 +824,7 @@ async function loadQueue(key: Pick<QueueRow, 'game' | 'size' | 'variant'>, now: 
     .eq('game', key.game)
     .eq('size', key.size)
     .eq('variant', key.variant)
+    .eq('ranked', !!key.ranked)
     .gte('last_seen', iso(now - QUEUE_STALE_MS))
     .order('joined_at')
     .limit(200);
@@ -860,12 +865,15 @@ async function queueJoin(userId: string, body: Record<string, unknown>) {
     unlockedEmojis(admin, userId),
   ]);
   const look = { name, ...avatarColumns(body.avatar, 0, emojis) };
+  const xp = (progress.data?.xp as number | undefined) ?? 0;
+  // A ranked search is seated by ranked points (the level is checked by newQueueRow).
+  const ranked = body.ranked === true && isRankedGame(body.game) && levelFromXp(xp) >= RANKED_LEVEL;
   const row = newQueueRow(
     userId,
     body,
     look,
-    ratings[0]?.rating ?? ELO_START,
-    (progress.data?.xp as number | undefined) ?? 0,
+    ranked ? await rankedPoints(admin, body.game, userId) : (ratings[0]?.rating ?? ELO_START),
+    xp,
     prev,
     now,
   );
@@ -1131,6 +1139,22 @@ async function openTablesList(userId: string, body: Record<string, unknown>) {
   };
 }
 
+/**
+ * "Quitter" during a ranked game: an abandon, counted as a loss now. A robot plays the seat until
+ * the end so the others are not kept waiting.
+ */
+async function forfeit(userId: string, roomId: string) {
+  const room = await loadRoom(roomId);
+  if (!room.ranked) throw new GameError('Ce n’est pas une partie classée');
+  if (room.status !== 'playing') throw new GameError('La partie n’a pas commencé');
+  const secret = await loadSecret(roomId);
+  const humans = secret.seats.filter((s) => !s.bot || s.left).map((s) => s.id);
+  const after = forfeitSeat(secret, userId, Date.now());
+  const lost = await forfeitRanked(admin, room, room.game, userId, humans, 'game_players');
+  await saveAndAward(room, secret, after);
+  return { ok: true, lost };
+}
+
 async function block(userId: string, body: Record<string, unknown>) {
   const { count, error: countError } = await admin
     .from('player_blocks')
@@ -1199,6 +1223,12 @@ Deno.serve(async (req) => {
         return json(await queueFill(user.id));
       case 'queueLeave':
         return json(await queueLeave(user.id));
+      case 'forfeit':
+        return json(await forfeit(user.id, roomId));
+      case 'ranked':
+        return json(await rankedOverview(admin, user.id));
+      case 'rankedBoard':
+        return json(await rankedBoard(admin, user.id, body));
       case 'openTables':
         return json(await openTablesList(user.id, body));
       case 'block':

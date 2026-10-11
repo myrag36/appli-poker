@@ -2,6 +2,7 @@
 // blocks, and the Elo ratings a finished table changes. A failure is logged but never undoes a move.
 import type { SupabaseClient } from 'npm:@supabase/supabase-js@2';
 import { type BlockRow, type Placement, type RatingRow, isRated, ratingChanges } from '../jeux/rapide.ts';
+import { rankTable } from './classees.ts';
 
 /** Every block between these players and anyone (both ways). */
 export async function loadBlocks(db: SupabaseClient, ids: string[]): Promise<BlockRow[]> {
@@ -31,13 +32,18 @@ export async function loadRatings(db: SupabaseClient, game: string, ids: string[
 /**
  * Once a table open to strangers ends: each person's rating in this game moves (robots never
  * count; a table with fewer than two people changes nothing). Saved once per table and person.
+ * A ranked table changes the ranks instead, never the casual rating.
  */
 export async function rateTable(
   db: SupabaseClient,
-  room: { id: string; visibility?: string | null },
+  room: { id: string; visibility?: string | null; ranked?: boolean | null },
   game: string,
   placements: Placement[],
 ) {
+  if (room.ranked) {
+    await rankTable(db, room, game, placements, game === 'poker' ? 'room_players' : 'game_players');
+    return;
+  }
   if (!isRated(room.visibility) || placements.length < 2) return;
   try {
     const ratings = await loadRatings(

@@ -36,6 +36,8 @@ export interface OnlineSeat {
   id: string;
   name: string;
   bot: boolean;
+  /** Left a ranked table before the end (an abandon): a robot plays the seat now. */
+  left?: boolean;
 }
 
 export interface OnlineGame<S = any> {
