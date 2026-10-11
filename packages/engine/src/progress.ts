@@ -1,5 +1,6 @@
 // Experience, levels and the cosmetic rewards they unlock. Shared by the app and the servers.
 import { AVATAR_EMOJIS, type Avatar } from './avatars.ts';
+import { SEASONS } from './seasons.ts';
 
 export const MAX_LEVEL = 50;
 
@@ -103,7 +104,61 @@ export interface Reward {
   unlock?: UnlockCondition;
   /** Set for the customization items; the others get one from their level or price (see rarityOf). */
   rarity?: Rarity;
+  /** Won at the end of a ranked season by reaching this tier (see ranks.ts). */
+  rank?: RankTierId;
 }
+
+/** The tiers of the ranked tables, lowest first (the rules live in ranks.ts). */
+export type RankTierId = 'bronze' | 'argent' | 'or' | 'platine' | 'diamant' | 'maitre' | 'legende';
+export const RANK_TIER_NAMES: Record<RankTierId, string> = {
+  bronze: 'Bronze',
+  argent: 'Argent',
+  or: 'Or',
+  platine: 'Platine',
+  diamant: 'Diamant',
+  maitre: 'Maître',
+  legende: 'Légende',
+};
+const RANK_TIER_IDS = Object.keys(RANK_TIER_NAMES) as RankTierId[];
+
+/** The title of a ranked season: "Or — Saison Automne", one per tier and month. */
+export function rankTitleId(tier: RankTierId, month: number): string {
+  return `classe-${tier}-${month}`;
+}
+
+/** A trophy of the ranked seasons: never sold nor unlocked by level, only won. */
+const ranked = (kind: RewardKind, id: string, name: string, rank: RankTierId, rarity: Rarity): Reward => ({
+  id,
+  kind,
+  level: 1,
+  name,
+  trophy: true,
+  rank,
+  rarity,
+});
+
+/** Frames from Or up, card backs from Diamant up, and a title for every tier of every season. */
+const RANKED_REWARDS: Reward[] = [
+  ranked('frame', 'classe-or', 'Or classé', 'or', 'rare'),
+  ranked('frame', 'classe-platine', 'Platine classé', 'platine', 'epique'),
+  ranked('frame', 'classe-diamant', 'Diamant classé', 'diamant', 'epique'),
+  ranked('frame', 'classe-maitre', 'Maître classé', 'maitre', 'legendaire'),
+  ranked('frame', 'classe-legende', 'Légende classée', 'legende', 'legendaire'),
+  ranked('cardBack', 'classe-diamant', 'Diamant classé', 'diamant', 'epique'),
+  ranked('cardBack', 'classe-maitre', 'Maître classé', 'maitre', 'legendaire'),
+  ranked('cardBack', 'classe-legende', 'Légende classée', 'legende', 'legendaire'),
+  ...RANK_TIER_IDS.flatMap((tier) =>
+    SEASONS.map((s) =>
+      ranked(
+        'title',
+        rankTitleId(tier, s.month),
+        `${RANK_TIER_NAMES[tier]} — Saison ${s.name}`,
+        tier,
+        tier === 'maitre' || tier === 'legende' ? 'legendaire' : tier === 'bronze' ? 'commun' : 'epique',
+      ),
+    ),
+  ),
+];
 
 export const REWARD_KIND_NAMES: Record<RewardKind, string> = {
   frame: 'Bordures',
@@ -367,6 +422,8 @@ export const REWARDS: Reward[] = [
   shop('chip', 'carnaval', 450, 'Carnaval', 2, 'epique'),
   shop('cardBack', 'araignee', 500, 'Toile d’araignée', 10, 'epique'),
   shop('felt', 'noel', 500, 'Tapis de Noël', 12, 'epique'),
+  // Won at the end of a ranked season.
+  ...RANKED_REWARDS,
 ];
 
 /** How a bought item is stored in a player's collection, since ids repeat across kinds. */

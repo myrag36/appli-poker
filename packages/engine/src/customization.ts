@@ -2,6 +2,7 @@
 // a player is from them. The catalog itself is REWARDS, in progress.ts.
 import { type AchievementStats, achievementProgress, findAchievement } from './achievements.ts';
 import {
+  RANK_TIER_NAMES,
   REWARDS,
   type Reward,
   type RewardKind,
@@ -72,6 +73,12 @@ export function unlockStats(row: UnlockRow): UnlockStats {
 
 /** How an item is obtained, in French (a translation key and its values). */
 export function unlockText(reward: Reward): { text: string; vars: Record<string, string | number> } {
+  if (reward.rank) {
+    return {
+      text: 'Atteins le rang {name} en tables classées',
+      vars: { name: RANK_TIER_NAMES[reward.rank] },
+    };
+  }
   if (reward.unlock) {
     if ('challenges' in reward.unlock) {
       return reward.unlock.challenges === 1
