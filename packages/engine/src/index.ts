@@ -32,3 +32,4 @@ export * from './weekly.ts';
 export * from './dames.ts';
 export * from './online-dames.ts';
 export * from './clubs.ts';
+export * from './quick.ts';
