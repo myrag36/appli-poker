@@ -44,6 +44,7 @@ import { useDesktop } from '../layout';
 import { colors } from '../theme';
 import { t, tn } from '../i18n';
 import { tMessage } from '../online/messages';
+import { useDeadlineClock } from '../online/timers';
 
 interface Props {
   roomId: string;
@@ -117,17 +118,12 @@ export function OnlineRoomScreen({ roomId, userId, onLeave, onSwitch }: Props) {
   }, [lastReaction]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [now, setNow] = useState(() => Date.now());
   const lastTimeoutRequest = useRef(0);
   const insets = useSafeAreaInsets();
 
   const deadline = room?.public_state?.deadline ?? null;
 
-  useEffect(() => {
-    if (!deadline) return;
-    const id = setInterval(() => setNow(Date.now()), 500);
-    return () => clearInterval(id);
-  }, [deadline]);
+  const now = useDeadlineClock(deadline, 500);
 
   // When time runs out, any phone at the table asks the server to play for the absent player.
   // The server checks the time itself, so an early or duplicate request is simply refused.

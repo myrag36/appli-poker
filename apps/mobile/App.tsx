@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { type ComponentType, Suspense, lazy, useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { Alert, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { type OnlineGameId, cleanAvatar, defaultAvatar, isOnlineGame } from '@appli-poker/engine';
 import {
@@ -13,35 +13,64 @@ import {
   saveLastRoom,
 } from './src/online/supabase';
 import { syncPush } from './src/notifications';
-import { GameScreen } from './src/screens/GameScreen';
-import { HomeScreen } from './src/screens/HomeScreen';
 import { type GameId, GamesScreen } from './src/screens/GamesScreen';
-import { BlackjackScreen } from './src/screens/BlackjackScreen';
-import { PresidentScreen } from './src/screens/PresidentScreen';
-import { YamsScreen } from './src/screens/YamsScreen';
-import { BeloteScreen } from './src/screens/BeloteScreen';
-import { Puissance4Screen } from './src/screens/Puissance4Screen';
-import { BatailleScreen } from './src/screens/BatailleScreen';
-import { EchecsScreen } from './src/screens/EchecsScreen';
-import { RamiScreen } from './src/screens/RamiScreen';
-import { HuitScreen, UnoScreen } from './src/screens/UnoScreen';
-import { TarotScreen } from './src/screens/TarotScreen';
-import { PerudoScreen } from './src/screens/PerudoScreen';
-import { DamesScreen } from './src/screens/DamesScreen';
 import { Backdrop } from './src/components/Backdrop';
-import { OnlineLobbyScreen } from './src/screens/OnlineLobbyScreen';
-import { OnlineRoomScreen } from './src/screens/OnlineRoomScreen';
-import { OnlineGameScreen, type TournamentTable } from './src/screens/OnlineGameScreen';
-import { StatsScreen } from './src/screens/StatsScreen';
-import { ProfileScreen } from './src/screens/ProfileScreen';
-import { ShopScreen } from './src/screens/ShopScreen';
-import { CustomizeScreen } from './src/screens/CustomizeScreen';
-import { FriendsScreen } from './src/screens/FriendsScreen';
-import { TournamentScreen } from './src/screens/TournamentScreen';
+import type { TournamentTable } from './src/screens/OnlineGameScreen';
 import { ProgressToast } from './src/components/ProgressToast';
-import { type GameSettings, SetupScreen } from './src/screens/SetupScreen';
+import type { GameSettings } from './src/screens/SetupScreen';
 import { colors } from './src/theme';
 import { t } from './src/i18n';
+
+/**
+ * Every screen but the games list is loaded when first opened, so the first visit downloads
+ * and starts much less code. On the website each one is a separate file, which the service
+ * worker keeps for offline play.
+ */
+function screen<P extends object>(load: () => Promise<ComponentType<P>>): ComponentType<P> {
+  const Lazy = lazy(() => load().then((Screen) => ({ default: Screen })));
+  return function LazyScreen(props: P) {
+    return (
+      <Suspense fallback={<ActivityIndicator style={styles.loading} color={colors.gold} />}>
+        <Lazy {...props} />
+      </Suspense>
+    );
+  };
+}
+const BatailleScreen = screen(() => import('./src/screens/BatailleScreen').then((m) => m.BatailleScreen));
+const BeloteScreen = screen(() => import('./src/screens/BeloteScreen').then((m) => m.BeloteScreen));
+const BlackjackScreen = screen(() => import('./src/screens/BlackjackScreen').then((m) => m.BlackjackScreen));
+const CustomizeScreen = screen(() => import('./src/screens/CustomizeScreen').then((m) => m.CustomizeScreen));
+const DamesScreen = screen(() => import('./src/screens/DamesScreen').then((m) => m.DamesScreen));
+const EchecsScreen = screen(() => import('./src/screens/EchecsScreen').then((m) => m.EchecsScreen));
+const FriendsScreen = screen(() => import('./src/screens/FriendsScreen').then((m) => m.FriendsScreen));
+const GameScreen = screen(() => import('./src/screens/GameScreen').then((m) => m.GameScreen));
+const HomeScreen = screen(() => import('./src/screens/HomeScreen').then((m) => m.HomeScreen));
+const HuitScreen = screen(() => import('./src/screens/UnoScreen').then((m) => m.HuitScreen));
+const OnlineGameScreen = screen(() =>
+  import('./src/screens/OnlineGameScreen').then((m) => m.OnlineGameScreen),
+);
+const OnlineLobbyScreen = screen(() =>
+  import('./src/screens/OnlineLobbyScreen').then((m) => m.OnlineLobbyScreen),
+);
+const OnlineRoomScreen = screen(() =>
+  import('./src/screens/OnlineRoomScreen').then((m) => m.OnlineRoomScreen),
+);
+const PerudoScreen = screen(() => import('./src/screens/PerudoScreen').then((m) => m.PerudoScreen));
+const PresidentScreen = screen(() => import('./src/screens/PresidentScreen').then((m) => m.PresidentScreen));
+const ProfileScreen = screen(() => import('./src/screens/ProfileScreen').then((m) => m.ProfileScreen));
+const Puissance4Screen = screen(() =>
+  import('./src/screens/Puissance4Screen').then((m) => m.Puissance4Screen),
+);
+const RamiScreen = screen(() => import('./src/screens/RamiScreen').then((m) => m.RamiScreen));
+const SetupScreen = screen(() => import('./src/screens/SetupScreen').then((m) => m.SetupScreen));
+const ShopScreen = screen(() => import('./src/screens/ShopScreen').then((m) => m.ShopScreen));
+const StatsScreen = screen(() => import('./src/screens/StatsScreen').then((m) => m.StatsScreen));
+const TarotScreen = screen(() => import('./src/screens/TarotScreen').then((m) => m.TarotScreen));
+const TournamentScreen = screen(() =>
+  import('./src/screens/TournamentScreen').then((m) => m.TournamentScreen),
+);
+const UnoScreen = screen(() => import('./src/screens/UnoScreen').then((m) => m.UnoScreen));
+const YamsScreen = screen(() => import('./src/screens/YamsScreen').then((m) => m.YamsScreen));
 
 /** Games that can also be played online, each player on their own phone. */
 
@@ -346,4 +375,5 @@ export default function App() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
+  loading: { flex: 1 },
 });

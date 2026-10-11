@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Suspense, lazy, useEffect, useRef, useState } from 'react';
 import {
   type Avatar,
   defaultAvatar,
@@ -35,9 +35,6 @@ import { useUnreadCount } from '../online/messagerie';
 import { loadAvatar } from '../online/supabase';
 import { PlayingCard } from '../components/PlayingCard';
 import { Token } from '../components/Token';
-import { BatailleArt } from './BatailleScreen';
-import { EchecsArt } from './EchecsScreen';
-import { DamesArt } from './DamesScreen';
 import { UnoCard } from '../components/UnoCard';
 import { TarotCard } from '../components/TarotCard';
 import { colors, gradients, shadow } from '../theme';
@@ -202,10 +199,20 @@ interface Props {
   onTournaments: () => void;
 }
 
+// These three pictures are drawn by their game's screen, a separate download (see App.tsx).
+const BatailleArt = lazy(() => import('./BatailleScreen').then((m) => ({ default: m.BatailleArt })));
+const EchecsArt = lazy(() => import('./EchecsScreen').then((m) => ({ default: m.EchecsArt })));
+const DamesArt = lazy(() => import('./DamesScreen').then((m) => ({ default: m.DamesArt })));
+
 function Art({ game }: { game: Game }) {
-  if (game.id === 'bataille') return <BatailleArt />;
-  if (game.id === 'echecs') return <EchecsArt />;
-  if (game.id === 'dames') return <DamesArt />;
+  if (game.id === 'bataille' || game.id === 'echecs' || game.id === 'dames') {
+    const Board = game.id === 'bataille' ? BatailleArt : game.id === 'echecs' ? EchecsArt : DamesArt;
+    return (
+      <Suspense fallback={null}>
+        <Board />
+      </Suspense>
+    );
+  }
   if (game.id === 'puissance4') {
     return (
       <View style={styles.tokens}>
@@ -269,6 +276,23 @@ function Art({ game }: { game: Game }) {
       ))}
     </View>
   );
+}
+
+/**
+ * A card's scenery. Drawing all 14 sceneries delayed the first screen by about half a second on
+ * a slow phone: the cards that start out of sight draw theirs a moment later (after `wait` ms),
+ * or as soon as they come into view.
+ */
+function LateDecor({ wait, ...decor }: { id: Game['id']; width: number; height: number; wait: number }) {
+  const [late, setLate] = useState(wait > 0);
+  useEffect(() => {
+    if (!late) return;
+    const timer = setTimeout(() => setLate(false), wait);
+    return () => clearTimeout(timer);
+    // Only the first wait counts: coming into view shows it at once (below).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return late && wait > 0 ? null : <GameDecor {...decor} />;
 }
 
 /** The first screen: every game in a carousel you swipe through. */
@@ -416,7 +440,12 @@ export function GamesScreen({
                   onPress={() => (i === index ? game.ready && onPlay(game.id) : goTo(i))}
                   style={[styles.card, shadow, { height: cardHeight }]}
                 >
-                  <GameDecor id={game.id} width={cardWidth} height={cardHeight} />
+                  <LateDecor
+                    id={game.id}
+                    width={cardWidth}
+                    height={cardHeight}
+                    wait={Math.abs(i - index) <= 1 ? 0 : 200 + 100 * Math.abs(i - index)}
+                  />
                   <View style={styles.artBox}>
                     <Art game={game} />
                   </View>
@@ -573,12 +602,14 @@ function DesktopGames({
 
           <Text style={desk.heading}>{t('Choisis ton jeu')}</Text>
           <View style={desk.grid}>
-            {GAMES.map((game) => (
+            {GAMES.map((game, i) => (
               <DesktopCard
                 key={game.id}
                 game={game}
                 width={cardWidth}
                 height={cardHeight}
+                // The third row starts below the window.
+                wait={i < 10 ? 0 : 200 + 100 * (i - 10)}
                 onPress={() => game.ready && onPlay(game.id)}
               />
             ))}
@@ -600,11 +631,13 @@ function DesktopCard({
   game,
   width,
   height,
+  wait,
   onPress,
 }: {
   game: Game;
   width: number;
   height: number;
+  wait: number;
   onPress: () => void;
 }) {
   // Short cards (small windows) drop the tagline; the cards and dice shrink to the room left above the name.
@@ -628,7 +661,7 @@ function DesktopCard({
     >
       {({ hovered }: PressState) => (
         <>
-          <GameDecor id={game.id} width={width} height={height} />
+          <LateDecor id={game.id} width={width} height={height} wait={wait} />
           <View style={styles.artBox}>
             <View style={[{ transform: [{ scale: artScale * (hovered ? 1.06 : 1) }] }, HOVER_TRANSITION]}>
               <Art game={game} />
