@@ -508,9 +508,8 @@ export function QuickMatchScreen({
       </Text>
       {ranked && (
         <Text style={styles.excluded}>
-          {t('Pas de partie classée à la Bataille ({why}) ni au Blackjack ({why2}).', {
-            why: t(RANKED_EXCLUDED.bataille).toLowerCase(),
-            why2: t(RANKED_EXCLUDED.blackjack).toLowerCase(),
+          {t('Pas de partie classée au Blackjack : {why}.', {
+            why: t(RANKED_EXCLUDED.blackjack).toLowerCase(),
           })}
         </Text>
       )}

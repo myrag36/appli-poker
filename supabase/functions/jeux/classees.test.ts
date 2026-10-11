@@ -88,8 +88,8 @@ const look = { name: 'Léa', avatar: '🦄', avatar_color: '#8e7dbe' };
 
 test('a ranked search needs level 10 and a ranked game, and gets its standard table', () => {
   assert.throws(() => searchRequest({ game: 'uno', ranked: true }, xpForLevel(9)), /niveau 10/);
-  assert.throws(() => searchRequest({ game: 'bataille', ranked: true }, LEVEL_10), /partie classée/);
-  assert.throws(() => searchRequest({ game: 'blackjack', ranked: true }, LEVEL_10), GameError);
+  assert.throws(() => searchRequest({ game: 'blackjack', ranked: true }, LEVEL_10), /partie classée/);
+  assert.equal(searchRequest({ game: 'bataille', ranked: true }, LEVEL_10).size, 2);
   assert.deepEqual(searchRequest({ game: 'uno', ranked: true, size: 4 }, LEVEL_10), {
     ranked: true,
     game: 'uno',

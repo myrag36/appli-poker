@@ -533,3 +533,132 @@ const styles = StyleSheet.create({
   modalOkInner: { paddingVertical: 12, alignItems: 'center' },
   modalOkText: { color: colors.onGold, fontWeight: '900', fontSize: 16 },
 });
+
+// ---------------------------------------------------------------------------
+// At a ranked table
+
+/** "Quitter une partie classée ?": leaving before the end is an abandon, counted as a loss. */
+export function ForfeitConfirm({
+  visible,
+  busy,
+  onCancel,
+  onConfirm,
+}: {
+  visible: boolean;
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+      <View style={tableStyles.backdrop}>
+        <View style={[tableStyles.modal, shadow]}>
+          <Text style={tableStyles.icon}>🏳️</Text>
+          <Text style={tableStyles.title}>{t('Quitter la partie classée ?')}</Text>
+          <Text style={tableStyles.text}>
+            {t(
+              'Partir avant la fin compte comme une défaite : tu perds des RP, et un robot finit la partie à ta place.',
+            )}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            disabled={busy}
+            onPress={onConfirm}
+            style={({ pressed }) => [tableStyles.danger, (pressed || busy) && { opacity: 0.7 }]}
+          >
+            <Text style={tableStyles.dangerText}>{t('Abandonner (défaite)')}</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" onPress={onCancel} style={tableStyles.stay}>
+            <LinearGradient colors={gradients.gold} style={tableStyles.stayInner}>
+              <Text style={tableStyles.stayText}>{t('Rester et jouer')}</Text>
+            </LinearGradient>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+/**
+ * Someone abandoned the ranked table: a notice, and when I was their last opponent, my win
+ * already counted (I may leave without losing anything).
+ */
+export function OpponentLeft({
+  names,
+  change,
+  onClose,
+}: {
+  names: string[];
+  change: RankedChange | null;
+  onClose: () => void;
+}) {
+  return (
+    <View style={tableStyles.left}>
+      <View style={tableStyles.leftHead}>
+        <Text style={tableStyles.leftText} numberOfLines={2}>
+          {t('🏳️ {name} a abandonné la partie.', { name: names.join(', ') })}
+        </Text>
+        <Pressable accessibilityRole="button" accessibilityLabel={t('Fermer')} onPress={onClose} hitSlop={8}>
+          <Text style={tableStyles.close}>✕</Text>
+        </Pressable>
+      </View>
+      {change && (
+        <>
+          <RankedChangeView change={change} />
+          <Text style={tableStyles.leftHint}>
+            {t('Ta victoire compte déjà : tu peux finir la partie ou partir.')}
+          </Text>
+        </>
+      )}
+    </View>
+  );
+}
+
+const tableStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modal: {
+    width: '100%',
+    maxWidth: 360,
+    alignItems: 'center',
+    gap: 8,
+    padding: 20,
+    borderRadius: 20,
+    backgroundColor: colors.background,
+    borderWidth: 2,
+    borderColor: colors.danger,
+  },
+  icon: { fontSize: 40 },
+  title: { color: colors.text, fontSize: 19, fontWeight: '900', textAlign: 'center' },
+  text: { color: colors.muted, fontSize: 14, lineHeight: 20, textAlign: 'center' },
+  danger: {
+    alignSelf: 'stretch',
+    marginTop: 8,
+    paddingVertical: 11,
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: colors.danger,
+  },
+  dangerText: { color: colors.danger, fontWeight: '900', fontSize: 15 },
+  stay: { alignSelf: 'stretch', borderRadius: 12, overflow: 'hidden' },
+  stayInner: { paddingVertical: 12, alignItems: 'center' },
+  stayText: { color: colors.onGold, fontWeight: '900', fontSize: 16 },
+  left: {
+    gap: 6,
+    padding: 10,
+    borderRadius: 14,
+    backgroundColor: 'rgba(10, 10, 20, 0.92)',
+    borderWidth: 1,
+    borderColor: colors.goldBorder,
+  },
+  leftHead: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  leftText: { flex: 1, color: colors.text, fontSize: 14, fontWeight: '700' },
+  close: { color: colors.muted, fontSize: 18, fontWeight: '800' },
+  leftHint: { color: colors.muted, fontSize: 12, textAlign: 'center' },
+});

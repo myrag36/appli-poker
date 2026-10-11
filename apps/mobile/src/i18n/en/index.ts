@@ -31,6 +31,7 @@ import dames from './dames';
 import personnalisation from './personnalisation';
 import clubs from './clubs';
 import partieRapide from './partieRapide';
+import classees from './classees';
 
 export const EN: Record<string, string> = {
   ...accueil,
@@ -65,4 +66,5 @@ export const EN: Record<string, string> = {
   ...personnalisation,
   ...clubs,
   ...partieRapide,
+  ...classees,
 };

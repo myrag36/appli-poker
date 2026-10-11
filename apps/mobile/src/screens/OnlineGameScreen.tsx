@@ -42,6 +42,8 @@ import { TitleBadge } from '../components/TitleBadge';
 import { InviteFriends } from '../components/InviteFriends';
 import { NotifyPrompt } from '../components/Notifications';
 import { BlockButton, OpenTablesList, RatingResult, VisibilityPicker } from '../components/Strangers';
+import { ForfeitConfirm, OpponentLeft, RankedResult, rankTag } from '../components/Ranked';
+import { forfeitRanked, useRankedChange, useRanksOf } from '../online/classees';
 import { colors, gradients } from '../theme';
 import { COLUMN_MAX_WIDTH, useDesktop } from '../layout';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -465,6 +467,17 @@ function Room({
     userId,
   );
   const progressOf = useProgressOf(players.filter((p) => !p.is_bot).map((p) => p.user_id));
+  const ranked = !!room?.ranked;
+  const ranks = useRanksOf(
+    game,
+    players.filter((p) => !p.is_bot).map((p) => p.user_id),
+    ranked,
+  );
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const [leftSeen, setLeftSeen] = useState(false);
+  const leftSeats = (room?.public_state?.seats ?? []).filter((s) => s.left && s.id !== userId);
+  // The last opponent abandoned: my win may already count.
+  const earlyChange = useRankedChange(roomId, ranked && leftSeats.length > 0, 3);
   const myEmotes = emotesFor(useMyProgress()?.owned ?? []);
   const insets = useSafeAreaInsets();
   const [busy, setBusy] = useState(false);
@@ -537,11 +550,30 @@ function Room({
   const byId = new Map(players.map((p) => [p.user_id, p]));
   const seats: BoardSeat[] = state.seats.map((s, i) => ({
     ...s,
+    // At a ranked table, each name shows its rank (and an abandon).
+    name: ranked ? [s.name, s.left ? '🏳️' : rankTag(ranks[s.id])].filter(Boolean).join(' ') : s.name,
     avatar: { ...avatarOf(byId.get(s.id), i, progressOf[s.id]), reaction: reactions[s.id] },
   }));
   const mySeat = state.seats.findIndex((s) => s.id === userId);
   const Board = ui.Board;
   const rated = room.visibility === 'public' || room.visibility === 'quick';
+  const meLeft = mySeat >= 0 && !!state.seats[mySeat].left;
+  // Leaving a ranked game before the end is an abandon: asked first, unless it costs nothing.
+  const mustConfirm = ranked && !state.over && mySeat >= 0 && !meLeft && !earlyChange;
+  const leaveTable = () => (mustConfirm ? setConfirmLeave(true) : onLeave());
+  async function forfeitAndLeave() {
+    setBusy(true);
+    try {
+      await forfeitRanked(game, roomId);
+      setConfirmLeave(false);
+      onGone();
+    } catch (e) {
+      setMoveError(tMessage((e as Error).message));
+      setConfirmLeave(false);
+    } finally {
+      setBusy(false);
+    }
+  }
   const strangers = players.filter((p) => !p.is_bot && p.user_id !== userId);
   const rematch = async () => {
     const { roomId: next } = await callGames<{ roomId: string }>({ type: 'rematch', roomId });
@@ -563,17 +595,33 @@ function Room({
             busy={busy}
             error={moveError}
             onMove={(move) => send({ type: 'move', roomId, move })}
-            onLeave={state.over ? onGone : onLeave}
+            onLeave={state.over ? onGone : leaveTable}
           />
         </Suspense>
       </View>
+      {ranked && leftSeats.length > 0 && !leftSeen && !state.over && (
+        <View style={[styles.opponentLeft, { top: insets.top + 52 }, desktop && styles.rematchDesktop]}>
+          <OpponentLeft
+            names={leftSeats.map((s) => s.name)}
+            change={earlyChange}
+            onClose={() => setLeftSeen(true)}
+          />
+        </View>
+      )}
+      <ForfeitConfirm
+        visible={confirmLeave}
+        busy={busy}
+        onCancel={() => setConfirmLeave(false)}
+        onConfirm={forfeitAndLeave}
+      />
       {state.over && mySeat >= 0 && !inTournament && (
         <View
           style={[styles.rematch, desktop && styles.rematchDesktop, { paddingBottom: insets.bottom + 10 }]}
         >
+          {ranked && <RankedResult roomId={roomId} />}
           {rated && (
             <View style={styles.strangers}>
-              <RatingResult roomId={roomId} game={game} />
+              {!ranked && <RatingResult roomId={roomId} game={game} />}
               <BlockButton players={strangers} compact />
             </View>
           )}
@@ -832,6 +880,7 @@ const styles = StyleSheet.create({
   spacer: { height: 24 },
   spacerSmall: { height: 10 },
   rematch: { paddingHorizontal: 10, paddingTop: 6, gap: 6 },
+  opponentLeft: { position: 'absolute', left: 10, right: 10 },
   blockRow: { marginTop: 12 },
   strangers: {
     flexDirection: 'row',

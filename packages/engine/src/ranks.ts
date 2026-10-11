@@ -115,10 +115,10 @@ export const SHIELD_GAMES = 1;
 
 /**
  * Games played ranked, each at one table size (and poker in Hold'em heads-up): a rank compares
- * players, so everyone plays the same table. Left out: la Bataille, pure chance with no choice to
- * make, and Blackjack, where each player plays against the bank rather than against the others.
+ * players, so everyone plays the same table. Left out: Blackjack, where each player plays against
+ * the bank rather than against the others.
  */
-export type RankedGameId = Exclude<QuickGameId, 'bataille' | 'blackjack'>;
+export type RankedGameId = Exclude<QuickGameId, 'blackjack'>;
 
 export const RANKED_GAMES: Record<RankedGameId, { size: number; variant: string }> = {
   poker: { size: 2, variant: 'holdem' },
@@ -126,6 +126,7 @@ export const RANKED_GAMES: Record<RankedGameId, { size: number; variant: string 
   yams: { size: 2, variant: '' },
   belote: { size: 4, variant: '' },
   puissance4: { size: 2, variant: '' },
+  bataille: { size: 2, variant: '' },
   echecs: { size: 2, variant: '' },
   rami: { size: 2, variant: '' },
   tarot: { size: 4, variant: '' },
@@ -137,7 +138,6 @@ export const RANKED_GAMES: Record<RankedGameId, { size: number; variant: string 
 
 /** Why a game has no ranked tables, as the picker explains it. */
 export const RANKED_EXCLUDED: Record<Exclude<QuickGameId, RankedGameId>, string> = {
-  bataille: 'Que du hasard : aucun choix à faire',
   blackjack: 'Chacun joue contre la banque, pas contre les autres',
 };
 

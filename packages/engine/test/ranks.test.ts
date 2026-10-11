@@ -81,13 +81,13 @@ test('floors of divisions and tiers', () => {
   assert.equal(divisionProgress(1650), 0.5);
 });
 
-test('ranked games: one table size each, chance-only and bank games left out', () => {
-  assert.ok(!isRankedGame('bataille'));
+test('ranked games: one table size each, the bank game left out', () => {
+  assert.ok(isRankedGame('bataille'));
   assert.ok(!isRankedGame('blackjack'));
   assert.ok(isRankedGame('poker'));
   assert.ok(isRankedGame('echecs'));
   assert.ok(!isRankedGame('toString'));
-  assert.deepEqual(Object.keys(RANKED_EXCLUDED).sort(), ['bataille', 'blackjack']);
+  assert.deepEqual(Object.keys(RANKED_EXCLUDED), ['blackjack']);
   assert.equal(RANKED_GAME_IDS.length + Object.keys(RANKED_EXCLUDED).length, Object.keys(QUICK_GAMES).length);
   for (const g of RANKED_GAME_IDS) {
     const quick = QUICK_GAMES[g];
