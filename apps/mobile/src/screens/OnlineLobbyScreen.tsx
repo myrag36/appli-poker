@@ -5,6 +5,7 @@ import { AvatarBadge, AvatarPicker } from '../components/AvatarPicker';
 import { Button } from '../components/Button';
 import { LevelPicker } from '../components/LevelPicker';
 import { VariantPicker } from '../components/VariantPicker';
+import { VisibilityPicker } from '../components/Strangers';
 import { callServer, loadAvatar, saveAvatar, saveLastRoom } from '../online/supabase';
 import { colors } from '../theme';
 import { t } from '../i18n';
@@ -27,6 +28,7 @@ export function OnlineLobbyScreen({ initialName, initialCode, onEnter, onBack }:
   const [bigBlind, setBigBlind] = useState('20');
   const [levelMinutes, setLevelMinutes] = useState<number | null>(null);
   const [variant, setVariant] = useState<Variant>('holdem');
+  const [visibility, setVisibility] = useState<'private' | 'public'>('private');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [avatar, setAvatar] = useState<Avatar>(() => defaultAvatar(Math.floor(Math.random() * 8)));
@@ -135,6 +137,7 @@ export function OnlineLobbyScreen({ initialName, initialCode, onEnter, onBack }:
       </View>
       <VariantPicker value={variant} onChange={setVariant} />
       <LevelPicker value={levelMinutes} onChange={setLevelMinutes} />
+      <VisibilityPicker value={visibility} onChange={setVisibility} />
       <Button
         label={t('Créer la table')}
         variant="secondary"
@@ -149,6 +152,7 @@ export function OnlineLobbyScreen({ initialName, initialCode, onEnter, onBack }:
               levelMinutes,
               avatar,
               variant,
+              visibility,
             }),
           )
         }

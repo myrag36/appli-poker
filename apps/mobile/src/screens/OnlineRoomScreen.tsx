@@ -32,6 +32,7 @@ import { Panel, PanelText } from '../components/Panel';
 import { PlayingCard } from '../components/PlayingCard';
 import { Ranking } from '../components/Ranking';
 import { RematchPanel } from '../components/RematchPanel';
+import { BlockButton, RatingResult } from '../components/Strangers';
 import { Table } from '../components/Table';
 import { TopBar } from '../components/TopBar';
 import { TurnTimer } from '../components/TurnTimer';
@@ -179,6 +180,13 @@ export function OnlineRoomScreen({ roomId, userId, onLeave, onSwitch }: Props) {
   const isHost = room.host_id === userId;
   // Someone who opened the table with "Regarder" follows it without a seat.
   const isSpectator = !players.some((p) => p.user_id === userId);
+  // A quick table (Partie rapide) has nobody in charge: any player deals, nobody pauses or removes.
+  const quickTable = room.visibility === 'quick';
+  const canDeal = isHost || (quickTable && !isSpectator);
+  const rated = room.visibility === 'public' || quickTable;
+  const strangers = players
+    .filter((p) => !p.is_bot && p.user_id !== userId)
+    .map((p) => ({ user_id: p.user_id, name: p.name, avatar: p.avatar, avatar_color: p.avatar_color }));
   const omaha = room.variant === 'omaha';
   const host = players.find((p) => p.user_id === room.host_id);
   const hand = room.public_state;
@@ -201,7 +209,15 @@ export function OnlineRoomScreen({ roomId, userId, onLeave, onSwitch }: Props) {
   );
 
   const names = { ...spectators, ...Object.fromEntries(players.map((p) => [p.user_id, p.name])) };
-  const chatProps = { messages, meId: userId, names, avatars, onSend: sendMessage };
+  const chatProps = {
+    messages,
+    meId: userId,
+    names,
+    avatars,
+    onSend: sendMessage,
+    // With strangers: ready-made lines and emoji only (the database refuses anything else).
+    quickOnly: room.visibility !== undefined && room.visibility !== 'private',
+  };
   // On a computer the chat sits beside the table or the waiting room instead of in a sheet.
   const chat = !desktop && <ChatPanel visible={chatOpen} onClose={() => setChatOpen(false)} {...chatProps} />;
   const chatInline = <ChatPanel inline visible onClose={() => {}} {...chatProps} />;
@@ -229,7 +245,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave, onSwitch }: Props) {
     </Pressable>
   );
 
-  const manage = isHost && (
+  const manage = isHost && !quickTable && (
     <ManagePanel
       visible={manageOpen}
       onClose={() => setManageOpen(false)}
@@ -296,6 +312,12 @@ export function OnlineRoomScreen({ roomId, userId, onLeave, onSwitch }: Props) {
       <Panel title={t('Joueurs ({n}/8)', { n: players.length })}>
         {/* Two columns of players on a computer. */}
         {desktop ? <View style={styles.lobbyGrid}>{playerRows}</View> : playerRows}
+        {room.visibility === 'public' && (
+          <PanelText>
+            {t('🌍 Table publique : visible dans « Tables ouvertes », n’importe qui peut s’asseoir.')}
+          </PanelText>
+        )}
+        {room.visibility === 'public' && !isSpectator && <BlockButton players={strangers} compact />}
         {omaha && <PanelText>{t('🃏 Omaha : 4 cartes chacun, mises limitées au pot.')}</PanelText>}
         {room.level_minutes && (
           <PanelText>
@@ -476,9 +498,15 @@ export function OnlineRoomScreen({ roomId, userId, onLeave, onSwitch }: Props) {
                   .filter((p) => p.stack > 0 || p.place !== null)
                   .map((p) => ({ name: p.name, place: p.stack > 0 ? 1 : (p.place ?? players.length) }))}
               />
+              {rated && !isSpectator && (
+                <View style={styles.strangers}>
+                  <RatingResult roomId={roomId} game="poker" />
+                  <BlockButton players={strangers} compact />
+                </View>
+              )}
               {!isSpectator && <RematchPanel bare rematch={room.rematch} meId={userId} onRematch={rematch} />}
             </>
-          ) : isHost ? (
+          ) : canDeal ? (
             <Button
               compact
               label={t('Main suivante')}
@@ -525,7 +553,7 @@ export function OnlineRoomScreen({ roomId, userId, onLeave, onSwitch }: Props) {
         <View style={styles.topWrap}>
           {/* Only an arrow here: the bar also holds the history, chat, reactions and table code. */}
           <TopBar onBack={onLeave} backLabel="←" backHint={t("Retour à l'accueil")}>
-            {isHost && (
+            {isHost && !quickTable && (
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={t('Gérer la table')}
@@ -722,6 +750,7 @@ function SideCard({ title, children }: { title: string; children: ReactNode }) {
 const UNLOCKABLE = ALL_AVATAR_EMOJIS;
 
 const styles = StyleSheet.create({
+  strangers: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, flexWrap: 'wrap' },
   container: { padding: 16, paddingTop: 56 },
   loading: { flex: 1, justifyContent: 'center', padding: 24 },
   codeBox: { alignItems: 'stretch', marginTop: 16, gap: 4 },
