@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import {
   type Avatar,
   type OnlineGameId,
@@ -66,6 +66,10 @@ interface Props {
 /** Blackjack, Président, Yams or Belote with friends, each on their own phone. */
 export function OnlineGameScreen({ game, initialName, onBack, tournament, joinCode, weekly }: Props) {
   const [table, setTable] = useState<{ roomId: string; userId: string } | null>(null);
+  // The game's board is a separate download: start it now, while the table gets ready.
+  useEffect(() => {
+    ONLINE_UI[game].load().catch(() => {});
+  }, [game]);
 
   async function enter(roomId: string, name: string) {
     const userId = await ensureSignedIn();
@@ -246,7 +250,9 @@ function Lobby({
                 {Options ? (
                   <>
                     <Text style={styles.section}>{t('Réglages de la manche')}</Text>
-                    <Options value={options} onChange={setOptions} />
+                    <Suspense fallback={null}>
+                      <Options value={options} onChange={setOptions} />
+                    </Suspense>
                   </>
                 ) : (
                   <View style={styles.spacer} />
@@ -340,7 +346,11 @@ function Lobby({
             {desktop && (
               <Text style={styles.cardHint}>{t('Tu reçois un code à partager avec tes amis.')}</Text>
             )}
-            {Options && <Options value={options} onChange={setOptions} />}
+            {Options && (
+              <Suspense fallback={null}>
+                <Options value={options} onChange={setOptions} />
+              </Suspense>
+            )}
           </View>
           <View>
             <Button
@@ -470,20 +480,22 @@ function Room({
   return (
     <View style={styles.flex}>
       <View style={styles.flex}>
-        <Board
-          view={mySeat >= 0 && myView != null ? myView : state.view}
-          mySeat={mySeat}
-          seats={seats}
-          actors={state.actors}
-          deadline={state.deadline}
-          now={now}
-          betweenRounds={state.betweenRounds}
-          over={state.over}
-          busy={busy}
-          error={moveError}
-          onMove={(move) => send({ type: 'move', roomId, move })}
-          onLeave={state.over ? onGone : onLeave}
-        />
+        <Suspense fallback={<ActivityIndicator style={styles.flex} color={colors.gold} />}>
+          <Board
+            view={mySeat >= 0 && myView != null ? myView : state.view}
+            mySeat={mySeat}
+            seats={seats}
+            actors={state.actors}
+            deadline={state.deadline}
+            now={now}
+            betweenRounds={state.betweenRounds}
+            over={state.over}
+            busy={busy}
+            error={moveError}
+            onMove={(move) => send({ type: 'move', roomId, move })}
+            onLeave={state.over ? onGone : onLeave}
+          />
+        </Suspense>
       </View>
       {state.over && mySeat >= 0 && !inTournament && (
         <View

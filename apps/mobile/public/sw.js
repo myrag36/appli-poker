@@ -15,12 +15,8 @@ const SHELL_CACHE = `jeux-shell-${VERSION}`;
 const STATIC_CACHE = `jeux-static-${VERSION}`;
 const SCOPE = new URL(self.registration.scope);
 const SHELL_URL = SCOPE.href; // e.g. https://myrag36.github.io/appli-poker/
-const EXTRA_FILES = [
-  'manifest.webmanifest',
-  'icons/icon-192.png',
-  'icons/icon-512.png',
-  'icons/apple-touch-icon.png',
-];
+// The big 512px icon is only for installing, which needs the network anyway: not saved ahead.
+const EXTRA_FILES = ['manifest.webmanifest', 'icons/icon-192.png', 'icons/apple-touch-icon.png'];
 const NETWORK_TIMEOUT_MS = 5000;
 
 /** Same-site files linked from the page (scripts, styles, icons), as absolute URLs. */
@@ -35,8 +31,40 @@ function linkedFiles(html) {
   return [...urls];
 }
 
-/** Downloads the page and stores it, with the files it needs, so the app opens offline. */
-async function refreshShell() {
+/** Saves a file in the static cache unless it is already there; never fails. */
+async function keep(files, url) {
+  if (await files.match(url)) return;
+  try {
+    const res = await fetch(url);
+    if (res.ok) await files.put(url, res);
+  } catch {
+    // Fetched again later, when the page asks for it.
+  }
+}
+
+/**
+ * The parts of the app loaded later (each game, each theme's scenery…): the page's scripts list
+ * them by file name. Kept too, so that every game opens at once, even offline.
+ */
+async function laterFiles(files, scripts) {
+  const urls = new Set();
+  for (const url of scripts) {
+    const saved = await files.match(url);
+    if (!saved) continue;
+    const code = await saved.text();
+    for (const match of code.matchAll(/"([^"]*\/_expo\/static\/js\/[^"]+\.js)"/g)) {
+      const found = new URL(match[1], SHELL_URL);
+      if (found.origin === SCOPE.origin && found.pathname.startsWith(SCOPE.pathname)) urls.add(found.href);
+    }
+  }
+  return [...urls];
+}
+
+/**
+ * Downloads the page and stores it, with the files it needs, so the app opens offline. The
+ * files loaded later are saved in `background` (they are not needed to show the page).
+ */
+async function refreshShell(background) {
   const response = await fetch(SHELL_URL, { cache: 'no-store' });
   if (!response.ok) throw new Error(`Page indisponible (${response.status})`);
   const html = await response.clone().text();
@@ -45,23 +73,29 @@ async function refreshShell() {
 
   const needed = linkedFiles(html);
   const files = await caches.open(STATIC_CACHE);
-  await Promise.all(
-    needed.map(async (url) => {
-      if (await files.match(url)) return;
-      try {
-        const res = await fetch(url);
-        if (res.ok) await files.put(url, res);
-      } catch {
-        // Fetched again later, when the page asks for it.
+  await Promise.all(needed.map((url) => keep(files, url)));
+  const later = (async () => {
+    const parts = await laterFiles(
+      files,
+      needed.filter((url) => url.endsWith('.js')),
+    );
+    // A few at a time, so the game's own requests are not kept waiting.
+    const queue = parts.slice();
+    await Promise.all(
+      [0, 1, 2].map(async () => {
+        while (queue.length) await keep(files, queue.shift());
+      }),
+    );
+    // Drop the bundles of older deploys that the new page no longer loads.
+    const current = new Set([...needed, ...parts]);
+    for (const request of await files.keys()) {
+      if (request.url.includes('/_expo/static/') && !current.has(request.url)) {
+        await files.delete(request);
       }
-    }),
-  );
-  // Drop the bundles of older deploys that the new page no longer loads.
-  for (const request of await files.keys()) {
-    if (request.url.includes('/_expo/static/') && !needed.includes(request.url)) {
-      await files.delete(request);
     }
-  }
+  })();
+  if (background) background(later.catch(() => {}));
+  else await later;
   return response;
 }
 
@@ -108,7 +142,7 @@ function withTimeout(promise, ms) {
 async function openPage(event) {
   const network = (async () => {
     const isShell = new URL(event.request.url).pathname.replace(/index\.html$/, '') === SCOPE.pathname;
-    if (isShell) return refreshShell();
+    if (isShell) return refreshShell((work) => event.waitUntil(work));
     return fetch(event.request);
   })();
   // Keep updating the saved copy even if the timeout answers first.
@@ -219,6 +253,7 @@ async function openFromNotification(href) {
   const code = url.searchParams.get('table');
   const friend = url.searchParams.get('ami');
   const weekly = url.searchParams.get('tournoi') === 'vendredi';
+  const club = url.searchParams.get('club');
   const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
   const open = windows.find((c) => c.url.startsWith(SHELL_URL));
   if (open) {
@@ -226,6 +261,7 @@ async function openFromNotification(href) {
     if (weekly) open.postMessage({ type: 'open-weekly', game, code });
     else if (game && code) open.postMessage({ type: 'open-table', game, code });
     else if (friend) open.postMessage({ type: 'open-chat', friend });
+    else if (club) open.postMessage({ type: 'open-club', club });
     return;
   }
   await self.clients.openWindow(url.href);

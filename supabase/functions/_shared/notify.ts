@@ -7,7 +7,7 @@ export type NoticeLang = 'fr' | 'en';
 
 /** A notification as the service worker shows it. */
 export interface Notice {
-  kind: 'invite' | 'turn' | 'message' | 'tournament';
+  kind: 'invite' | 'turn' | 'message' | 'tournament' | 'club';
   title: string;
   body: string;
   /** Notifications with the same tag replace each other on the phone. */
@@ -202,6 +202,51 @@ export function weeklyMatchNotice(
         : `${name} contre ${opponent} : rejoins la table (code ${code}).`,
     tag: `tournoi-${code}`,
     url: `${tableUrl(game, code)}&tournoi=vendredi`,
+  };
+}
+
+/** The page that opens my club's lounge (or my club invitations). */
+export const CLUB_URL = './?club=salon';
+
+/** A friend invites me to their club. */
+export function clubInviteNotice(lang: NoticeLang, from: string, club: string, emoji: string): Notice {
+  return {
+    kind: 'club',
+    title: lang === 'en' ? `${from} invites you to their club` : `${from} t’invite dans son club`,
+    body:
+      lang === 'en'
+        ? `${emoji} Join “${club}”: a lounge, a ranking and challenges between clubs.`
+        : `${emoji} Rejoins « ${club} » : un salon, un classement et des défis entre clubs.`,
+    tag: `club-invite-${club}`,
+    url: CLUB_URL,
+  };
+}
+
+/** Another club challenges mine for the week (to the owner and admins, who answer). */
+export function clubChallengeNotice(lang: NoticeLang, club: string, emoji: string): Notice {
+  return {
+    kind: 'club',
+    title: lang === 'en' ? '⚔️ Your club is challenged!' : '⚔️ Ton club est défié !',
+    body:
+      lang === 'en'
+        ? `${emoji} “${club}” challenges your club this week. Do you accept?`
+        : `${emoji} « ${club} » défie ton club cette semaine. Tu relèves le défi ?`,
+    tag: 'club-challenge',
+    url: CLUB_URL,
+  };
+}
+
+/** The club my club challenged accepted (to every member of both clubs). */
+export function clubAcceptedNotice(lang: NoticeLang, club: string, emoji: string): Notice {
+  return {
+    kind: 'club',
+    title: lang === 'en' ? '⚔️ Challenge on!' : '⚔️ Défi lancé !',
+    body:
+      lang === 'en'
+        ? `${emoji} Your club against “${club}” this week: every online game counts.`
+        : `${emoji} Ton club contre « ${club} » cette semaine : chaque partie en ligne compte.`,
+    tag: 'club-challenge',
+    url: CLUB_URL,
   };
 }
 

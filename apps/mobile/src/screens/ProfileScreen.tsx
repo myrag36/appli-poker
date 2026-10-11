@@ -36,6 +36,8 @@ import { AchievementList, StreakCard } from '../components/Achievements';
 import { RewardPreview } from '../components/RewardPreview';
 import { NotificationSettings } from '../components/Notifications';
 import { TitleBadge } from '../components/TitleBadge';
+import { ClubTag } from '../components/ClubBadge';
+import { useMyClubBadge } from '../online/clubs';
 import { TopBar } from '../components/TopBar';
 import { Tutorial } from '../components/Tutorial';
 import { equipReward, syncMe, useMyProgress } from '../online/progress';
@@ -124,6 +126,7 @@ export function ProfileScreen({
   const owned = progress?.owned ?? [];
   const coming = nextReward(level);
   const me: Avatar = { ...avatar, frame: equipped.frame, level };
+  const club = useMyClubBadge();
 
   async function wear(slot: keyof Equipped, reward: Reward) {
     if (!isUnlocked(reward.kind, reward.id, level, owned)) return;
@@ -157,6 +160,7 @@ export function ProfileScreen({
             </Text>
             <View style={styles.titleRow}>
               <TitleBadge id={equipped.title} />
+              <ClubTag club={club} />
             </View>
           </View>
         </Banner>
@@ -408,7 +412,7 @@ const styles = StyleSheet.create({
   topTitle: { color: colors.text, fontSize: 17, fontWeight: '800' },
   bannerBox: { marginTop: 8, borderRadius: 18, overflow: 'hidden' },
   bannerContent: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 8 },
-  titleRow: { alignSelf: 'center' },
+  titleRow: { alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 6 },
   name: {
     color: '#fff',
     fontSize: 24,

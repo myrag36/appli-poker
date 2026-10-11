@@ -50,4 +50,6 @@ export interface OnlineGameUi {
   Board: ComponentType<OnlineBoardProps<any>>;
   Options?: ComponentType<OnlineOptionsProps>;
   defaultOptions: Record<string, unknown>;
+  /** Starts downloading the game's code (Board and Options), before they are drawn. */
+  load: () => Promise<unknown>;
 }

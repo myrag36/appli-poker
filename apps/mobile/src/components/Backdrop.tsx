@@ -1,19 +1,8 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { type Theme, THEMES, themeId } from '../theme';
 import { Suits } from './decors/classic-casino';
-import { Synthwave } from './decors/classic-neon';
-import { Curtain } from './decors/classic-vegas';
-import { Lounge } from './decors/classic-lounge';
-import { Space } from './decors/classic-space';
-import { Sakura } from './decors/classic-zen';
-import { Saloon } from './decors/classic-saloon';
-import { Chalet } from './decors/Chalet';
-import { Chateau } from './decors/Chateau';
-import { Cyberpunk } from './decors/Cyberpunk';
-import { Pirates } from './decors/Pirates';
-import { Plage } from './decors/Plage';
 
 function Glow({ x, y, size, color }: { x: number; y: number; size: number; color: string }) {
   return (
@@ -32,20 +21,43 @@ function Glow({ x, y, size, color }: { x: number; y: number; size: number; color
   );
 }
 
-const DECORS: Record<Theme['decor'], (p: { w: number; h: number; k: number }) => ReactNode> = {
-  suits: Suits,
-  synthwave: Synthwave,
-  curtain: Curtain,
-  lounge: Lounge,
-  space: Space,
-  sakura: Sakura,
-  saloon: Saloon,
-  pirates: Pirates,
-  chateau: Chateau,
-  beach: Plage,
-  chalet: Chalet,
-  cyberpunk: Cyberpunk,
+type DecorView = (p: { w: number; h: number; k: number }) => ReactNode;
+
+/*
+ * Each scenery is a separate download (the first theme's comes with the app): only the chosen
+ * theme's is needed at startup, and index.ts waits for it so it shows with the first screen.
+ */
+const LOADERS: Record<Theme['decor'], () => Promise<DecorView>> = {
+  suits: async () => Suits,
+  synthwave: () => import('./decors/classic-neon').then((m) => m.Synthwave),
+  curtain: () => import('./decors/classic-vegas').then((m) => m.Curtain),
+  lounge: () => import('./decors/classic-lounge').then((m) => m.Lounge),
+  space: () => import('./decors/classic-space').then((m) => m.Space),
+  sakura: () => import('./decors/classic-zen').then((m) => m.Sakura),
+  saloon: () => import('./decors/classic-saloon').then((m) => m.Saloon),
+  pirates: () => import('./decors/Pirates').then((m) => m.Pirates),
+  chateau: () => import('./decors/Chateau').then((m) => m.Chateau),
+  beach: () => import('./decors/Plage').then((m) => m.Plage),
+  chalet: () => import('./decors/Chalet').then((m) => m.Chalet),
+  cyberpunk: () => import('./decors/Cyberpunk').then((m) => m.Cyberpunk),
 };
+const DECORS: Partial<Record<Theme['decor'], DecorView>> = { suits: Suits };
+
+/** Downloads a theme's scenery (at once when it is already there); never fails. */
+export function loadDecor(decor: Theme['decor']): Promise<void> {
+  if (DECORS[decor]) return Promise.resolve();
+  return LOADERS[decor]().then(
+    (view) => {
+      DECORS[decor] = view;
+    },
+    () => {
+      // Offline before it was ever saved: the theme's colors without its scenery.
+    },
+  );
+}
+
+/** The chosen theme's scenery, for index.ts to wait for before showing the app. */
+export const decorReady = loadDecor(THEMES[themeId].decor);
 
 /**
  * The theme's scenery behind every screen. With `width`/`height` it draws a scaled-down
@@ -65,6 +77,15 @@ export function Backdrop({
   const h = height ?? window.height;
   const k = width ? w / 390 : 1;
   const Decor = DECORS[theme.decor];
+  const [, setLoaded] = useState(0);
+  useEffect(() => {
+    if (Decor) return;
+    let live = true;
+    loadDecor(theme.decor).then(() => live && setLoaded((n) => n + 1));
+    return () => {
+      live = false;
+    };
+  }, [Decor, theme.decor]);
   return (
     <View
       pointerEvents="none"
@@ -72,7 +93,7 @@ export function Backdrop({
     >
       <LinearGradient colors={theme.gradients.background} style={StyleSheet.absoluteFill} />
       {theme.decor === 'suits' && <Glow x={w / 2} y={-k * 10} size={200 * k} color={theme.colors.glow} />}
-      <Decor w={w} h={h} k={k} />
+      {Decor && <Decor w={w} h={h} k={k} />}
     </View>
   );
 }

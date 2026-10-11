@@ -40,7 +40,7 @@ function gameLabel(game: string): { title: string; emoji: string } {
 }
 
 /** "2 j 14 h", "5 h 12 min" or "8 min" until the end of the week. */
-function timeLeft(ms: number): string {
+export function timeLeft(ms: number): string {
   const minutes = Math.max(1, Math.ceil(ms / 60_000));
   const d = Math.floor(minutes / 1440);
   const h = Math.floor((minutes % 1440) / 60);
@@ -50,7 +50,7 @@ function timeLeft(ms: number): string {
   return t('{m} min', { m });
 }
 
-function useNow(every = 30_000): number {
+export function useNow(every = 30_000): number {
   const [now, setNow] = useState(Date.now());
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), every);

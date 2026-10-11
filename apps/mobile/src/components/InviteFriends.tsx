@@ -4,6 +4,8 @@ import { ALL_AVATAR_EMOJIS, cleanAvatar, defaultAvatar } from '@appli-poker/engi
 import { AvatarBadge } from './AvatarPicker';
 import { type FriendRow, loadFriends } from '../online/progress';
 import { inviteFriend } from '../online/invites';
+import { inviteClubToTable, useMyClubBadge } from '../online/clubs';
+import { ClubBadge } from './ClubBadge';
 import { tMessage } from '../online/messages';
 import { colors } from '../theme';
 import { t } from '../i18n';
@@ -16,6 +18,7 @@ export function InviteFriends({ game, code }: { game: string; code: string }) {
   const [friends, setFriends] = useState<FriendRow[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [sent, setSent] = useState<Record<string, Sent>>({});
+  const club = useMyClubBadge();
 
   async function toggle() {
     const next = !open;
@@ -39,6 +42,17 @@ export function InviteFriends({ game, code }: { game: string; code: string }) {
     }
   }
 
+  async function inviteClub() {
+    setSent((s) => ({ ...s, club: 'sending' }));
+    try {
+      await inviteClubToTable(game, code);
+      setSent((s) => ({ ...s, club: 'notified' }));
+    } catch (e) {
+      setSent((s) => ({ ...s, club: { error: tMessage((e as Error).message) } }));
+    }
+  }
+
+  const clubState = sent.club;
   return (
     <View style={styles.box}>
       <Pressable
@@ -52,6 +66,36 @@ export function InviteFriends({ game, code }: { game: string; code: string }) {
       </Pressable>
       {open && (
         <View style={styles.list}>
+          {club && (
+            <View style={styles.row}>
+              <ClubBadge emoji={club.emoji} color={club.color} size={30} />
+              <View style={styles.flex}>
+                <Text style={styles.name} numberOfLines={1}>
+                  {t('Tout mon club « {name} »', { name: club.name })}
+                </Text>
+                {clubState === 'notified' && (
+                  <Text style={styles.ok}>{t('Invitation envoyée au salon du club 🛡️')}</Text>
+                )}
+                {typeof clubState === 'object' && <Text style={styles.error}>{clubState.error}</Text>}
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={t('Inviter tout mon club')}
+                disabled={clubState === 'sending' || clubState === 'notified'}
+                onPress={inviteClub}
+                style={[
+                  styles.button,
+                  (clubState === 'sending' || clubState === 'notified') && styles.buttonDone,
+                ]}
+              >
+                {clubState === 'sending' ? (
+                  <ActivityIndicator color={colors.gold} size="small" />
+                ) : (
+                  <Text style={styles.buttonText}>{clubState === 'notified' ? '✓' : t('Inviter')}</Text>
+                )}
+              </Pressable>
+            </View>
+          )}
           {loadError && <Text style={styles.error}>{loadError}</Text>}
           {friends === null && !loadError && <ActivityIndicator color={colors.gold} />}
           {friends?.length === 0 && (

@@ -41,6 +41,7 @@ import { WeeklyCard, WeeklyScreen, useWeekly } from './WeeklyTournament';
 import { t, tn } from '../i18n';
 import { useDesktop } from '../layout';
 import { colors, gradients, shadow } from '../theme';
+import { pollWhileVisible } from '../online/timers';
 
 const GAMES: { id: OnlineGameId; title: string; emoji: string }[] = [
   { id: 'blackjack', title: t('Blackjack'), emoji: '🂡' },
@@ -469,9 +470,9 @@ function useTournament(id: string) {
         // Catch up on anything missed while the connection was down.
         if (status === 'SUBSCRIBED') refresh();
       });
-    const poll = setInterval(refresh, POLL_MS);
+    const stopPolling = pollWhileVisible(refresh, POLL_MS);
     return () => {
-      clearInterval(poll);
+      stopPolling();
       supabase.removeChannel(channel);
     };
   }, [id, refresh]);
