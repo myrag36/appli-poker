@@ -66,7 +66,9 @@ export function ProgressToast({ onRanked }: { onRanked?: () => void }) {
               <Text style={styles.level}>{t('Niveau {n}', { n: levelUp.level })}</Text>
               {levelUp.from < RANKED_LEVEL && levelUp.level >= RANKED_LEVEL && (
                 <View style={styles.rankedUnlock}>
-                  <Text style={styles.rankedEmblems}>{RANK_TIERS.map((x) => x.glyph).join(' ')}</Text>
+                  <Text style={styles.rankedEmblems} numberOfLines={1}>
+                    {RANK_TIERS.map((x) => x.glyph).join(' ')}
+                  </Text>
                   <Text style={styles.rankedTitle}>{t('🏆 Tables classées débloquées !')}</Text>
                   <Text style={styles.rankedText}>
                     {t(
@@ -169,11 +171,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.gold,
   },
-  rankedEmblems: { fontSize: 20, letterSpacing: 2 },
+  rankedEmblems: { fontSize: 17, textAlign: 'center' },
   rankedTitle: { color: colors.gold, fontSize: 17, fontWeight: '900', textAlign: 'center' },
   rankedText: { color: colors.text, fontSize: 13, lineHeight: 18, textAlign: 'center' },
   rankedGo: { marginTop: 4, paddingVertical: 6, paddingHorizontal: 12 },
-  rankedGoText: { color: colors.gold, fontSize: 14, fontWeight: '800', textDecorationLine: 'underline' },
+  rankedGoText: {
+    color: colors.gold,
+    fontSize: 14,
+    fontWeight: '800',
+    textAlign: 'center',
+    textDecorationLine: 'underline',
+  },
   unlock: {
     minWidth: 250,
     padding: 12,

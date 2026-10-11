@@ -550,8 +550,12 @@ function Room({
   const byId = new Map(players.map((p) => [p.user_id, p]));
   const seats: BoardSeat[] = state.seats.map((s, i) => ({
     ...s,
-    // At a ranked table, each name shows its rank (and an abandon).
-    name: ranked ? [s.name, s.left ? '🏳️' : rankTag(ranks[s.id])].filter(Boolean).join(' ') : s.name,
+    // At a ranked table, each name shows its rank (and an abandon) while the game is on; at the
+    // end the names stay plain ("Simon remporte le match !") and the rank card shows the change.
+    name:
+      ranked && !state.over
+        ? [s.name, s.left ? '🏳️' : rankTag(ranks[s.id])].filter(Boolean).join(' ')
+        : s.name,
     avatar: { ...avatarOf(byId.get(s.id), i, progressOf[s.id]), reaction: reactions[s.id] },
   }));
   const mySeat = state.seats.findIndex((s) => s.id === userId);
@@ -600,12 +604,14 @@ function Room({
         </Suspense>
       </View>
       {ranked && leftSeats.length > 0 && !leftSeen && !state.over && (
-        <View style={[styles.opponentLeft, { top: insets.top + 52 }, desktop && styles.rematchDesktop]}>
-          <OpponentLeft
-            names={leftSeats.map((s) => s.name)}
-            change={earlyChange}
-            onClose={() => setLeftSeen(true)}
-          />
+        <View style={[styles.opponentLeft, { top: insets.top + 52 }]}>
+          <View style={styles.opponentLeftCard}>
+            <OpponentLeft
+              names={leftSeats.map((s) => s.name)}
+              change={earlyChange}
+              onClose={() => setLeftSeen(true)}
+            />
+          </View>
         </View>
       )}
       <ForfeitConfirm
@@ -880,7 +886,8 @@ const styles = StyleSheet.create({
   spacer: { height: 24 },
   spacerSmall: { height: 10 },
   rematch: { paddingHorizontal: 10, paddingTop: 6, gap: 6 },
-  opponentLeft: { position: 'absolute', left: 10, right: 10 },
+  opponentLeft: { position: 'absolute', left: 10, right: 10, alignItems: 'center' },
+  opponentLeftCard: { width: '100%', maxWidth: 560 },
   blockRow: { marginTop: 12 },
   strangers: {
     flexDirection: 'row',

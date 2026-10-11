@@ -1,6 +1,6 @@
 // The leaderboard of the tables classées: one per game and season, the top 100 or my friends,
 // with my own position even when I am further down.
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
@@ -37,6 +37,9 @@ export function RankedBoardScreen({ initialGame, onBack }: Props) {
   const [board, setBoard] = useState<RankedBoard | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [me, setMe] = useState<string | null>(null);
+  // The game chips scroll to the game opened, once (Uno sits past the screen edge on a phone).
+  const chips = useRef<ScrollView>(null);
+  const scrolled = useRef(false);
 
   useEffect(() => {
     ensureSignedIn().then(setMe, () => {});
@@ -76,7 +79,12 @@ export function RankedBoardScreen({ initialGame, onBack }: Props) {
         {t('Plus que {n} j', { n: seasonDaysLeft() })}
       </Text>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.games}>
+      <ScrollView
+        ref={chips}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.games}
+      >
         {RANKED_GAME_IDS.map((g) => {
           const l = quickGameLook(g);
           const active = g === game;
@@ -86,6 +94,12 @@ export function RankedBoardScreen({ initialGame, onBack }: Props) {
               accessibilityRole="button"
               accessibilityState={{ selected: active }}
               onPress={() => setGame(g)}
+              onLayout={(e) => {
+                if (g !== game || scrolled.current) return;
+                scrolled.current = true;
+                const x = e.nativeEvent.layout.x;
+                if (x > 120) chips.current?.scrollTo({ x: x - 16, animated: false });
+              }}
               style={[styles.game, active && styles.gameActive]}
             >
               <Text style={[styles.gameText, active && styles.gameTextActive]} numberOfLines={1}>
