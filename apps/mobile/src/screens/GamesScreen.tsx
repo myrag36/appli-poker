@@ -329,7 +329,7 @@ export function GamesScreen({
   const [tutorial, setTutorial] = useState(tutorialPending);
   const { width: screenWidth, height: screenHeight } = useWindowDimensions();
   const desktop = useDesktop();
-  const cardHeight = Math.max(300, Math.min(CARD_HEIGHT, screenHeight - 570));
+  const cardHeight = Math.max(300, Math.min(CARD_HEIGHT, screenHeight - 640));
   const viewWidth = Math.min(screenWidth, 520);
   const cardWidth = Math.round(viewWidth * 0.76);
   const step = cardWidth + GAP;
@@ -369,150 +369,160 @@ export function GamesScreen({
   }
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 20 }]}>
-      <View style={styles.chips}>
-        <ProfileChip onPress={onProfile} />
-        <CoinsChip onPress={onShop} />
-        <LangChip />
-      </View>
-      <Text style={styles.title}>La Tablée</Text>
-      <View style={styles.social}>
-        <Pressable
-          accessibilityRole="button"
-          onPress={onFriends}
-          style={({ pressed }) => [styles.socialButton, styles.socialShort, pressed && styles.pressed]}
-        >
-          <Text style={styles.socialText}>{t('👥 Amis')}</Text>
-          <UnreadBadge />
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          onPress={onClub}
-          style={({ pressed }) => [styles.socialButton, styles.socialShort, pressed && styles.pressed]}
-        >
-          <Text style={styles.socialText}>{t('🛡️ Club')}</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('Personnaliser')}
-          onPress={onCustomize}
-          style={({ pressed }) => [styles.socialButton, styles.socialShort, pressed && styles.pressed]}
-        >
-          <Text style={styles.socialText}>{t('🎨 Style')}</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          onPress={onTournaments}
-          style={({ pressed }) => [styles.socialButton, pressed && styles.pressed]}
-        >
-          <Text style={styles.socialText}>{tournamentsLabel()}</Text>
-        </Pressable>
-        <SeasonPill onPress={onShop} />
-      </View>
-
-      <View style={[styles.quickRow, { width: Math.min(viewWidth - 32, 420) }]}>
-        <QuickButton onPress={onQuick} />
-        <RankedButton onPress={onRanked} />
-      </View>
-
-      <DailyChallenge width={Math.min(viewWidth - 32, 440)} />
-
-      {canResume && (
-        <Pressable
-          accessibilityRole="button"
-          onPress={onResume}
-          style={({ pressed }) => [styles.resume, pressed && styles.pressed]}
-        >
-          <Text style={styles.resumeText}>{t('▶ Reprendre ma table de poker')}</Text>
-        </Pressable>
-      )}
-
-      <View style={[styles.carouselWrap, { width: viewWidth }]}>
-        <Animated.ScrollView
-          ref={list}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          snapToInterval={step}
-          decelerationRate="fast"
-          contentContainerStyle={{ paddingHorizontal: side, gap: GAP }}
-          scrollEventThrottle={16}
-          onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], {
-            useNativeDriver: false,
-            listener: onScroll,
-          })}
-        >
-          {GAMES.map((game, i) => {
-            const range = [(i - 1) * step, i * step, (i + 1) * step];
-            const scale = scrollX.interpolate({
-              inputRange: range,
-              outputRange: [0.88, 1, 0.88],
-              extrapolate: 'clamp',
-            });
-            const opacity = scrollX.interpolate({
-              inputRange: range,
-              outputRange: [0.55, 1, 0.55],
-              extrapolate: 'clamp',
-            });
-            return (
-              <Animated.View key={game.id} style={{ width: cardWidth, transform: [{ scale }], opacity }}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={
-                    game.ready
-                      ? t('Jouer : {game}', { game: game.title })
-                      : t('{game}, bientôt', { game: game.title })
-                  }
-                  onPress={() => (i === index ? game.ready && onPlay(game.id) : goTo(i))}
-                  style={[styles.card, shadow, { height: cardHeight }]}
-                >
-                  <LateDecor
-                    id={game.id}
-                    width={cardWidth}
-                    height={cardHeight}
-                    wait={Math.abs(i - index) <= 1 ? 0 : 200 + 100 * Math.abs(i - index)}
-                  />
-                  <View style={styles.artBox}>
-                    <Art game={game} />
-                  </View>
-                  <Text style={styles.cardTitle}>{game.title}</Text>
-                  <Text style={styles.cardPlayers}>{game.players}</Text>
-                  <Text style={styles.cardText}>{game.tagline}</Text>
-                  <View style={styles.cardFooter}>
-                    {game.ready ? (
-                      <LinearGradient colors={gradients.gold} style={styles.play}>
-                        <Text style={styles.playText}>{t('Jouer')}</Text>
-                      </LinearGradient>
-                    ) : (
-                      <View style={styles.soon}>
-                        <Text style={styles.soonText}>{t('Bientôt')}</Text>
-                      </View>
-                    )}
-                  </View>
-                </Pressable>
-              </Animated.View>
-            );
-          })}
-        </Animated.ScrollView>
-      </View>
-
-      <View style={styles.dots}>
-        {GAMES.map((g, i) => (
+    <View style={styles.root}>
+      {/* Scrolls when the page is taller than the screen (small phones), centred otherwise. */}
+      <ScrollView
+        style={styles.root}
+        contentContainerStyle={[
+          styles.container,
+          { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 20 },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.chips}>
+          <ProfileChip onPress={onProfile} />
+          <CoinsChip onPress={onShop} />
+          <LangChip />
+        </View>
+        <Text style={styles.title}>La Tablée</Text>
+        <View style={styles.social}>
           <Pressable
-            key={g.id}
             accessibilityRole="button"
-            accessibilityLabel={g.title}
-            onPress={() => goTo(i)}
-            hitSlop={6}
-            style={[styles.dot, i === index && styles.dotActive]}
-          />
-        ))}
-      </View>
+            onPress={onFriends}
+            style={({ pressed }) => [styles.socialButton, styles.socialShort, pressed && styles.pressed]}
+          >
+            <Text style={styles.socialText}>{t('👥 Amis')}</Text>
+            <UnreadBadge />
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={onClub}
+            style={({ pressed }) => [styles.socialButton, styles.socialShort, pressed && styles.pressed]}
+          >
+            <Text style={styles.socialText}>{t('🛡️ Club')}</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('Personnaliser')}
+            onPress={onCustomize}
+            style={({ pressed }) => [styles.socialButton, styles.socialShort, pressed && styles.pressed]}
+          >
+            <Text style={styles.socialText}>{t('🎨 Style')}</Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            onPress={onTournaments}
+            style={({ pressed }) => [styles.socialButton, pressed && styles.pressed]}
+          >
+            <Text style={styles.socialText}>{tournamentsLabel()}</Text>
+          </Pressable>
+          <SeasonPill onPress={onShop} />
+        </View>
 
-      <View style={{ width: cardWidth }}>
-        <ThemeChooser />
-      </View>
+        <View style={[styles.quickRow, { width: Math.min(viewWidth - 32, 420) }]}>
+          <QuickButton onPress={onQuick} />
+          <RankedButton onPress={onRanked} />
+        </View>
 
-      {!tutorial && <InstallBanner />}
+        <DailyChallenge width={Math.min(viewWidth - 32, 440)} />
+
+        {canResume && (
+          <Pressable
+            accessibilityRole="button"
+            onPress={onResume}
+            style={({ pressed }) => [styles.resume, pressed && styles.pressed]}
+          >
+            <Text style={styles.resumeText}>{t('▶ Reprendre ma table de poker')}</Text>
+          </Pressable>
+        )}
+
+        <View style={[styles.carouselWrap, { width: viewWidth }]}>
+          <Animated.ScrollView
+            ref={list}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            snapToInterval={step}
+            decelerationRate="fast"
+            contentContainerStyle={{ paddingHorizontal: side, gap: GAP }}
+            scrollEventThrottle={16}
+            onScroll={Animated.event([{ nativeEvent: { contentOffset: { x: scrollX } } }], {
+              useNativeDriver: false,
+              listener: onScroll,
+            })}
+          >
+            {GAMES.map((game, i) => {
+              const range = [(i - 1) * step, i * step, (i + 1) * step];
+              const scale = scrollX.interpolate({
+                inputRange: range,
+                outputRange: [0.88, 1, 0.88],
+                extrapolate: 'clamp',
+              });
+              const opacity = scrollX.interpolate({
+                inputRange: range,
+                outputRange: [0.55, 1, 0.55],
+                extrapolate: 'clamp',
+              });
+              return (
+                <Animated.View key={game.id} style={{ width: cardWidth, transform: [{ scale }], opacity }}>
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      game.ready
+                        ? t('Jouer : {game}', { game: game.title })
+                        : t('{game}, bientôt', { game: game.title })
+                    }
+                    onPress={() => (i === index ? game.ready && onPlay(game.id) : goTo(i))}
+                    style={[styles.card, shadow, { height: cardHeight }]}
+                  >
+                    <LateDecor
+                      id={game.id}
+                      width={cardWidth}
+                      height={cardHeight}
+                      wait={Math.abs(i - index) <= 1 ? 0 : 200 + 100 * Math.abs(i - index)}
+                    />
+                    <View style={styles.artBox}>
+                      <Art game={game} />
+                    </View>
+                    <Text style={styles.cardTitle}>{game.title}</Text>
+                    <Text style={styles.cardPlayers}>{game.players}</Text>
+                    <Text style={styles.cardText}>{game.tagline}</Text>
+                    <View style={styles.cardFooter}>
+                      {game.ready ? (
+                        <LinearGradient colors={gradients.gold} style={styles.play}>
+                          <Text style={styles.playText}>{t('Jouer')}</Text>
+                        </LinearGradient>
+                      ) : (
+                        <View style={styles.soon}>
+                          <Text style={styles.soonText}>{t('Bientôt')}</Text>
+                        </View>
+                      )}
+                    </View>
+                  </Pressable>
+                </Animated.View>
+              );
+            })}
+          </Animated.ScrollView>
+        </View>
+
+        <View style={styles.dots}>
+          {GAMES.map((g, i) => (
+            <Pressable
+              key={g.id}
+              accessibilityRole="button"
+              accessibilityLabel={g.title}
+              onPress={() => goTo(i)}
+              hitSlop={6}
+              style={[styles.dot, i === index && styles.dotActive]}
+            />
+          ))}
+        </View>
+
+        <View style={{ width: cardWidth }}>
+          <ThemeChooser />
+        </View>
+
+        {!tutorial && <InstallBanner />}
+      </ScrollView>
       <Tutorial visible={tutorial} onClose={() => setTutorial(false)} />
     </View>
   );
@@ -535,7 +545,7 @@ function QuickButton({
       onPress={onPress}
       style={({ pressed, hovered }: PressState) => [
         styles.quick,
-        width !== undefined ? { width } : !desktop && styles.quickFlex,
+        width !== undefined ? { width } : !desktop && [styles.quickFlex, styles.quickPhone],
         desktop && styles.quickDesktop,
         HOVER_TRANSITION,
         hovered && desk.actionHover,
@@ -549,7 +559,10 @@ function QuickButton({
         style={StyleSheet.absoluteFill}
       />
       <Text style={styles.quickTitle}>{t('⚡ Partie rapide')}</Text>
-      <Text style={styles.quickText} numberOfLines={1}>
+      <Text
+        style={[styles.quickText, !desktop && width === undefined && styles.quickTextPhone]}
+        numberOfLines={1}
+      >
         {desktop ? t('Joue en ligne avec d’autres joueurs, maintenant') : t('Contre d’autres joueurs ›')}
       </Text>
     </Pressable>
@@ -969,7 +982,10 @@ const styles = StyleSheet.create({
     boxShadow: '0 4px 14px rgba(255, 193, 7, 0.28)',
   },
   quickRow: { flexDirection: 'row', gap: 8, alignItems: 'stretch' },
+  root: { flex: 1, alignSelf: 'stretch' },
   quickFlex: { flex: 1, minWidth: 0 },
+  quickPhone: { flexDirection: 'column', gap: 0, paddingVertical: 6 },
+  quickTextPhone: { fontSize: 12 },
   ranked: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -1077,7 +1093,7 @@ const styles = StyleSheet.create({
   },
   profileFill: { height: 6, borderRadius: 3, backgroundColor: colors.gold },
   profileGo: { color: colors.text, fontSize: 14, fontWeight: '800' },
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  container: { flexGrow: 1, alignItems: 'center', justifyContent: 'center' },
   title: {
     color: colors.gold,
     fontSize: 36,
