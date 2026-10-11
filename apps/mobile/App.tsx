@@ -155,7 +155,10 @@ export default function App() {
 
   /** The club tab: from a link to join a club (?club=CODE) or a club notification (?club=salon). */
   function openClub(club: string) {
-    const code = club.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const code = club
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, '');
     setScreen({ name: 'friends', club: code.length === 6 ? code : '' });
   }
 

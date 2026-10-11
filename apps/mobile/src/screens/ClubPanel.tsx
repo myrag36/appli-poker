@@ -26,7 +26,13 @@ import {
 } from '@appli-poker/engine';
 import { ClubBadge } from '../components/ClubBadge';
 import { ClubChat, memberAvatar } from '../components/ClubChat';
-import { ChallengeCard, ClubChestBanner, MemberRanking, TopClubs, placeLabel } from '../components/ClubRanking';
+import {
+  ChallengeCard,
+  ClubChestBanner,
+  MemberRanking,
+  TopClubs,
+  placeLabel,
+} from '../components/ClubRanking';
 import { PresenceAvatar, friendAvatar } from '../components/Messagerie';
 import {
   type ClubInfo,
@@ -179,7 +185,11 @@ export function ClubPanel({ desktop, friends, onJoin, initialCode }: Props) {
           }}
         />
       )}
-      {chest && <ClubChestBanner chest={chest} onClaim={claim} />}
+      {chest && (
+        <View style={{ marginBottom: 12 }}>
+          <ClubChestBanner chest={chest} onClaim={claim} />
+        </View>
+      )}
       {state.club && state.role ? (
         <Lounge
           state={state as LoungeState}
@@ -254,15 +264,15 @@ function JoinPrompt({
       ) : (
         !error && <ActivityIndicator color={colors.gold} />
       )}
-      {inClub && club && <Text style={styles.muted}>{t('Quitte d’abord ton club pour rejoindre celui-ci.')}</Text>}
+      {inClub && club && (
+        <Text style={styles.muted}>{t('Quitte d’abord ton club pour rejoindre celui-ci.')}</Text>
+      )}
       {error && <Text style={styles.error}>{error}</Text>}
       <View style={styles.buttons}>
         <Pressable accessibilityRole="button" onPress={() => onDone(false)} style={styles.secondary}>
           <Text style={styles.secondaryText}>{t('Plus tard')}</Text>
         </Pressable>
-        {club && !inClub && (
-          <GoldButton label={t('Rejoindre le club')} busy={busy} onPress={join} />
-        )}
+        {club && !inClub && <GoldButton label={t('Rejoindre le club')} busy={busy} onPress={join} />}
       </View>
     </View>
   );
@@ -271,7 +281,15 @@ function JoinPrompt({
 // ---------------------------------------------------------------------------
 // Without a club.
 
-function NoClub({ state, desktop, onChanged }: { state: ClubState; desktop: boolean; onChanged: () => void }) {
+function NoClub({
+  state,
+  desktop,
+  onChanged,
+}: {
+  state: ClubState;
+  desktop: boolean;
+  onChanged: () => void;
+}) {
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -298,7 +316,9 @@ function NoClub({ state, desktop, onChanged }: { state: ClubState; desktop: bool
       <View style={styles.flex}>
         <Text style={styles.heroTitle}>{t('Les clubs')}</Text>
         <Text style={styles.heroText}>
-          {t('Jusqu’à 30 amis, un salon pour discuter, un classement du club et des défis contre les autres clubs.')}
+          {t(
+            'Jusqu’à 30 amis, un salon pour discuter, un classement du club et des défis contre les autres clubs.',
+          )}
         </Text>
       </View>
     </LinearGradient>
@@ -343,7 +363,7 @@ function NoClub({ state, desktop, onChanged }: { state: ClubState; desktop: bool
       <Text style={styles.sectionTitle}>{t('Rejoindre avec un code')}</Text>
       <View style={styles.addRow}>
         <TextInput
-          style={[styles.input, styles.codeInput]}
+          style={[styles.input, styles.codeInput, !code && styles.codeEmpty]}
           value={code}
           onChangeText={(text) => setCode(text.toUpperCase())}
           placeholder={t('Code du club')}
@@ -376,7 +396,14 @@ function NoClub({ state, desktop, onChanged }: { state: ClubState; desktop: bool
   const top = (
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{t('🏆 Top clubs de la semaine')}</Text>
-      <TopClubs top={state.top} myClub={null} role={null} week={state.week} challenges={[]} onChanged={onChanged} />
+      <TopClubs
+        top={state.top}
+        myClub={null}
+        role={null}
+        week={state.week}
+        challenges={[]}
+        onChanged={onChanged}
+      />
       <LastWeek state={state} />
     </View>
   );
@@ -426,8 +453,11 @@ function ClubForm({
   initial,
   submit,
   busy,
+  bare,
   onSubmit,
 }: {
+  /** Inside another panel: no card of its own. */
+  bare?: boolean;
   initial?: { name: string; emoji: string; color: string; description: string };
   submit: string;
   busy: boolean;
@@ -439,7 +469,7 @@ function ClubForm({
   const [description, setDescription] = useState(initial?.description ?? '');
   const ok = name.trim().length >= 3;
   return (
-    <View style={styles.form}>
+    <View style={[styles.form, bare && styles.formBare]}>
       <View style={styles.formTop}>
         <ClubBadge emoji={emoji} color={color} size={52} />
         <TextInput
@@ -465,7 +495,11 @@ function ClubForm({
           </Pressable>
         ))}
       </View>
-      <View style={styles.colorsRow} accessibilityRole="radiogroup" accessibilityLabel={t('Couleur')}>
+      <View
+        style={styles.colorsRow}
+        accessibilityRole="radiogroup"
+        accessibilityLabel={t('Couleur{club}', { club: '' })}
+      >
         {CLUB_COLORS.map((c) => (
           <Pressable
             key={c}
@@ -536,7 +570,9 @@ function Lounge({
   const members = state.members ?? [];
   const challenges = state.challenges ?? [];
   const incoming = challenges.filter((c) => c.status === 'pending' && !c.mine && c.week === state.week);
-  const chatHeight = desktop ? Math.max(460, Math.min(640, height - 300)) : Math.max(380, Math.min(620, height - 250));
+  const chatHeight = desktop
+    ? Math.max(460, Math.min(640, height - 340))
+    : Math.max(380, Math.min(620, height - 250));
 
   const header = (
     <LinearGradient colors={[`${club.color}cc`, 'rgba(10,14,30,0.9)']} style={styles.clubHeader}>
@@ -587,9 +623,7 @@ function Lounge({
       onJoin={onJoin}
     />
   );
-  const membersPanel = (
-    <MembersPanel state={state} me={me} friends={friends} onChanged={onChanged} />
-  );
+  const membersPanel = <MembersPanel state={state} me={me} friends={friends} onChanged={onChanged} />;
   const week = <WeekPanel state={state} onChanged={onChanged} />;
   const tabs: LoungeTab[] = desktop ? ['salon', 'classement'] : ['salon', 'membres', 'classement'];
   const shownTab = desktop && tab === 'membres' ? 'salon' : tab;
@@ -696,10 +730,13 @@ function MembersPanel({
   const actions = (target: ClubMember): { id: ClubAction; label: string; danger?: boolean }[] => {
     const list: { id: ClubAction; label: string; danger?: boolean }[] = [];
     if (target.me) return list;
-    if (clubCan(state.role, 'promote', target.role)) list.push({ id: 'promote', label: t('⭐ Nommer admin') });
+    if (clubCan(state.role, 'promote', target.role))
+      list.push({ id: 'promote', label: t('⭐ Nommer admin') });
     if (clubCan(state.role, 'demote', target.role)) list.push({ id: 'demote', label: t('Retirer admin') });
-    if (clubCan(state.role, 'transfer', target.role)) list.push({ id: 'transfer', label: t('👑 Confier le club') });
-    if (clubCan(state.role, 'kick', target.role)) list.push({ id: 'kick', label: t('Exclure'), danger: true });
+    if (clubCan(state.role, 'transfer', target.role))
+      list.push({ id: 'transfer', label: t('👑 Confier le club') });
+    if (clubCan(state.role, 'kick', target.role))
+      list.push({ id: 'kick', label: t('Exclure'), danger: true });
     return list;
   };
 
@@ -765,7 +802,9 @@ function MembersPanel({
         <View style={styles.inviteList}>
           {friends === null && <ActivityIndicator color={colors.gold} />}
           {friends !== null && outside.length === 0 && (
-            <Text style={styles.mutedCenter}>{t('Tous tes amis sont déjà dans le club, ou ajoute-en avec leur code ami.')}</Text>
+            <Text style={styles.mutedCenter}>
+              {t('Tous tes amis sont déjà dans le club, ou ajoute-en avec leur code ami.')}
+            </Text>
           )}
           {outside.map((f, i) => {
             const done = sent[f.user_id] || invited.has(f.user_id);
@@ -807,16 +846,24 @@ function MembersPanel({
           return (
             <View key={m.user_id} style={[styles.member, m.me && styles.memberMe]}>
               <View style={styles.memberTop}>
-                <PresenceAvatar avatar={memberAvatar(m, i)} size={40} online={m.me || online.has(m.user_id)} />
+                <PresenceAvatar
+                  avatar={memberAvatar(m, i)}
+                  size={40}
+                  online={m.me || online.has(m.user_id)}
+                />
                 <View style={styles.flex}>
                   <Text style={styles.rowName} numberOfLines={1}>
                     {m.me ? t('{name} (toi)', { name: m.name }) : m.name}
                   </Text>
                   <View style={styles.memberTags}>
                     {m.role !== 'member' && (
-                      <Text style={[styles.role, m.role === 'owner' && styles.roleOwner]}>{t(ROLE_LABELS[m.role])}</Text>
+                      <Text style={[styles.role, m.role === 'owner' && styles.roleOwner]}>
+                        {t(ROLE_LABELS[m.role])}
+                      </Text>
                     )}
-                    <Text style={styles.muted}>{tn(points, '{n} pt cette semaine', '{n} pts cette semaine')}</Text>
+                    <Text style={styles.muted}>
+                      {tn(points, '{n} pt cette semaine', '{n} pts cette semaine')}
+                    </Text>
                   </View>
                 </View>
                 {list.length > 0 && (
@@ -845,7 +892,11 @@ function MembersPanel({
                         accessibilityRole="button"
                         disabled={busy !== null}
                         onPress={() => act(m, a.id)}
-                        style={[styles.action, a.danger && styles.actionDanger, confirm === key && styles.actionConfirm]}
+                        style={[
+                          styles.action,
+                          a.danger && styles.actionDanger,
+                          confirm === key && styles.actionConfirm,
+                        ]}
                       >
                         {busy === key ? (
                           <ActivityIndicator size="small" color={colors.gold} />
@@ -941,7 +992,9 @@ function WeekPanel({ state, onChanged }: { state: LoungeState; onChanged: () => 
 
       <Text style={styles.sectionTitle}>{t('Classement du club')}</Text>
       <Text style={styles.hint}>
-        {t('Les points de chaque membre dans le classement de la semaine (3 la victoire, 1 la partie) font ceux du club.')}
+        {t(
+          'Les points de chaque membre dans le classement de la semaine (3 la victoire, 1 la partie) font ceux du club.',
+        )}
       </Text>
       <MemberRanking members={state.members ?? []} />
 
@@ -1004,6 +1057,7 @@ function SettingsPanel({
         <>
           <ClubForm
             initial={club}
+            bare
             submit={t('Enregistrer')}
             busy={busy === 'edit'}
             onSubmit={(look) => run('edit', () => editClub(look), t('Club mis à jour !'))}
@@ -1149,6 +1203,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   codeInput: { flex: 1, fontSize: 18, fontWeight: '800', letterSpacing: 3 },
+  codeEmpty: { letterSpacing: 0, fontSize: 16, fontWeight: '600' },
   form: {
     gap: 12,
     padding: 14,
@@ -1157,11 +1212,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.glassBorder,
   },
+  formBare: { padding: 0, borderWidth: 0, backgroundColor: 'transparent' },
   formTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  emojis: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  emojis: { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
   emojiChoice: {
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1170,13 +1226,25 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   emojiChoiceOn: { borderColor: colors.gold, backgroundColor: 'rgba(255,193,7,0.18)' },
-  emojiText: { fontSize: 20 },
+  emojiText: { fontSize: 19 },
   colorsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  colorChoice: { width: 30, height: 30, borderRadius: 15, borderWidth: 2, borderColor: 'rgba(255,255,255,0.2)' },
+  colorChoice: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
   colorChoiceOn: { borderColor: '#fff', transform: [{ scale: 1.15 }] },
   description: { minHeight: 60, fontSize: 14, fontWeight: '500', textAlignVertical: 'top' },
   gold: { borderRadius: 12, overflow: 'hidden' },
-  goldInner: { paddingHorizontal: 18, paddingVertical: 12, alignItems: 'center', justifyContent: 'center' },
+  goldInner: {
+    flexGrow: 1,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   goldSmall: { paddingHorizontal: 12, paddingVertical: 8 },
   goldText: { color: colors.onGold, fontSize: 15, fontWeight: '900' },
   disabled: { opacity: 0.5 },
@@ -1251,7 +1319,7 @@ const styles = StyleSheet.create({
   tabOn: { backgroundColor: 'rgba(255,255,255,0.14)' },
   tabText: { color: colors.muted, fontSize: 14, fontWeight: '800' },
   tabTextOn: { color: colors.text, fontWeight: '900' },
-  membersPanel: { gap: 10, marginTop: 12 },
+  membersPanel: { gap: 10 },
   codeCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1262,7 +1330,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#4ea8de',
   },
-  codeLabel: { color: '#a9d2ff', fontSize: 11, fontWeight: '800', letterSpacing: 2, textTransform: 'uppercase' },
+  codeLabel: {
+    color: '#a9d2ff',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+  },
   code: { color: '#fff', fontSize: 28, fontWeight: '900', letterSpacing: 5 },
   shareButton: {
     paddingHorizontal: 14,
@@ -1294,7 +1368,12 @@ const styles = StyleSheet.create({
   },
   smallButtonDone: { borderColor: colors.glassBorder, opacity: 0.7 },
   smallButtonText: { color: colors.gold, fontWeight: '900', fontSize: 13 },
-  membersHead: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginTop: 6 },
+  membersHead: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    marginTop: 6,
+  },
   onlineCount: { color: '#3ddc84', fontSize: 13, fontWeight: '800' },
   list: { gap: 8 },
   member: {

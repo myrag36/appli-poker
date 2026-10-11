@@ -22,7 +22,6 @@ export const CLUB_EMOJIS = [
   '⚔️',
   '🦁',
   '🐺',
-  '🦅',
   '🐉',
   '🦊',
   '🐙',
@@ -34,7 +33,6 @@ export const CLUB_EMOJIS = [
   '🌙',
   '🎲',
   '🃏',
-  '♠️',
   '🚀',
 ];
 

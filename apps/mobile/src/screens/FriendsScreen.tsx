@@ -304,7 +304,10 @@ export function FriendsScreen({
               // On a phone the four tabs stack their emoji over a short name.
               <View style={styles.tabStack}>
                 <Text style={styles.tabEmoji}>{TAB_LABELS[id].emoji}</Text>
-                <Text style={[styles.tabText, styles.tabTextPhone, tab === id && styles.tabTextOn]} numberOfLines={1}>
+                <Text
+                  style={[styles.tabText, styles.tabTextPhone, tab === id && styles.tabTextOn]}
+                  numberOfLines={1}
+                >
                   {t(TAB_LABELS[id].phone, { onglet: '' })}
                 </Text>
               </View>

@@ -73,7 +73,9 @@ export function InviteFriends({ game, code }: { game: string; code: string }) {
                 <Text style={styles.name} numberOfLines={1}>
                   {t('Tout mon club « {name} »', { name: club.name })}
                 </Text>
-                {clubState === 'notified' && <Text style={styles.ok}>{t('Invitation envoyée au salon du club 🛡️')}</Text>}
+                {clubState === 'notified' && (
+                  <Text style={styles.ok}>{t('Invitation envoyée au salon du club 🛡️')}</Text>
+                )}
                 {typeof clubState === 'object' && <Text style={styles.error}>{clubState.error}</Text>}
               </View>
               <Pressable
@@ -81,7 +83,10 @@ export function InviteFriends({ game, code }: { game: string; code: string }) {
                 accessibilityLabel={t('Inviter tout mon club')}
                 disabled={clubState === 'sending' || clubState === 'notified'}
                 onPress={inviteClub}
-                style={[styles.button, (clubState === 'sending' || clubState === 'notified') && styles.buttonDone]}
+                style={[
+                  styles.button,
+                  (clubState === 'sending' || clubState === 'notified') && styles.buttonDone,
+                ]}
               >
                 {clubState === 'sending' ? (
                   <ActivityIndicator color={colors.gold} size="small" />

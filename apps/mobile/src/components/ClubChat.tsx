@@ -310,14 +310,18 @@ export function ClubChat({
               {newDay && <Text style={styles.day}>{dayLabel(m.created_at)}</Text>}
               <View style={[styles.row, mine && styles.rowMine, follow && styles.rowFollow]}>
                 {!mine && (
-                  <View style={styles.avatarSlot}>{!follow && <AvatarBadge avatar={person.avatar} size={30} />}</View>
+                  <View style={styles.avatarSlot}>
+                    {!follow && <AvatarBadge avatar={person.avatar} size={30} />}
+                  </View>
                 )}
                 {m.kind === 'invite' && m.game && m.room_code ? (
                   <View style={[styles.card, mine && styles.cardMine]}>
                     <Text style={styles.cardEmoji}>{ONLINE_UI[m.game as OnlineGameId]?.emoji ?? '🃏'}</Text>
                     <View style={styles.flex}>
                       <Text style={styles.cardTitle}>
-                        {mine ? t('Tu invites le club à jouer') : t('{name} invite le club à jouer', { name: person.name })}
+                        {mine
+                          ? t('Tu invites le club à jouer')
+                          : t('{name} invite le club à jouer', { name: person.name })}
                       </Text>
                       <Text style={styles.cardText}>
                         {t('{game} · code {code}', { game: gameTitle(m.game), code: m.room_code })}

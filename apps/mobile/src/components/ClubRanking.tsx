@@ -25,15 +25,17 @@ import {
 import { tMessage } from '../online/messages';
 import { timeLeft, useNow } from '../screens/ClassementPanel';
 import { sounds } from '../feedback';
-import { t, tn } from '../i18n';
+import { lang, t, tn } from '../i18n';
 import { colors, gradients } from '../theme';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
 
 /** "1er", "2e" in French, "1st", "2nd" in English. */
 export function placeLabel(place: number): string {
-  if (place === 1) return t('1er');
-  return t('{n}e', { n: place });
+  if (lang !== 'en') return place === 1 ? '1er' : `${place}e`;
+  const tens = place % 100;
+  const suffix = tens >= 11 && tens <= 13 ? 'th' : (['th', 'st', 'nd', 'rd'][place % 10] ?? 'th');
+  return `${place}${suffix}`;
 }
 
 /** A challenge between my club and another one: who leads, or who won. */
@@ -177,8 +179,12 @@ export function ChallengeCard({
   return (
     <LinearGradient colors={['#4a1d1d', '#1f1030']} style={[styles.duel, styles.duelLive]}>
       <View style={styles.duelHead}>
-        <Text style={styles.duelLabel}>{current ? t('⚔️ Défi de la semaine') : t('⚔️ Défi de la semaine dernière')}</Text>
-        {current && <Text style={styles.duelTime}>{t('Fin dans {time}', { time: timeLeft(endsAt - now) })}</Text>}
+        <Text style={styles.duelLabel}>
+          {current ? t('⚔️ Défi de la semaine') : t('⚔️ Défi de la semaine dernière')}
+        </Text>
+        {current && (
+          <Text style={styles.duelTime}>{t('Fin dans {time}', { time: timeLeft(endsAt - now) })}</Text>
+        )}
       </View>
       <View style={styles.versus}>
         <View style={styles.side}>
@@ -223,7 +229,10 @@ export function MemberRanking({ members }: { members: ClubMember[] }) {
       {lines.map((l) => (
         <View key={l.player.user_id} style={[styles.row, l.player.me && styles.rowMe]}>
           <Text style={styles.place}>{l.played > 0 ? (MEDALS[l.place - 1] ?? `${l.place}`) : '–'}</Text>
-          <AvatarBadge avatar={memberAvatar(l.player as ClubMember, index.get(l.player.user_id) ?? 0)} size={34} />
+          <AvatarBadge
+            avatar={memberAvatar(l.player as ClubMember, index.get(l.player.user_id) ?? 0)}
+            size={34}
+          />
           <View style={styles.flex}>
             <Text style={styles.rowName} numberOfLines={1}>
               {l.player.me ? t('{name} (toi)', { name: l.player.name }) : l.player.name}
@@ -288,7 +297,11 @@ export function TopClubs({
       {top.map((c) => {
         const mine = c.club_id === myClub;
         const canChallenge =
-          !!myClub && !!role && !mine && clubCan(role, 'challenge') && !challengeRefusal(myClub, c.club_id, week, rows);
+          !!myClub &&
+          !!role &&
+          !mine &&
+          clubCan(role, 'challenge') &&
+          !challengeRefusal(myClub, c.club_id, week, rows);
         return (
           <View key={c.club_id} style={[styles.row, mine && styles.rowMe]}>
             <Text style={styles.place}>{c.points > 0 ? (MEDALS[c.place - 1] ?? `${c.place}`) : '–'}</Text>
@@ -385,7 +398,13 @@ const styles = StyleSheet.create({
   duelText: { color: colors.muted, fontSize: 13, marginTop: 2, lineHeight: 18 },
   duelButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10 },
   duelHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  duelLabel: { color: '#ffb3b3', fontSize: 12, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1 },
+  duelLabel: {
+    color: '#ffb3b3',
+    fontSize: 12,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
   duelTime: { color: colors.gold, fontSize: 12, fontWeight: '800' },
   versus: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   side: { flex: 1, alignItems: 'center', gap: 6, minWidth: 0 },
